@@ -57,6 +57,29 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        sismais: {
+          dark: "hsl(var(--sismais-dark))",
+          turquoise: "hsl(var(--sismais-turquoise))",
+          "turquoise-light": "hsl(var(--sismais-turquoise-light))",
+          yellow: "hsl(var(--sismais-yellow))",
+          bg: "hsl(var(--sismais-bg))",
+        },
+        success: {
+          DEFAULT: "hsl(var(--success))",
+          foreground: "hsl(var(--success-foreground))",
+        },
+        warning: {
+          DEFAULT: "hsl(var(--warning))",
+          foreground: "hsl(var(--warning-foreground))",
+        },
+        info: {
+          DEFAULT: "hsl(var(--info))",
+          foreground: "hsl(var(--info-foreground))",
+        },
+      },
+      fontFamily: {
+        sans: ['Inter', 'sans-serif'],
+        heading: ['Poppins', 'sans-serif'],
       },
       borderRadius: {
         lg: "var(--radius)",
