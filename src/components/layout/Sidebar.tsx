@@ -14,6 +14,7 @@ import {
   ChevronRight,
   Menu,
   X,
+  Calculator,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -51,6 +52,12 @@ const navSections: NavSection[] = [
     ],
   },
   {
+    title: "Comissões",
+    items: [
+      { title: "Configurações", icon: Calculator, href: "/comissoes/configuracoes" },
+    ],
+  },
+  {
     title: "Despesas",
     items: [
       { title: "Minhas Despesas", icon: Receipt, href: "/despesas" },
@@ -64,6 +71,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const [expandedSections, setExpandedSections] = useState<string[]>([
     "Principal",
     "Financeiro",
+    "Comissões",
     "Despesas",
   ]);
 
