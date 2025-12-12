@@ -305,10 +305,29 @@ export default function Comissoes() {
         if (vendasError) throw vendasError;
       }
 
-      toast({
-        title: "Sucesso!",
-        description: `${vendas.length} vendas importadas com sucesso.`,
-      });
+      // Chamar edge function para calcular comissões
+      console.log("Calculando comissões...");
+      const { data: calcResult, error: calcError } = await supabase.functions.invoke(
+        "calcular-comissoes",
+        {
+          body: { fechamento_id: fechamento.id },
+        }
+      );
+
+      if (calcError) {
+        console.error("Erro ao calcular comissões:", calcError);
+        toast({
+          title: "Aviso",
+          description: "Vendas importadas, mas houve erro ao calcular comissões. Você pode recalcular na página de detalhes.",
+          variant: "destructive",
+        });
+      } else {
+        console.log("Comissões calculadas:", calcResult);
+        toast({
+          title: "Sucesso!",
+          description: `${vendas.length} vendas importadas e comissões calculadas.`,
+        });
+      }
 
       queryClient.invalidateQueries({ queryKey: ["fechamentos_comissao"] });
       setSelectedFile(null);
