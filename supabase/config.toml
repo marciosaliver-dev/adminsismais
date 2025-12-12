@@ -1,1 +1,4 @@
 project_id = "vvkjnydcheqiexcrevwx"
+
+[functions.calcular-comissoes]
+verify_jwt = false
