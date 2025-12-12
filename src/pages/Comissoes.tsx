@@ -30,7 +30,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
-import { Upload, FileText, Loader2, Eye, Download, Trash2 } from "lucide-react";
+import { TableSkeleton } from "@/components/ui/table-skeleton";
+import { Upload, FileText, Loader2, Eye, Download, Trash2, AlertCircle, FileSpreadsheet } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { format, parse } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -60,6 +61,15 @@ const ANOS = [
   { value: String(currentYear - 2), label: String(currentYear - 2) },
 ];
 
+// Required CSV columns
+const REQUIRED_COLUMNS = [
+  "Data Contrato",
+  "Cliente",
+  "Vendedor",
+  "Valor MRR",
+  "Tipo de Venda",
+];
+
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat("pt-BR", {
     style: "currency",
@@ -70,7 +80,6 @@ const formatCurrency = (value: number) => {
 // Parse Brazilian number format (1.234,56 → 1234.56)
 const parseBrazilianNumber = (value: string): number => {
   if (!value || value.trim() === "") return 0;
-  // Remove thousands separator (.) and replace decimal separator (,) with (.)
   const cleaned = value.replace(/\./g, "").replace(",", ".");
   const parsed = parseFloat(cleaned);
   return isNaN(parsed) ? 0 : parsed;
@@ -100,16 +109,14 @@ const getVendaFlags = (tipoVenda: string | null) => {
   if (tipo === "afiliado") {
     return { conta_comissao: false, conta_faixa: false, conta_meta: true };
   }
-  // Migração, Troca de plataforma, etc
   return { conta_comissao: false, conta_faixa: false, conta_meta: false };
 };
 
 // Parse CSV content
-const parseCSV = (content: string): Record<string, string>[] => {
+const parseCSV = (content: string): { headers: string[]; rows: Record<string, string>[] } => {
   const lines = content.split(/\r?\n/).filter((line) => line.trim());
-  if (lines.length < 2) return [];
+  if (lines.length < 2) return { headers: [], rows: [] };
 
-  // Find the header line and clean it
   const headers = lines[0].split(";").map((h) => h.trim().replace(/^"|"$/g, ""));
   
   const rows: Record<string, string>[] = [];
@@ -123,7 +130,18 @@ const parseCSV = (content: string): Record<string, string>[] => {
       rows.push(row);
     }
   }
-  return rows;
+  return { headers, rows };
+};
+
+// Validate CSV has required columns
+const validateCSVColumns = (headers: string[]): string[] => {
+  const missingColumns: string[] = [];
+  for (const required of REQUIRED_COLUMNS) {
+    if (!headers.some((h) => h.toLowerCase().includes(required.toLowerCase()))) {
+      missingColumns.push(required);
+    }
+  }
+  return missingColumns;
 };
 
 export default function Comissoes() {
@@ -137,6 +155,8 @@ export default function Comissoes() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingFechamento, setDeletingFechamento] = useState<FechamentoComissao | null>(null);
+  const [replaceDialogOpen, setReplaceDialogOpen] = useState(false);
+  const [existingFechamento, setExistingFechamento] = useState<FechamentoComissao | null>(null);
 
   // Fetch últimos fechamentos
   const { data: fechamentos = [], isLoading } = useQuery({
@@ -155,29 +175,20 @@ export default function Comissoes() {
   // Delete mutation
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      // First delete related vendas
-      const { error: vendasError } = await supabase
-        .from("venda_importada")
-        .delete()
-        .eq("fechamento_id", id);
-      if (vendasError) throw vendasError;
-
-      // Then delete the fechamento
-      const { error } = await supabase
-        .from("fechamento_comissao")
-        .delete()
-        .eq("id", id);
+      await supabase.from("comissao_calculada").delete().eq("fechamento_id", id);
+      await supabase.from("venda_importada").delete().eq("fechamento_id", id);
+      const { error } = await supabase.from("fechamento_comissao").delete().eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["fechamentos_comissao"] });
       setDeleteDialogOpen(false);
       setDeletingFechamento(null);
-      toast({ title: "Sucesso!", description: "Fechamento excluído." });
+      toast({ title: "✅ Sucesso!", description: "Fechamento excluído com sucesso." });
     },
     onError: () => {
       toast({
-        title: "Erro",
+        title: "❌ Erro",
         description: "Não foi possível excluir o fechamento.",
         variant: "destructive",
       });
@@ -189,7 +200,7 @@ export default function Comissoes() {
     if (file) {
       if (!file.name.endsWith(".csv")) {
         toast({
-          title: "Arquivo inválido",
+          title: "❌ Arquivo inválido",
           description: "Por favor, selecione um arquivo CSV.",
           variant: "destructive",
         });
@@ -205,7 +216,7 @@ export default function Comissoes() {
     if (file) {
       if (!file.name.endsWith(".csv")) {
         toast({
-          title: "Arquivo inválido",
+          title: "❌ Arquivo inválido",
           description: "Por favor, selecione um arquivo CSV.",
           variant: "destructive",
         });
@@ -219,25 +230,57 @@ export default function Comissoes() {
     e.preventDefault();
   };
 
-  const processFile = async () => {
+  const checkExistingFechamento = async (): Promise<FechamentoComissao | null> => {
+    const mesReferencia = `${selectedYear}-${selectedMonth.padStart(2, "0")}-01`;
+    const { data } = await supabase
+      .from("fechamento_comissao")
+      .select("*")
+      .eq("mes_referencia", mesReferencia)
+      .maybeSingle();
+    return data;
+  };
+
+  const processFile = async (replaceExisting = false) => {
     if (!selectedFile || !selectedMonth || !selectedYear) {
       toast({
-        title: "Campos obrigatórios",
+        title: "⚠️ Campos obrigatórios",
         description: "Selecione mês, ano e arquivo.",
         variant: "destructive",
       });
       return;
     }
 
+    // Check for existing fechamento
+    if (!replaceExisting) {
+      const existing = await checkExistingFechamento();
+      if (existing) {
+        setExistingFechamento(existing);
+        setReplaceDialogOpen(true);
+        return;
+      }
+    }
+
     setIsProcessing(true);
+    setReplaceDialogOpen(false);
 
     try {
       // Read file content
       const content = await selectedFile.text();
-      const rows = parseCSV(content);
+      const { headers, rows } = parseCSV(content);
 
       if (rows.length === 0) {
         throw new Error("Arquivo CSV vazio ou formato inválido.");
+      }
+
+      // Validate required columns
+      const missingColumns = validateCSVColumns(headers);
+      if (missingColumns.length > 0) {
+        throw new Error(`Colunas obrigatórias não encontradas: ${missingColumns.join(", ")}`);
+      }
+
+      // Delete existing if replacing
+      if (replaceExisting && existingFechamento) {
+        await deleteMutation.mutateAsync(existingFechamento.id);
       }
 
       // Map columns and create vendas
@@ -254,7 +297,7 @@ export default function Comissoes() {
         }
 
         vendas.push({
-          fechamento_id: "", // Will be set after creating fechamento
+          fechamento_id: "",
           data_contrato: parseBrazilianDate(row["Data Contrato"]),
           plataforma: row["Plataforma"] || null,
           num_contrato: row["Nº Contrato"] || null,
@@ -306,8 +349,7 @@ export default function Comissoes() {
       }
 
       // Chamar edge function para calcular comissões
-      console.log("Calculando comissões...");
-      const { data: calcResult, error: calcError } = await supabase.functions.invoke(
+      const { error: calcError } = await supabase.functions.invoke(
         "calcular-comissoes",
         {
           body: { fechamento_id: fechamento.id },
@@ -315,16 +357,14 @@ export default function Comissoes() {
       );
 
       if (calcError) {
-        console.error("Erro ao calcular comissões:", calcError);
         toast({
-          title: "Aviso",
+          title: "⚠️ Aviso",
           description: "Vendas importadas, mas houve erro ao calcular comissões. Você pode recalcular na página de detalhes.",
           variant: "destructive",
         });
       } else {
-        console.log("Comissões calculadas:", calcResult);
         toast({
-          title: "Sucesso!",
+          title: "✅ Sucesso!",
           description: `${vendas.length} vendas importadas e comissões calculadas.`,
         });
       }
@@ -332,14 +372,14 @@ export default function Comissoes() {
       queryClient.invalidateQueries({ queryKey: ["fechamentos_comissao"] });
       setSelectedFile(null);
       setSelectedMonth("");
+      setExistingFechamento(null);
       
       // Navigate to fechamento detail
       navigate(`/comissoes/fechamento/${fechamento.id}`);
       
     } catch (error: any) {
-      console.error("Erro ao processar arquivo:", error);
       toast({
-        title: "Erro ao processar",
+        title: "❌ Erro ao processar",
         description: error.message || "Ocorreu um erro ao processar o arquivo.",
         variant: "destructive",
       });
@@ -371,7 +411,10 @@ export default function Comissoes() {
       {/* Card: Novo Fechamento */}
       <Card>
         <CardHeader>
-          <CardTitle>Novo Fechamento</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <FileSpreadsheet className="w-5 h-5" />
+            Novo Fechamento
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Seletores */}
@@ -433,16 +476,18 @@ export default function Comissoes() {
                 <p className="text-muted-foreground">
                   Arraste o arquivo CSV ou clique para selecionar
                 </p>
+                <p className="text-xs text-muted-foreground">
+                  Colunas obrigatórias: {REQUIRED_COLUMNS.join(", ")}
+                </p>
               </div>
             )}
           </div>
 
           {/* Process Button */}
           <Button
-            onClick={processFile}
+            onClick={() => processFile(false)}
             disabled={!selectedFile || !selectedMonth || isProcessing}
-            className="w-full sm:w-auto"
-            style={{ backgroundColor: "#45E5E5", color: "#10293f" }}
+            className="w-full sm:w-auto bg-primary text-primary-foreground hover:bg-primary/90"
           >
             {isProcessing ? (
               <>
@@ -463,85 +508,84 @@ export default function Comissoes() {
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-            </div>
+            <TableSkeleton columns={6} rows={5} />
           ) : fechamentos.length === 0 ? (
-            <p className="text-center text-muted-foreground py-8">
-              Nenhum fechamento realizado ainda
-            </p>
+            <div className="text-center py-12">
+              <FileSpreadsheet className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+              <p className="text-muted-foreground font-medium">
+                Nenhum fechamento realizado ainda
+              </p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Importe seu primeiro arquivo CSV para começar
+              </p>
+            </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Mês/Ano</TableHead>
-                  <TableHead>MRR Total</TableHead>
-                  <TableHead>Vendas</TableHead>
-                  <TableHead>Meta</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {fechamentos.map((fechamento) => (
-                  <TableRow key={fechamento.id}>
-                    <TableCell className="font-medium capitalize">
-                      {formatMesAno(fechamento.mes_referencia)}
-                    </TableCell>
-                    <TableCell>{formatCurrency(fechamento.total_mrr)}</TableCell>
-                    <TableCell>{fechamento.total_vendas}</TableCell>
-                    <TableCell>
-                      {fechamento.meta_batida ? (
-                        <span className="text-lg">✅</span>
-                      ) : (
-                        <span className="text-lg">❌</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {fechamento.status === "rascunho" ? (
-                        <Badge variant="outline" className="bg-warning/20 text-warning border-warning">
-                          Rascunho
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline" className="bg-success/20 text-success border-success">
-                          Fechado
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          onClick={() => navigate(`/comissoes/fechamento/${fechamento.id}`)}
-                          title="Ver Detalhes"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          title="Exportar"
-                        >
-                          <Download className="w-4 h-4" />
-                        </Button>
-                        {fechamento.status === "rascunho" && (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Mês/Ano</TableHead>
+                    <TableHead className="text-right">MRR Total</TableHead>
+                    <TableHead className="text-center">Vendas</TableHead>
+                    <TableHead className="text-center">Meta</TableHead>
+                    <TableHead className="text-center">Status</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {fechamentos.map((fechamento, index) => (
+                    <TableRow key={fechamento.id} className={index % 2 === 0 ? "bg-muted/30" : ""}>
+                      <TableCell className="font-medium capitalize">
+                        {formatMesAno(fechamento.mes_referencia)}
+                      </TableCell>
+                      <TableCell className="text-right">{formatCurrency(fechamento.total_mrr)}</TableCell>
+                      <TableCell className="text-center">{fechamento.total_vendas}</TableCell>
+                      <TableCell className="text-center">
+                        {fechamento.meta_batida ? (
+                          <span className="text-lg">✅</span>
+                        ) : (
+                          <span className="text-lg">❌</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {fechamento.status === "rascunho" ? (
+                          <Badge variant="outline" className="bg-warning/20 text-warning border-warning">
+                            Rascunho
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="bg-success/20 text-success border-success">
+                            Fechado
+                          </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
                           <Button
                             variant="outline"
                             size="icon"
-                            className="text-destructive hover:text-destructive"
-                            onClick={() => openDeleteDialog(fechamento)}
-                            title="Excluir"
+                            onClick={() => navigate(`/comissoes/fechamento/${fechamento.id}`)}
+                            title="Ver Detalhes"
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <Eye className="w-4 h-4" />
                           </Button>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                          {fechamento.status === "rascunho" && (
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              className="text-destructive hover:text-destructive"
+                              onClick={() => openDeleteDialog(fechamento)}
+                              title="Excluir"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           )}
         </CardContent>
       </Card>
@@ -550,11 +594,16 @@ export default function Comissoes() {
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertCircle className="w-5 h-5 text-destructive" />
+              Confirmar Exclusão
+            </AlertDialogTitle>
             <AlertDialogDescription>
               Tem certeza que deseja excluir o fechamento de{" "}
-              {deletingFechamento && formatMesAno(deletingFechamento.mes_referencia)}?
-              Esta ação excluirá todas as vendas importadas e não pode ser desfeita.
+              <strong className="capitalize">
+                {deletingFechamento && formatMesAno(deletingFechamento.mes_referencia)}
+              </strong>?
+              Esta ação excluirá todas as vendas e comissões associadas e não pode ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -562,8 +611,38 @@ export default function Comissoes() {
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={() => deletingFechamento && deleteMutation.mutate(deletingFechamento.id)}
+              disabled={deleteMutation.isPending}
             >
+              {deleteMutation.isPending && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
               Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Replace Dialog */}
+      <AlertDialog open={replaceDialogOpen} onOpenChange={setReplaceDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertCircle className="w-5 h-5 text-warning" />
+              Fechamento já existe
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Já existe um fechamento para{" "}
+              <strong className="capitalize">
+                {existingFechamento && formatMesAno(existingFechamento.mes_referencia)}
+              </strong>.
+              Deseja substituí-lo? Isso excluirá o fechamento anterior e todas as suas vendas e comissões.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-warning text-warning-foreground hover:bg-warning/90"
+              onClick={() => processFile(true)}
+            >
+              Substituir
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
