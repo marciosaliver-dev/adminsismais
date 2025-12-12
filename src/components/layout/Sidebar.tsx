@@ -54,6 +54,7 @@ const navSections: NavSection[] = [
   {
     title: "Comissões",
     items: [
+      { title: "Dashboard", icon: Calculator, href: "/comissoes" },
       { title: "Configurações", icon: Calculator, href: "/comissoes/configuracoes" },
     ],
   },
