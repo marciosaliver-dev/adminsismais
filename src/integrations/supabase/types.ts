@@ -14,7 +14,244 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      comissao_calculada: {
+        Row: {
+          bonus_anual: number
+          bonus_empresa: number
+          bonus_meta_equipe: number
+          created_at: string
+          faixa_nome: string | null
+          fechamento_id: string
+          id: string
+          mrr_comissao: number
+          mrr_total: number
+          percentual: number
+          qtd_vendas: number
+          total_receber: number
+          updated_at: string
+          valor_comissao: number
+          vendedor: string
+        }
+        Insert: {
+          bonus_anual?: number
+          bonus_empresa?: number
+          bonus_meta_equipe?: number
+          created_at?: string
+          faixa_nome?: string | null
+          fechamento_id: string
+          id?: string
+          mrr_comissao?: number
+          mrr_total?: number
+          percentual?: number
+          qtd_vendas?: number
+          total_receber?: number
+          updated_at?: string
+          valor_comissao?: number
+          vendedor: string
+        }
+        Update: {
+          bonus_anual?: number
+          bonus_empresa?: number
+          bonus_meta_equipe?: number
+          created_at?: string
+          faixa_nome?: string | null
+          fechamento_id?: string
+          id?: string
+          mrr_comissao?: number
+          mrr_total?: number
+          percentual?: number
+          qtd_vendas?: number
+          total_receber?: number
+          updated_at?: string
+          valor_comissao?: number
+          vendedor?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comissao_calculada_fechamento_id_fkey"
+            columns: ["fechamento_id"]
+            isOneToOne: false
+            referencedRelation: "fechamento_comissao"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      configuracao_comissao: {
+        Row: {
+          chave: string
+          created_at: string
+          descricao: string | null
+          id: string
+          updated_at: string
+          valor: string
+        }
+        Insert: {
+          chave: string
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          updated_at?: string
+          valor: string
+        }
+        Update: {
+          chave?: string
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          updated_at?: string
+          valor?: string
+        }
+        Relationships: []
+      }
+      faixa_comissao: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          id: string
+          mrr_max: number | null
+          mrr_min: number
+          nome: string
+          ordem: number
+          percentual: number
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          mrr_max?: number | null
+          mrr_min?: number
+          nome: string
+          ordem?: number
+          percentual?: number
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          mrr_max?: number | null
+          mrr_min?: number
+          nome?: string
+          ordem?: number
+          percentual?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      fechamento_comissao: {
+        Row: {
+          arquivo_nome: string | null
+          created_at: string
+          data_importacao: string
+          id: string
+          mes_referencia: string
+          meta_batida: boolean
+          status: string
+          total_mrr: number
+          total_vendas: number
+          updated_at: string
+        }
+        Insert: {
+          arquivo_nome?: string | null
+          created_at?: string
+          data_importacao?: string
+          id?: string
+          mes_referencia: string
+          meta_batida?: boolean
+          status?: string
+          total_mrr?: number
+          total_vendas?: number
+          updated_at?: string
+        }
+        Update: {
+          arquivo_nome?: string | null
+          created_at?: string
+          data_importacao?: string
+          id?: string
+          mes_referencia?: string
+          meta_batida?: boolean
+          status?: string
+          total_mrr?: number
+          total_vendas?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      venda_importada: {
+        Row: {
+          cliente: string | null
+          conta_comissao: boolean
+          conta_faixa: boolean
+          conta_meta: boolean
+          created_at: string
+          data_contrato: string | null
+          email: string | null
+          fechamento_id: string
+          id: string
+          intervalo: string | null
+          num_contrato: string | null
+          plano: string | null
+          plataforma: string | null
+          tipo_venda: string | null
+          updated_at: string
+          valor_adesao: number
+          valor_assinatura: number
+          valor_mrr: number
+          vendedor: string | null
+        }
+        Insert: {
+          cliente?: string | null
+          conta_comissao?: boolean
+          conta_faixa?: boolean
+          conta_meta?: boolean
+          created_at?: string
+          data_contrato?: string | null
+          email?: string | null
+          fechamento_id: string
+          id?: string
+          intervalo?: string | null
+          num_contrato?: string | null
+          plano?: string | null
+          plataforma?: string | null
+          tipo_venda?: string | null
+          updated_at?: string
+          valor_adesao?: number
+          valor_assinatura?: number
+          valor_mrr?: number
+          vendedor?: string | null
+        }
+        Update: {
+          cliente?: string | null
+          conta_comissao?: boolean
+          conta_faixa?: boolean
+          conta_meta?: boolean
+          created_at?: string
+          data_contrato?: string | null
+          email?: string | null
+          fechamento_id?: string
+          id?: string
+          intervalo?: string | null
+          num_contrato?: string | null
+          plano?: string | null
+          plataforma?: string | null
+          tipo_venda?: string | null
+          updated_at?: string
+          valor_adesao?: number
+          valor_assinatura?: number
+          valor_mrr?: number
+          vendedor?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "venda_importada_fechamento_id_fkey"
+            columns: ["fechamento_id"]
+            isOneToOne: false
+            referencedRelation: "fechamento_comissao"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
