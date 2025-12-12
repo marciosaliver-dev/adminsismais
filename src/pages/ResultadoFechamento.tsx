@@ -28,12 +28,15 @@ import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useState } from "react";
+import * as XLSX from "xlsx";
 import type { Tables } from "@/integrations/supabase/types";
 import VendedorDetalhesModal from "@/components/comissoes/VendedorDetalhesModal";
 
 type FechamentoComissao = Tables<"fechamento_comissao">;
 type ComissaoCalculada = Tables<"comissao_calculada">;
 type ConfiguracaoComissao = Tables<"configuracao_comissao">;
+type FaixaComissao = Tables<"faixa_comissao">;
+type VendaImportada = Tables<"venda_importada">;
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat("pt-BR", {
@@ -65,6 +68,7 @@ export default function ResultadoFechamento() {
   const [closeDialogOpen, setCloseDialogOpen] = useState(false);
   const [isRecalculating, setIsRecalculating] = useState(false);
   const [selectedComissao, setSelectedComissao] = useState<ComissaoCalculada | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
 
   // Fetch fechamento
   const { data: fechamento, isLoading: loadingFechamento } = useQuery({
@@ -105,6 +109,20 @@ export default function ResultadoFechamento() {
         .select("*");
       if (error) throw error;
       return data as ConfiguracaoComissao[];
+    },
+  });
+
+  // Fetch faixas para exportação
+  const { data: faixas = [] } = useQuery({
+    queryKey: ["faixas_comissao"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("faixa_comissao")
+        .select("*")
+        .eq("ativo", true)
+        .order("ordem");
+      if (error) throw error;
+      return data as FaixaComissao[];
     },
   });
 
@@ -159,61 +177,162 @@ export default function ResultadoFechamento() {
   };
 
   // Export to Excel
-  const handleExport = () => {
+  const handleExport = async () => {
     if (!fechamento || comissoes.length === 0) return;
 
-    // Create CSV content
-    const headers = ["Vendedor", "Vendas", "MRR Faixa", "Faixa", "%", "Comissão", "Bônus Anual", "Bônus Equipe", "Bônus Empresa", "Total"];
-    const rows = comissoes.map((c) => [
-      c.vendedor,
-      c.qtd_vendas,
-      c.mrr_total.toFixed(2).replace(".", ","),
-      c.faixa_nome || "-",
-      c.percentual,
-      c.valor_comissao.toFixed(2).replace(".", ","),
-      c.bonus_anual.toFixed(2).replace(".", ","),
-      c.bonus_meta_equipe.toFixed(2).replace(".", ","),
-      c.bonus_empresa.toFixed(2).replace(".", ","),
-      c.total_receber.toFixed(2).replace(".", ","),
-    ]);
+    setIsExporting(true);
 
-    // Add totals row
-    const totals = comissoes.reduce(
-      (acc, c) => ({
-        vendas: acc.vendas + c.qtd_vendas,
-        mrrTotal: acc.mrrTotal + c.mrr_total,
-        comissao: acc.comissao + c.valor_comissao,
-        bonusAnual: acc.bonusAnual + c.bonus_anual,
-        bonusEquipe: acc.bonusEquipe + c.bonus_meta_equipe,
-        bonusEmpresa: acc.bonusEmpresa + c.bonus_empresa,
-        total: acc.total + c.total_receber,
-      }),
-      { vendas: 0, mrrTotal: 0, comissao: 0, bonusAnual: 0, bonusEquipe: 0, bonusEmpresa: 0, total: 0 }
-    );
+    try {
+      // Fetch vendas para a aba de vendas
+      const { data: vendas = [] } = await supabase
+        .from("venda_importada")
+        .select("*")
+        .eq("fechamento_id", id)
+        .order("data_contrato", { ascending: false });
 
-    rows.push([
-      "TOTAL",
-      totals.vendas,
-      totals.mrrTotal.toFixed(2).replace(".", ","),
-      "-",
-      "-",
-      totals.comissao.toFixed(2).replace(".", ","),
-      totals.bonusAnual.toFixed(2).replace(".", ","),
-      totals.bonusEquipe.toFixed(2).replace(".", ","),
-      totals.bonusEmpresa.toFixed(2).replace(".", ","),
-      totals.total.toFixed(2).replace(".", ","),
-    ]);
+      const mesAnoRef = format(new Date(fechamento.mes_referencia), "MMMM/yyyy", { locale: ptBR });
+      const mesAnoFile = format(new Date(fechamento.mes_referencia), "yyyy-MM");
 
-    const csvContent = [headers.join(";"), ...rows.map((r) => r.join(";"))].join("\n");
-    const blob = new Blob(["\ufeff" + csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `comissoes_${format(new Date(fechamento.mes_referencia), "yyyy-MM")}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
+      // ========== ABA 1: RESUMO ==========
+      const resumoData: (string | number)[][] = [
+        ["Fechamento de Comissões"],
+        [mesAnoRef],
+        [],
+        ["Total de Vendas:", fechamento.total_vendas],
+        ["MRR Total:", fechamento.total_mrr],
+        ["Meta Batida:", fechamento.meta_batida ? "Sim" : "Não"],
+        ["Data Processamento:", format(new Date(fechamento.data_importacao), "dd/MM/yyyy HH:mm")],
+        [],
+        ["Vendedor", "Qtd Vendas", "MRR Faixa", "Faixa", "%", "Comissão Base", "Bônus Anual", "Bônus Meta", "Bônus Empresa", "TOTAL"],
+      ];
 
-    toast({ title: "Exportado!", description: "Arquivo CSV gerado com sucesso." });
+      // Adicionar linhas de comissões
+      const totalsExport = { vendas: 0, mrrFaixa: 0, comissaoBase: 0, bonusAnual: 0, bonusMeta: 0, bonusEmpresa: 0, total: 0 };
+      
+      comissoes.forEach((c) => {
+        resumoData.push([
+          c.vendedor,
+          c.qtd_vendas,
+          c.mrr_total,
+          c.faixa_nome || "-",
+          c.percentual,
+          c.valor_comissao,
+          c.bonus_anual,
+          c.bonus_meta_equipe,
+          c.bonus_empresa,
+          c.total_receber,
+        ]);
+        totalsExport.vendas += c.qtd_vendas;
+        totalsExport.mrrFaixa += c.mrr_total;
+        totalsExport.comissaoBase += c.valor_comissao;
+        totalsExport.bonusAnual += c.bonus_anual;
+        totalsExport.bonusMeta += c.bonus_meta_equipe;
+        totalsExport.bonusEmpresa += c.bonus_empresa;
+        totalsExport.total += c.total_receber;
+      });
+
+      // Linha de totais
+      resumoData.push([
+        "TOTAL",
+        totalsExport.vendas,
+        totalsExport.mrrFaixa,
+        "-",
+        "-",
+        totalsExport.comissaoBase,
+        totalsExport.bonusAnual,
+        totalsExport.bonusMeta,
+        totalsExport.bonusEmpresa,
+        totalsExport.total,
+      ]);
+
+      // ========== ABA 2: VENDAS ==========
+      const vendasData: (string | number | boolean)[][] = [
+        ["Data", "Plataforma", "Contrato", "Cliente", "Email", "Plano", "Tipo Venda", "Intervalo", "Vendedor", "Assinatura", "MRR", "Adesão", "Conta Comissão", "Conta Faixa"],
+      ];
+
+      (vendas as VendaImportada[]).forEach((v) => {
+        vendasData.push([
+          v.data_contrato ? format(new Date(v.data_contrato), "dd/MM/yyyy") : "-",
+          v.plataforma || "-",
+          v.num_contrato || "-",
+          v.cliente || "-",
+          v.email || "-",
+          v.plano || "-",
+          v.tipo_venda || "-",
+          v.intervalo || "-",
+          v.vendedor || "-",
+          v.valor_assinatura,
+          v.valor_mrr,
+          v.valor_adesao,
+          v.conta_comissao ? "Sim" : "Não",
+          v.conta_faixa ? "Sim" : "Não",
+        ]);
+      });
+
+      // ========== ABA 3: CONFIGURAÇÕES ==========
+      const configData: (string | number)[][] = [
+        ["CONFIGURAÇÕES"],
+        [],
+        ["Configuração", "Valor"],
+      ];
+
+      configuracoes.forEach((c) => {
+        configData.push([c.chave, c.valor]);
+      });
+
+      configData.push([]);
+      configData.push(["FAIXAS DE COMISSÃO"]);
+      configData.push([]);
+      configData.push(["Faixa", "MRR Mín", "MRR Máx", "Percentual"]);
+
+      faixas.forEach((f) => {
+        configData.push([
+          f.nome,
+          f.mrr_min,
+          f.mrr_max || "Ilimitado",
+          f.percentual,
+        ]);
+      });
+
+      // Criar workbook
+      const wb = XLSX.utils.book_new();
+
+      // Aba Resumo
+      const wsResumo = XLSX.utils.aoa_to_sheet(resumoData);
+      wsResumo["!cols"] = [
+        { wch: 20 }, { wch: 12 }, { wch: 15 }, { wch: 15 }, { wch: 8 },
+        { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 },
+      ];
+      XLSX.utils.book_append_sheet(wb, wsResumo, "Resumo");
+
+      // Aba Vendas
+      const wsVendas = XLSX.utils.aoa_to_sheet(vendasData);
+      wsVendas["!cols"] = [
+        { wch: 12 }, { wch: 15 }, { wch: 15 }, { wch: 25 }, { wch: 25 },
+        { wch: 20 }, { wch: 18 }, { wch: 12 }, { wch: 20 }, { wch: 12 },
+        { wch: 12 }, { wch: 12 }, { wch: 15 }, { wch: 15 },
+      ];
+      XLSX.utils.book_append_sheet(wb, wsVendas, "Vendas");
+
+      // Aba Configurações
+      const wsConfig = XLSX.utils.aoa_to_sheet(configData);
+      wsConfig["!cols"] = [{ wch: 25 }, { wch: 15 }, { wch: 15 }, { wch: 12 }];
+      XLSX.utils.book_append_sheet(wb, wsConfig, "Configurações");
+
+      // Download
+      XLSX.writeFile(wb, `comissoes_${mesAnoFile}.xlsx`);
+
+      toast({ title: "Exportado!", description: "Arquivo Excel gerado com sucesso." });
+    } catch (error) {
+      console.error("Erro ao exportar:", error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível exportar o arquivo.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   if (loadingFechamento) {
@@ -410,9 +529,16 @@ export default function ResultadoFechamento() {
 
       {/* Action Buttons */}
       <div className="flex gap-4 justify-end">
-        <Button variant="outline" onClick={handleExport} disabled={comissoes.length === 0}>
-          <Download className="w-4 h-4 mr-2" />
-          Exportar Excel
+        <Button 
+          variant="outline" 
+          onClick={handleExport} 
+          disabled={comissoes.length === 0 || isExporting}
+        >
+          {isExporting ? (
+            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+          ) : (
+            <Download className="w-4 h-4 mr-2" />
+          )}
         </Button>
         {fechamento.status === "rascunho" && (
           <Button
