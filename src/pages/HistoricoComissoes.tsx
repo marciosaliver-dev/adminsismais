@@ -38,7 +38,8 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination";
 import { Badge } from "@/components/ui/badge";
-import { Eye, Download, Trash2, Loader2, Filter } from "lucide-react";
+import { TableSkeleton } from "@/components/ui/table-skeleton";
+import { Eye, Download, Trash2, Loader2, Filter, AlertCircle, FileSpreadsheet } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -138,11 +139,8 @@ export default function HistoricoComissoes() {
   // Delete mutation
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      // Delete comissoes first
       await supabase.from("comissao_calculada").delete().eq("fechamento_id", id);
-      // Delete vendas
       await supabase.from("venda_importada").delete().eq("fechamento_id", id);
-      // Delete fechamento
       const { error } = await supabase.from("fechamento_comissao").delete().eq("id", id);
       if (error) throw error;
     },
@@ -150,11 +148,11 @@ export default function HistoricoComissoes() {
       queryClient.invalidateQueries({ queryKey: ["historico_fechamentos"] });
       setDeleteDialogOpen(false);
       setDeletingFechamento(null);
-      toast({ title: "Sucesso!", description: "Fechamento excluído." });
+      toast({ title: "✅ Sucesso!", description: "Fechamento excluído com sucesso." });
     },
     onError: () => {
       toast({
-        title: "Erro",
+        title: "❌ Erro",
         description: "Não foi possível excluir o fechamento.",
         variant: "destructive",
       });
@@ -194,7 +192,7 @@ export default function HistoricoComissoes() {
         [mesAnoRef],
         [],
         ["Total de Vendas:", fechamento.total_vendas],
-        ["MRR Total:", fechamento.total_mrr],
+        ["MRR Total:", formatCurrency(fechamento.total_mrr)],
         ["Meta Batida:", fechamento.meta_batida ? "Sim" : "Não"],
         ["Data Processamento:", format(new Date(fechamento.data_importacao), "dd/MM/yyyy HH:mm")],
         [],
@@ -207,14 +205,14 @@ export default function HistoricoComissoes() {
         resumoData.push([
           c.vendedor,
           c.qtd_vendas,
-          c.mrr_total,
+          formatCurrency(c.mrr_total),
           c.faixa_nome || "-",
-          c.percentual,
-          c.valor_comissao,
-          c.bonus_anual,
-          c.bonus_meta_equipe,
-          c.bonus_empresa,
-          c.total_receber,
+          `${c.percentual}%`,
+          formatCurrency(c.valor_comissao),
+          formatCurrency(c.bonus_anual),
+          formatCurrency(c.bonus_meta_equipe),
+          formatCurrency(c.bonus_empresa),
+          formatCurrency(c.total_receber),
         ]);
         totalsExport.vendas += c.qtd_vendas;
         totalsExport.mrrFaixa += c.mrr_total;
@@ -228,14 +226,14 @@ export default function HistoricoComissoes() {
       resumoData.push([
         "TOTAL",
         totalsExport.vendas,
-        totalsExport.mrrFaixa,
+        formatCurrency(totalsExport.mrrFaixa),
         "-",
         "-",
-        totalsExport.comissaoBase,
-        totalsExport.bonusAnual,
-        totalsExport.bonusMeta,
-        totalsExport.bonusEmpresa,
-        totalsExport.total,
+        formatCurrency(totalsExport.comissaoBase),
+        formatCurrency(totalsExport.bonusAnual),
+        formatCurrency(totalsExport.bonusMeta),
+        formatCurrency(totalsExport.bonusEmpresa),
+        formatCurrency(totalsExport.total),
       ]);
 
       // ABA 2: VENDAS
@@ -254,9 +252,9 @@ export default function HistoricoComissoes() {
           v.tipo_venda || "-",
           v.intervalo || "-",
           v.vendedor || "-",
-          v.valor_assinatura,
-          v.valor_mrr,
-          v.valor_adesao,
+          formatCurrency(v.valor_assinatura),
+          formatCurrency(v.valor_mrr),
+          formatCurrency(v.valor_adesao),
           v.conta_comissao ? "Sim" : "Não",
           v.conta_faixa ? "Sim" : "Não",
         ]);
@@ -279,7 +277,12 @@ export default function HistoricoComissoes() {
       configData.push(["Faixa", "MRR Mín", "MRR Máx", "Percentual"]);
 
       faixas.forEach((f) => {
-        configData.push([f.nome, f.mrr_min, f.mrr_max || "Ilimitado", f.percentual]);
+        configData.push([
+          f.nome, 
+          formatCurrency(f.mrr_min), 
+          f.mrr_max ? formatCurrency(f.mrr_max) : "Ilimitado", 
+          `${f.percentual}%`
+        ]);
       });
 
       // Criar workbook
@@ -306,11 +309,11 @@ export default function HistoricoComissoes() {
 
       XLSX.writeFile(wb, `comissoes_${mesAnoFile}.xlsx`);
 
-      toast({ title: "Exportado!", description: "Arquivo Excel gerado com sucesso." });
+      toast({ title: "📥 Exportado!", description: "Arquivo Excel gerado com sucesso." });
     } catch (error) {
       console.error("Erro ao exportar:", error);
       toast({
-        title: "Erro",
+        title: "❌ Erro",
         description: "Não foi possível exportar o arquivo.",
         variant: "destructive",
       });
@@ -349,7 +352,10 @@ export default function HistoricoComissoes() {
       {/* Filters */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Filtros</CardTitle>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Filter className="w-4 h-4" />
+            Filtros
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col sm:flex-row gap-4 items-end">
@@ -383,7 +389,7 @@ export default function HistoricoComissoes() {
                 </SelectContent>
               </Select>
             </div>
-            <Button onClick={handleFilter} className="flex-shrink-0">
+            <Button onClick={handleFilter} className="flex-shrink-0 bg-primary text-primary-foreground hover:bg-primary/90">
               <Filter className="w-4 h-4 mr-2" />
               Filtrar
             </Button>
@@ -395,104 +401,110 @@ export default function HistoricoComissoes() {
       <Card>
         <CardContent className="pt-6">
           {isLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-            </div>
+            <TableSkeleton columns={7} rows={5} />
           ) : fechamentos.length === 0 ? (
-            <p className="text-center text-muted-foreground py-8">
-              Nenhum fechamento encontrado
-            </p>
+            <div className="text-center py-12">
+              <FileSpreadsheet className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+              <p className="text-muted-foreground font-medium">
+                Nenhum fechamento encontrado
+              </p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Tente ajustar os filtros ou importe um novo fechamento
+              </p>
+            </div>
           ) : (
             <>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Mês/Ano</TableHead>
-                    <TableHead>Data Import</TableHead>
-                    <TableHead className="text-center">Vendas</TableHead>
-                    <TableHead className="text-right">MRR Total</TableHead>
-                    <TableHead className="text-center">Meta</TableHead>
-                    <TableHead className="text-center">Status</TableHead>
-                    <TableHead className="text-right">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {paginatedFechamentos.map((fechamento, index) => (
-                    <TableRow
-                      key={fechamento.id}
-                      className={index % 2 === 0 ? "bg-muted/30" : ""}
-                    >
-                      <TableCell className="font-medium capitalize">
-                        {formatMesAno(fechamento.mes_referencia)}
-                      </TableCell>
-                      <TableCell>{formatDataImport(fechamento.data_importacao)}</TableCell>
-                      <TableCell className="text-center">{fechamento.total_vendas}</TableCell>
-                      <TableCell className="text-right">{formatCurrency(fechamento.total_mrr)}</TableCell>
-                      <TableCell className="text-center">
-                        {fechamento.meta_batida ? (
-                          <span className="text-lg">✅</span>
-                        ) : (
-                          <span className="text-lg">❌</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        {fechamento.status === "rascunho" ? (
-                          <Badge variant="outline" className="bg-warning/20 text-warning border-warning">
-                            Rascunho
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="bg-success/20 text-success border-success">
-                            Fechado
-                          </Badge>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => navigate(`/comissoes/fechamento/${fechamento.id}`)}
-                            title="Ver detalhes"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleExport(fechamento)}
-                            disabled={exportingId === fechamento.id}
-                            title="Exportar Excel"
-                          >
-                            {exportingId === fechamento.id ? (
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                              <Download className="w-4 h-4" />
-                            )}
-                          </Button>
-                          {fechamento.status === "rascunho" && (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Mês/Ano</TableHead>
+                      <TableHead>Data Import</TableHead>
+                      <TableHead className="text-center">Vendas</TableHead>
+                      <TableHead className="text-right">MRR Total</TableHead>
+                      <TableHead className="text-center">Meta</TableHead>
+                      <TableHead className="text-center">Status</TableHead>
+                      <TableHead className="text-right">Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {paginatedFechamentos.map((fechamento, index) => (
+                      <TableRow
+                        key={fechamento.id}
+                        className={index % 2 === 0 ? "bg-muted/30" : ""}
+                      >
+                        <TableCell className="font-medium capitalize">
+                          {formatMesAno(fechamento.mes_referencia)}
+                        </TableCell>
+                        <TableCell>{formatDataImport(fechamento.data_importacao)}</TableCell>
+                        <TableCell className="text-center">{fechamento.total_vendas}</TableCell>
+                        <TableCell className="text-right">{formatCurrency(fechamento.total_mrr)}</TableCell>
+                        <TableCell className="text-center">
+                          {fechamento.meta_batida ? (
+                            <span className="text-lg">✅</span>
+                          ) : (
+                            <span className="text-lg">❌</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {fechamento.status === "rascunho" ? (
+                            <Badge variant="outline" className="bg-warning/20 text-warning border-warning">
+                              Rascunho
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="bg-success/20 text-success border-success">
+                              Fechado
+                            </Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => {
-                                setDeletingFechamento(fechamento);
-                                setDeleteDialogOpen(true);
-                              }}
-                              title="Excluir"
-                              className="text-destructive hover:text-destructive"
+                              onClick={() => navigate(`/comissoes/fechamento/${fechamento.id}`)}
+                              title="Ver detalhes"
                             >
-                              <Trash2 className="w-4 h-4" />
+                              <Eye className="w-4 h-4" />
                             </Button>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleExport(fechamento)}
+                              disabled={exportingId === fechamento.id}
+                              title="Exportar Excel"
+                            >
+                              {exportingId === fechamento.id ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <Download className="w-4 h-4" />
+                              )}
+                            </Button>
+                            {fechamento.status === "rascunho" && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setDeletingFechamento(fechamento);
+                                  setDeleteDialogOpen(true);
+                                }}
+                                title="Excluir"
+                                className="text-destructive hover:text-destructive"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
 
               {/* Pagination */}
               {totalPages > 1 && (
-                <div className="flex items-center justify-between mt-4">
+                <div className="flex flex-col sm:flex-row items-center justify-between mt-4 gap-4">
                   <p className="text-sm text-muted-foreground">
                     Página {currentPage} de {totalPages}
                   </p>
@@ -504,17 +516,29 @@ export default function HistoricoComissoes() {
                           className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
                         />
                       </PaginationItem>
-                      {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                        <PaginationItem key={page}>
-                          <PaginationLink
-                            onClick={() => setCurrentPage(page)}
-                            isActive={currentPage === page}
-                            className="cursor-pointer"
-                          >
-                            {page}
-                          </PaginationLink>
-                        </PaginationItem>
-                      ))}
+                      {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                        let page: number;
+                        if (totalPages <= 5) {
+                          page = i + 1;
+                        } else if (currentPage <= 3) {
+                          page = i + 1;
+                        } else if (currentPage >= totalPages - 2) {
+                          page = totalPages - 4 + i;
+                        } else {
+                          page = currentPage - 2 + i;
+                        }
+                        return (
+                          <PaginationItem key={page}>
+                            <PaginationLink
+                              onClick={() => setCurrentPage(page)}
+                              isActive={currentPage === page}
+                              className="cursor-pointer"
+                            >
+                              {page}
+                            </PaginationLink>
+                          </PaginationItem>
+                        );
+                      })}
                       <PaginationItem>
                         <PaginationNext
                           onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
@@ -534,7 +558,10 @@ export default function HistoricoComissoes() {
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Excluir fechamento?</AlertDialogTitle>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertCircle className="w-5 h-5 text-destructive" />
+              Excluir fechamento?
+            </AlertDialogTitle>
             <AlertDialogDescription>
               Esta ação irá excluir o fechamento de{" "}
               <strong className="capitalize">
@@ -548,10 +575,9 @@ export default function HistoricoComissoes() {
             <AlertDialogAction
               onClick={() => deletingFechamento && deleteMutation.mutate(deletingFechamento.id)}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteMutation.isPending}
             >
-              {deleteMutation.isPending ? (
-                <Loader2 className="w-4 h-4 animate-spin mr-2" />
-              ) : null}
+              {deleteMutation.isPending && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
               Excluir
             </AlertDialogAction>
           </AlertDialogFooter>

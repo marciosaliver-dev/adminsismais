@@ -53,11 +53,11 @@ const navSections: NavSection[] = [
     ],
   },
   {
-    title: "Comissões",
+    title: "💰 Comissões",
     items: [
       { title: "Novo Fechamento", icon: Calculator, href: "/comissoes" },
-      { title: "Histórico", icon: History, href: "/comissoes/historico" },
-      { title: "Configurações", icon: Settings, href: "/comissoes/configuracoes" },
+      { title: "📋 Histórico", icon: History, href: "/comissoes/historico" },
+      { title: "⚙️ Configurações", icon: Settings, href: "/comissoes/configuracoes" },
     ],
   },
   {
