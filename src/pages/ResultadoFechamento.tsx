@@ -29,6 +29,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useState } from "react";
 import type { Tables } from "@/integrations/supabase/types";
+import VendedorDetalhesModal from "@/components/comissoes/VendedorDetalhesModal";
 
 type FechamentoComissao = Tables<"fechamento_comissao">;
 type ComissaoCalculada = Tables<"comissao_calculada">;
@@ -63,6 +64,7 @@ export default function ResultadoFechamento() {
   const queryClient = useQueryClient();
   const [closeDialogOpen, setCloseDialogOpen] = useState(false);
   const [isRecalculating, setIsRecalculating] = useState(false);
+  const [selectedComissao, setSelectedComissao] = useState<ComissaoCalculada | null>(null);
 
   // Fetch fechamento
   const { data: fechamento, isLoading: loadingFechamento } = useQuery({
@@ -364,7 +366,8 @@ export default function ResultadoFechamento() {
                 {comissoes.map((comissao, index) => (
                   <TableRow
                     key={comissao.id}
-                    className={index % 2 === 0 ? "bg-muted/30" : ""}
+                    className={`cursor-pointer hover:bg-muted/50 transition-colors ${index % 2 === 0 ? "bg-muted/30" : ""}`}
+                    onClick={() => setSelectedComissao(comissao)}
                   >
                     <TableCell className="font-medium">{comissao.vendedor}</TableCell>
                     <TableCell className="text-center">{comissao.qtd_vendas}</TableCell>
@@ -443,6 +446,15 @@ export default function ResultadoFechamento() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Vendor Details Modal */}
+      <VendedorDetalhesModal
+        open={!!selectedComissao}
+        onOpenChange={(open) => !open && setSelectedComissao(null)}
+        comissao={selectedComissao}
+        mesReferencia={fechamento.mes_referencia}
+        metaBatida={fechamento.meta_batida}
+      />
     </div>
   );
 }
