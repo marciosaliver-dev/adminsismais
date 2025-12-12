@@ -15,6 +15,7 @@ import {
   Menu,
   X,
   Calculator,
+  History,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -54,8 +55,9 @@ const navSections: NavSection[] = [
   {
     title: "Comissões",
     items: [
-      { title: "Dashboard", icon: Calculator, href: "/comissoes" },
-      { title: "Configurações", icon: Calculator, href: "/comissoes/configuracoes" },
+      { title: "Novo Fechamento", icon: Calculator, href: "/comissoes" },
+      { title: "Histórico", icon: History, href: "/comissoes/historico" },
+      { title: "Configurações", icon: Settings, href: "/comissoes/configuracoes" },
     ],
   },
   {
