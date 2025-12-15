@@ -252,7 +252,7 @@ export default function ResultadoFechamento() {
 
       (vendas as VendaImportada[]).forEach((v) => {
         vendasData.push([
-          v.data_contrato ? format(new Date(v.data_contrato), "dd/MM/yyyy") : "-",
+          v.data_contrato ? format(new Date(v.data_contrato + "T12:00:00"), "dd/MM/yyyy") : "-",
           v.plataforma || "-",
           v.num_contrato || "-",
           v.cliente || "-",
