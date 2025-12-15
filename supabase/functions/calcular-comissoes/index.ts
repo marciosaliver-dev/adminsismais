@@ -34,6 +34,11 @@ interface MetaMensal {
   mes_referencia: string;
   meta_mrr: number;
   meta_quantidade: number;
+  bonus_meta_equipe: number;
+  bonus_meta_empresa: number;
+  num_colaboradores: number;
+  multiplicador_anual: number;
+  comissao_venda_unica: number;
 }
 
 interface VendedorDados {
@@ -109,13 +114,16 @@ Deno.serve(async (req) => {
     };
 
     // Usar meta mensal se existir, caso contrário usar configuração padrão
-    const metaMrr = metaMensal ? metaMensal.meta_mrr : getConfig("meta_mrr");
-    const metaQuantidade = metaMensal ? metaMensal.meta_quantidade : getConfig("meta_quantidade");
-    const bonusMetaEquipePercent = getConfig("bonus_meta_equipe") / 100;
-    const bonusMetaEmpresaPercent = getConfig("bonus_meta_empresa") / 100;
-    const numColaboradores = getConfig("num_colaboradores") || 1;
+    const metaMrr = metaMensal?.meta_mrr ?? getConfig("meta_mrr");
+    const metaQuantidade = metaMensal?.meta_quantidade ?? getConfig("meta_quantidade");
+    const bonusMetaEquipePercent = (metaMensal?.bonus_meta_equipe ?? getConfig("bonus_meta_equipe")) / 100;
+    const bonusMetaEmpresaPercent = (metaMensal?.bonus_meta_empresa ?? getConfig("bonus_meta_empresa")) / 100;
+    const numColaboradores = (metaMensal?.num_colaboradores ?? getConfig("num_colaboradores")) || 1;
+    const multiplicadorAnual = (metaMensal?.multiplicador_anual ?? getConfig("multiplicador_anual")) || 2;
+    const comissaoVendaUnicaPercent = (metaMensal?.comissao_venda_unica ?? getConfig("comissao_venda_unica")) / 100;
 
     console.log(`[calcular-comissoes] Meta MRR: ${metaMrr}, Meta Qtd: ${metaQuantidade} (${metaMensal ? "meta mensal" : "padrão"})`);
+    console.log(`[calcular-comissoes] Bonus Equipe: ${bonusMetaEquipePercent * 100}%, Bonus Empresa: ${bonusMetaEmpresaPercent * 100}%, Colaboradores: ${numColaboradores}`);
 
     // Passo 2: Agrupar por vendedor
     const vendedoresMap = new Map<string, VendedorDados>();

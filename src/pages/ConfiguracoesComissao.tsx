@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -46,6 +46,11 @@ interface MetaMensal {
   meta_mrr: number;
   meta_quantidade: number;
   observacao: string | null;
+  bonus_meta_equipe: number;
+  bonus_meta_empresa: number;
+  num_colaboradores: number;
+  multiplicador_anual: number;
+  comissao_venda_unica: number;
   created_at: string;
   updated_at: string;
 }
@@ -94,17 +99,11 @@ export default function ConfiguracoesComissao() {
     meta_mrr: 0,
     meta_quantidade: 0,
     observacao: "",
-  });
-
-  const [configForm, setConfigForm] = useState({
-    meta_mrr: "",
-    meta_quantidade: "",
-    meta_mes: "",
-    bonus_meta_equipe: "",
-    bonus_meta_empresa: "",
-    num_colaboradores: "",
-    multiplicador_anual: "",
-    comissao_venda_unica: "",
+    bonus_meta_equipe: 10,
+    bonus_meta_empresa: 10,
+    num_colaboradores: 12,
+    multiplicador_anual: 2,
+    comissao_venda_unica: 10,
   });
 
   // Fetch faixas
@@ -132,36 +131,6 @@ export default function ConfiguracoesComissao() {
       return data as MetaMensal[];
     },
   });
-
-  // Fetch configurações
-  const { data: configuracoes = [], isLoading: loadingConfig } = useQuery({
-    queryKey: ["configuracao_comissao"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("configuracao_comissao")
-        .select("*");
-      if (error) throw error;
-      return data as ConfiguracaoComissao[];
-    },
-  });
-
-  // Initialize config form when data loads
-  useEffect(() => {
-    if (configuracoes.length > 0) {
-      const getConfig = (chave: string) =>
-        configuracoes.find((c) => c.chave === chave)?.valor || "";
-      setConfigForm({
-        meta_mrr: getConfig("meta_mrr"),
-        meta_quantidade: getConfig("meta_quantidade"),
-        meta_mes: getConfig("meta_mes"),
-        bonus_meta_equipe: getConfig("bonus_meta_equipe"),
-        bonus_meta_empresa: getConfig("bonus_meta_empresa"),
-        num_colaboradores: getConfig("num_colaboradores"),
-        multiplicador_anual: getConfig("multiplicador_anual"),
-        comissao_venda_unica: getConfig("comissao_venda_unica"),
-      });
-    }
-  }, [configuracoes]);
 
   // Create/Update faixa mutation
   const faixaMutation = useMutation({
@@ -247,56 +216,28 @@ export default function ConfiguracoesComissao() {
     },
   });
 
-  // Update config mutation
-  const configMutation = useMutation({
-    mutationFn: async () => {
-      const updates = Object.entries(configForm).map(async ([chave, valor]) => {
-        const { error } = await supabase
-          .from("configuracao_comissao")
-          .update({ valor })
-          .eq("chave", chave);
-        if (error) throw error;
-      });
-      await Promise.all(updates);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["configuracao_comissao"] });
-      toast({
-        title: "Sucesso!",
-        description: "Configurações salvas com sucesso.",
-      });
-    },
-    onError: (error) => {
-      toast({
-        title: "Erro",
-        description: "Ocorreu um erro ao salvar as configurações.",
-        variant: "destructive",
-      });
-      console.error(error);
-    },
-  });
-
   // Create/Update meta mensal mutation
   const metaMutation = useMutation({
     mutationFn: async () => {
+      const metaData = {
+        mes_referencia: metaForm.mes_referencia,
+        meta_mrr: metaForm.meta_mrr,
+        meta_quantidade: metaForm.meta_quantidade,
+        observacao: metaForm.observacao || null,
+        bonus_meta_equipe: metaForm.bonus_meta_equipe,
+        bonus_meta_empresa: metaForm.bonus_meta_empresa,
+        num_colaboradores: metaForm.num_colaboradores,
+        multiplicador_anual: metaForm.multiplicador_anual,
+        comissao_venda_unica: metaForm.comissao_venda_unica,
+      };
       if (editingMeta) {
         const { error } = await supabase
           .from("meta_mensal")
-          .update({
-            mes_referencia: metaForm.mes_referencia,
-            meta_mrr: metaForm.meta_mrr,
-            meta_quantidade: metaForm.meta_quantidade,
-            observacao: metaForm.observacao || null,
-          })
+          .update(metaData)
           .eq("id", editingMeta.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("meta_mensal").insert([{
-          mes_referencia: metaForm.mes_referencia,
-          meta_mrr: metaForm.meta_mrr,
-          meta_quantidade: metaForm.meta_quantidade,
-          observacao: metaForm.observacao || null,
-        }]);
+        const { error } = await supabase.from("meta_mensal").insert([metaData]);
         if (error) throw error;
       }
     },
@@ -354,7 +295,17 @@ export default function ConfiguracoesComissao() {
   };
 
   const resetMetaForm = () => {
-    setMetaForm({ mes_referencia: "", meta_mrr: 0, meta_quantidade: 0, observacao: "" });
+    setMetaForm({ 
+      mes_referencia: "", 
+      meta_mrr: 0, 
+      meta_quantidade: 0, 
+      observacao: "",
+      bonus_meta_equipe: 10,
+      bonus_meta_empresa: 10,
+      num_colaboradores: 12,
+      multiplicador_anual: 2,
+      comissao_venda_unica: 10,
+    });
     setEditingMeta(null);
   };
 
@@ -382,6 +333,11 @@ export default function ConfiguracoesComissao() {
       meta_mrr: meta.meta_mrr,
       meta_quantidade: meta.meta_quantidade,
       observacao: meta.observacao || "",
+      bonus_meta_equipe: meta.bonus_meta_equipe,
+      bonus_meta_empresa: meta.bonus_meta_empresa,
+      num_colaboradores: meta.num_colaboradores,
+      multiplicador_anual: meta.multiplicador_anual,
+      comissao_venda_unica: meta.comissao_venda_unica,
     });
     setIsMetaDialogOpen(true);
   };
@@ -421,10 +377,6 @@ export default function ConfiguracoesComissao() {
     }
 
     metaMutation.mutate();
-  };
-
-  const handleConfigSubmit = () => {
-    configMutation.mutate();
   };
 
   return (
@@ -537,21 +489,23 @@ export default function ConfiguracoesComissao() {
               <TableRow>
                 <TableHead>Mês</TableHead>
                 <TableHead>Meta MRR</TableHead>
-                <TableHead>Meta Quantidade</TableHead>
-                <TableHead>Observação</TableHead>
+                <TableHead>Meta Qtd</TableHead>
+                <TableHead>Bônus Equipe</TableHead>
+                <TableHead>Bônus Empresa</TableHead>
+                <TableHead>Colaboradores</TableHead>
                 <TableHead className="text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loadingMetas ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center">
+                  <TableCell colSpan={7} className="text-center">
                     Carregando...
                   </TableCell>
                 </TableRow>
               ) : metasMensais.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center text-muted-foreground">
+                  <TableCell colSpan={7} className="text-center text-muted-foreground">
                     Nenhuma meta mensal cadastrada
                   </TableCell>
                 </TableRow>
@@ -563,9 +517,9 @@ export default function ConfiguracoesComissao() {
                     </TableCell>
                     <TableCell>{formatCurrency(meta.meta_mrr)}</TableCell>
                     <TableCell>{meta.meta_quantidade}</TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {meta.observacao || "—"}
-                    </TableCell>
+                    <TableCell>{formatPercent(meta.bonus_meta_equipe)}</TableCell>
+                    <TableCell>{formatPercent(meta.bonus_meta_empresa)}</TableCell>
+                    <TableCell>{meta.num_colaboradores}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
                         <Button
@@ -593,112 +547,6 @@ export default function ConfiguracoesComissao() {
         </CardContent>
       </Card>
 
-      {/* Seção 3: Bônus e Configurações Gerais */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Target className="w-5 h-5" />
-            Bônus e Configurações Gerais
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {loadingConfig ? (
-            <p className="text-muted-foreground">Carregando...</p>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <div className="space-y-2">
-                <Label htmlFor="bonus_meta_equipe">Bônus Meta Equipe (%)</Label>
-                <Input
-                  id="bonus_meta_equipe"
-                  type="number"
-                  step="1"
-                  min="0"
-                  max="100"
-                  value={configForm.bonus_meta_equipe}
-                  onChange={(e) =>
-                    setConfigForm({ ...configForm, bonus_meta_equipe: e.target.value })
-                  }
-                  placeholder="Ex: 10"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Digite 10 para 10%
-                </p>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="bonus_meta_empresa">Bônus Meta Empresa (%)</Label>
-                <Input
-                  id="bonus_meta_empresa"
-                  type="number"
-                  step="1"
-                  min="0"
-                  max="100"
-                  value={configForm.bonus_meta_empresa}
-                  onChange={(e) =>
-                    setConfigForm({ ...configForm, bonus_meta_empresa: e.target.value })
-                  }
-                  placeholder="Ex: 10"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Digite 10 para 10%
-                </p>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="num_colaboradores">Nº Colaboradores</Label>
-                <Input
-                  id="num_colaboradores"
-                  type="number"
-                  value={configForm.num_colaboradores}
-                  onChange={(e) =>
-                    setConfigForm({ ...configForm, num_colaboradores: e.target.value })
-                  }
-                  placeholder="Ex: 12"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="multiplicador_anual">Multiplicador Venda Anual</Label>
-                <Input
-                  id="multiplicador_anual"
-                  type="number"
-                  step="0.1"
-                  value={configForm.multiplicador_anual}
-                  onChange={(e) =>
-                    setConfigForm({ ...configForm, multiplicador_anual: e.target.value })
-                  }
-                  placeholder="Ex: 2"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="comissao_venda_unica">Comissão Venda Única (%)</Label>
-                <Input
-                  id="comissao_venda_unica"
-                  type="number"
-                  step="1"
-                  min="0"
-                  max="100"
-                  value={configForm.comissao_venda_unica}
-                  onChange={(e) =>
-                    setConfigForm({ ...configForm, comissao_venda_unica: e.target.value })
-                  }
-                  placeholder="Ex: 10"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Digite 10 para 10% sobre o valor de adesão
-                </p>
-              </div>
-            </div>
-          )}
-          <div className="mt-6">
-            <Button
-              onClick={handleConfigSubmit}
-              disabled={configMutation.isPending}
-              className="gap-2"
-            >
-              <Save className="w-4 h-4" />
-              Salvar Configurações
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Dialog para criar/editar faixa */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -809,16 +657,16 @@ export default function ConfiguracoesComissao() {
 
       {/* Dialog para criar/editar meta mensal */}
       <Dialog open={isMetaDialogOpen} onOpenChange={setIsMetaDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {editingMeta ? "Editar Meta Mensal" : "Nova Meta Mensal"}
             </DialogTitle>
             <DialogDescription>
-              Defina a meta de MRR e quantidade de vendas para o mês
+              Defina metas e configurações de bônus para o mês
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
+          <div className="space-y-6">
             <div className="space-y-2">
               <Label htmlFor="mes_referencia">Mês de Referência</Label>
               <Input
@@ -830,6 +678,7 @@ export default function ConfiguracoesComissao() {
                 }
               />
             </div>
+            
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="meta_mrr_form">Meta de MRR</Label>
@@ -856,6 +705,88 @@ export default function ConfiguracoesComissao() {
                 />
               </div>
             </div>
+
+            <div className="border-t pt-4">
+              <h4 className="text-sm font-medium mb-4">Configurações de Bônus</h4>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="bonus_meta_equipe_form">Bônus Meta Equipe (%)</Label>
+                  <Input
+                    id="bonus_meta_equipe_form"
+                    type="number"
+                    step="1"
+                    min="0"
+                    max="100"
+                    value={metaForm.bonus_meta_equipe}
+                    onChange={(e) =>
+                      setMetaForm({ ...metaForm, bonus_meta_equipe: Number(e.target.value) })
+                    }
+                    placeholder="Ex: 10"
+                  />
+                  <p className="text-xs text-muted-foreground">Digite 10 para 10%</p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="bonus_meta_empresa_form">Bônus Meta Empresa (%)</Label>
+                  <Input
+                    id="bonus_meta_empresa_form"
+                    type="number"
+                    step="1"
+                    min="0"
+                    max="100"
+                    value={metaForm.bonus_meta_empresa}
+                    onChange={(e) =>
+                      setMetaForm({ ...metaForm, bonus_meta_empresa: Number(e.target.value) })
+                    }
+                    placeholder="Ex: 10"
+                  />
+                  <p className="text-xs text-muted-foreground">Digite 10 para 10%</p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="num_colaboradores_form">Nº Colaboradores</Label>
+                  <Input
+                    id="num_colaboradores_form"
+                    type="number"
+                    min="1"
+                    value={metaForm.num_colaboradores}
+                    onChange={(e) =>
+                      setMetaForm({ ...metaForm, num_colaboradores: Number(e.target.value) })
+                    }
+                    placeholder="Ex: 12"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="multiplicador_anual_form">Multiplicador Venda Anual</Label>
+                  <Input
+                    id="multiplicador_anual_form"
+                    type="number"
+                    step="0.1"
+                    min="1"
+                    value={metaForm.multiplicador_anual}
+                    onChange={(e) =>
+                      setMetaForm({ ...metaForm, multiplicador_anual: Number(e.target.value) })
+                    }
+                    placeholder="Ex: 2"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="comissao_venda_unica_form">Comissão Venda Única (%)</Label>
+                  <Input
+                    id="comissao_venda_unica_form"
+                    type="number"
+                    step="1"
+                    min="0"
+                    max="100"
+                    value={metaForm.comissao_venda_unica}
+                    onChange={(e) =>
+                      setMetaForm({ ...metaForm, comissao_venda_unica: Number(e.target.value) })
+                    }
+                    placeholder="Ex: 10"
+                  />
+                  <p className="text-xs text-muted-foreground">Digite 10 para 10% sobre adesão</p>
+                </div>
+              </div>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="observacao">Observação (opcional)</Label>
               <Input
