@@ -40,7 +40,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, FileText, Plus, Pencil, Trash2, Filter } from "lucide-react";
+import { Loader2, FileText, Plus, Pencil, Trash2, Filter, Search, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -109,6 +109,10 @@ export default function RelatorioVendas() {
   const [searchParams] = useSearchParams();
   const [selectedFechamento, setSelectedFechamento] = useState<string>("");
   const [selectedVendedor, setSelectedVendedor] = useState<string>("todos");
+  const [selectedTipoVenda, setSelectedTipoVenda] = useState<string>("todos");
+  const [searchTerm, setSearchTerm] = useState<string>("");
+  const [sortColumn, setSortColumn] = useState<string>("data_contrato");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const [vendaFormOpen, setVendaFormOpen] = useState(false);
   const [vendaForm, setVendaForm] = useState<VendaForm>(emptyVendaForm);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -209,16 +213,74 @@ export default function RelatorioVendas() {
   const fechamentoAtual = fechamentos.find((f) => f.id === selectedFechamento);
   const isRascunho = fechamentoAtual?.status === "rascunho";
 
-  // Lista de vendedores
+  // Lista de vendedores e tipos de venda
   const vendedores = [...new Set(vendas.map((v) => v.vendedor).filter(Boolean))] as string[];
+  const tiposVenda = [...new Set(vendas.map((v) => v.tipo_venda).filter(Boolean))] as string[];
 
-  // Vendas filtradas
-  const vendasFiltradas =
-    selectedVendedor === "todos"
-      ? vendas
-      : vendas.filter((v) => v.vendedor === selectedVendedor);
+  // Vendas filtradas e ordenadas
+  const vendasFiltradas = vendas
+    .filter((v) => {
+      // Filtro por vendedor
+      if (selectedVendedor !== "todos" && v.vendedor !== selectedVendedor) return false;
+      // Filtro por tipo de venda
+      if (selectedTipoVenda !== "todos" && v.tipo_venda !== selectedTipoVenda) return false;
+      // Filtro por pesquisa (cliente ou contrato)
+      if (searchTerm) {
+        const term = searchTerm.toLowerCase();
+        const matchCliente = v.cliente?.toLowerCase().includes(term);
+        const matchContrato = v.num_contrato?.toLowerCase().includes(term);
+        if (!matchCliente && !matchContrato) return false;
+      }
+      return true;
+    })
+    .sort((a, b) => {
+      let valA: any;
+      let valB: any;
+      
+      switch (sortColumn) {
+        case "data_contrato":
+          valA = a.data_contrato || "";
+          valB = b.data_contrato || "";
+          break;
+        case "vendedor":
+          valA = a.vendedor || "";
+          valB = b.vendedor || "";
+          break;
+        case "cliente":
+          valA = a.cliente || "";
+          valB = b.cliente || "";
+          break;
+        case "tipo_venda":
+          valA = a.tipo_venda || "";
+          valB = b.tipo_venda || "";
+          break;
+        case "intervalo":
+          valA = a.intervalo || "";
+          valB = b.intervalo || "";
+          break;
+        case "valor_mrr":
+          valA = a.valor_mrr;
+          valB = b.valor_mrr;
+          break;
+        case "valor_assinatura":
+          valA = a.valor_assinatura;
+          valB = b.valor_assinatura;
+          break;
+        default:
+          valA = a.data_contrato || "";
+          valB = b.data_contrato || "";
+      }
+      
+      if (typeof valA === "number" && typeof valB === "number") {
+        return sortDirection === "asc" ? valA - valB : valB - valA;
+      }
+      
+      return sortDirection === "asc" 
+        ? String(valA).localeCompare(String(valB))
+        : String(valB).localeCompare(String(valA));
+    });
 
-  // Group vendas por vendedor
+  // Group vendas por vendedor (usar vendas originais, não filtradas)
   const vendasPorVendedor = vendas.reduce((acc, venda) => {
     const vendedor = venda.vendedor || "Sem Vendedor";
     if (!acc[vendedor]) acc[vendedor] = [];
@@ -619,7 +681,7 @@ export default function RelatorioVendas() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="space-y-2">
               <Label>Fechamento</Label>
               <Select value={selectedFechamento} onValueChange={setSelectedFechamento}>
@@ -657,27 +719,61 @@ export default function RelatorioVendas() {
             )}
 
             {selectedFechamento && (
-              <div className="flex items-end gap-2">
-                {isRascunho && (
-                  <Button onClick={handleAddVenda} className="bg-primary">
-                    <Plus className="w-4 h-4 mr-2" /> Nova Venda
-                  </Button>
-                )}
-                <Button
-                  variant="outline"
-                  onClick={handleGeneratePdf}
-                  disabled={isGeneratingPdf || vendas.length === 0}
-                >
-                  {isGeneratingPdf ? (
-                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                  ) : (
-                    <FileText className="w-4 h-4 mr-2" />
-                  )}
-                  {selectedVendedor !== "todos" ? "Gerar PDF" : "Gerar PDFs"}
-                </Button>
+              <div className="space-y-2">
+                <Label>Tipo de Venda</Label>
+                <Select value={selectedTipoVenda} onValueChange={setSelectedTipoVenda}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Todos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos os tipos</SelectItem>
+                    {tiposVenda.map((t) => (
+                      <SelectItem key={t} value={t}>
+                        {t}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {selectedFechamento && (
+              <div className="space-y-2">
+                <Label>Pesquisar</Label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Cliente ou contrato..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
               </div>
             )}
           </div>
+
+          {selectedFechamento && (
+            <div className="flex items-center gap-2 mt-4 pt-4 border-t">
+              {isRascunho && (
+                <Button onClick={handleAddVenda} className="bg-primary">
+                  <Plus className="w-4 h-4 mr-2" /> Nova Venda
+                </Button>
+              )}
+              <Button
+                variant="outline"
+                onClick={handleGeneratePdf}
+                disabled={isGeneratingPdf || vendas.length === 0}
+              >
+                {isGeneratingPdf ? (
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                ) : (
+                  <FileText className="w-4 h-4 mr-2" />
+                )}
+                {selectedVendedor !== "todos" ? "Gerar PDF" : "Gerar PDFs"}
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -701,13 +797,132 @@ export default function RelatorioVendas() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Data</TableHead>
-                      <TableHead>Vendedor</TableHead>
-                      <TableHead>Cliente</TableHead>
-                      <TableHead>Tipo</TableHead>
-                      <TableHead>Intervalo</TableHead>
-                      <TableHead className="text-right">MRR</TableHead>
-                      <TableHead className="text-right">Assinatura</TableHead>
+                      <TableHead 
+                        className="cursor-pointer hover:bg-muted/50 select-none"
+                        onClick={() => {
+                          if (sortColumn === "data_contrato") {
+                            setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+                          } else {
+                            setSortColumn("data_contrato");
+                            setSortDirection("desc");
+                          }
+                        }}
+                      >
+                        <div className="flex items-center gap-1">
+                          Data
+                          {sortColumn === "data_contrato" ? (
+                            sortDirection === "asc" ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />
+                          ) : <ArrowUpDown className="h-4 w-4 text-muted-foreground" />}
+                        </div>
+                      </TableHead>
+                      <TableHead 
+                        className="cursor-pointer hover:bg-muted/50 select-none"
+                        onClick={() => {
+                          if (sortColumn === "vendedor") {
+                            setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+                          } else {
+                            setSortColumn("vendedor");
+                            setSortDirection("asc");
+                          }
+                        }}
+                      >
+                        <div className="flex items-center gap-1">
+                          Vendedor
+                          {sortColumn === "vendedor" ? (
+                            sortDirection === "asc" ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />
+                          ) : <ArrowUpDown className="h-4 w-4 text-muted-foreground" />}
+                        </div>
+                      </TableHead>
+                      <TableHead 
+                        className="cursor-pointer hover:bg-muted/50 select-none"
+                        onClick={() => {
+                          if (sortColumn === "cliente") {
+                            setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+                          } else {
+                            setSortColumn("cliente");
+                            setSortDirection("asc");
+                          }
+                        }}
+                      >
+                        <div className="flex items-center gap-1">
+                          Cliente
+                          {sortColumn === "cliente" ? (
+                            sortDirection === "asc" ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />
+                          ) : <ArrowUpDown className="h-4 w-4 text-muted-foreground" />}
+                        </div>
+                      </TableHead>
+                      <TableHead 
+                        className="cursor-pointer hover:bg-muted/50 select-none"
+                        onClick={() => {
+                          if (sortColumn === "tipo_venda") {
+                            setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+                          } else {
+                            setSortColumn("tipo_venda");
+                            setSortDirection("asc");
+                          }
+                        }}
+                      >
+                        <div className="flex items-center gap-1">
+                          Tipo
+                          {sortColumn === "tipo_venda" ? (
+                            sortDirection === "asc" ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />
+                          ) : <ArrowUpDown className="h-4 w-4 text-muted-foreground" />}
+                        </div>
+                      </TableHead>
+                      <TableHead 
+                        className="cursor-pointer hover:bg-muted/50 select-none"
+                        onClick={() => {
+                          if (sortColumn === "intervalo") {
+                            setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+                          } else {
+                            setSortColumn("intervalo");
+                            setSortDirection("asc");
+                          }
+                        }}
+                      >
+                        <div className="flex items-center gap-1">
+                          Intervalo
+                          {sortColumn === "intervalo" ? (
+                            sortDirection === "asc" ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />
+                          ) : <ArrowUpDown className="h-4 w-4 text-muted-foreground" />}
+                        </div>
+                      </TableHead>
+                      <TableHead 
+                        className="text-right cursor-pointer hover:bg-muted/50 select-none"
+                        onClick={() => {
+                          if (sortColumn === "valor_mrr") {
+                            setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+                          } else {
+                            setSortColumn("valor_mrr");
+                            setSortDirection("desc");
+                          }
+                        }}
+                      >
+                        <div className="flex items-center justify-end gap-1">
+                          MRR
+                          {sortColumn === "valor_mrr" ? (
+                            sortDirection === "asc" ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />
+                          ) : <ArrowUpDown className="h-4 w-4 text-muted-foreground" />}
+                        </div>
+                      </TableHead>
+                      <TableHead 
+                        className="text-right cursor-pointer hover:bg-muted/50 select-none"
+                        onClick={() => {
+                          if (sortColumn === "valor_assinatura") {
+                            setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+                          } else {
+                            setSortColumn("valor_assinatura");
+                            setSortDirection("desc");
+                          }
+                        }}
+                      >
+                        <div className="flex items-center justify-end gap-1">
+                          Assinatura
+                          {sortColumn === "valor_assinatura" ? (
+                            sortDirection === "asc" ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />
+                          ) : <ArrowUpDown className="h-4 w-4 text-muted-foreground" />}
+                        </div>
+                      </TableHead>
                       <TableHead className="text-center">Flags</TableHead>
                       {isRascunho && <TableHead className="text-center">Ações</TableHead>}
                     </TableRow>
