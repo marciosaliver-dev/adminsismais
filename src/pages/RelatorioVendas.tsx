@@ -416,60 +416,18 @@ export default function RelatorioVendas() {
   const generateVendedorPdf = (vendedor: string) => {
     if (!fechamentoAtual) return;
 
-    const doc = new jsPDF({ orientation: "landscape" });
+    const doc = new jsPDF({ orientation: "portrait" });
     const mesAno = format(parseISO(fechamentoAtual.mes_referencia), "MMMM/yyyy", { locale: ptBR });
     const vendasVend = vendasPorVendedor[vendedor] || [];
     const comissao = comissoes.find((c) => c.vendedor === vendedor);
 
-    // Get configurations for meta values
-    const metaMrr = parseFloat(configuracoes.find((c) => c.chave === "meta_mrr_mensal")?.valor || "8500");
-    const metaQtd = parseFloat(configuracoes.find((c) => c.chave === "meta_qtd_vendas")?.valor || "130");
-    const bonusEquipePerc = parseFloat(configuracoes.find((c) => c.chave === "bonus_meta_equipe_percentual")?.valor || "10");
-    const bonusEmpresaPerc = parseFloat(configuracoes.find((c) => c.chave === "bonus_meta_empresa_percentual")?.valor || "10");
-    const qtdColaboradores = parseFloat(configuracoes.find((c) => c.chave === "qtd_colaboradores")?.valor || "12");
-
-    // Header
-    doc.setFontSize(16);
-    doc.setFont("helvetica", "bold");
-    doc.text(`Comissão Vendas de ${mesAno.charAt(0).toUpperCase() + mesAno.slice(1)} - ${vendedor}`, 14, 15);
-
-    doc.setFontSize(9);
-    doc.setFont("helvetica", "normal");
-    doc.text(`Gerado em: ${format(new Date(), "dd/MM/yyyy HH:mm")}`, 14, 22);
-
-    // Sales table with more columns
-    const tableData = vendasVend.map((v) => [
-      v.data_contrato ? format(new Date(v.data_contrato), "dd/MM/yyyy") : "-",
-      v.num_contrato?.substring(0, 20) || "-",
-      v.cliente?.substring(0, 30) || "-",
-      v.plano?.substring(0, 20) || "-",
-      v.tipo_venda || "-",
-      v.intervalo || "-",
-      formatCurrency(v.valor_mrr),
-      formatCurrency(v.valor_assinatura),
-      formatCurrency(v.valor_adesao),
-    ]);
-
-    autoTable(doc, {
-      startY: 28,
-      head: [["Data", "Contrato", "Cliente", "Plano", "Tipo de Venda", "Intervalo", "MRR", "Assinatura", "Adesão"]],
-      body: tableData,
-      theme: "striped",
-      headStyles: { fillColor: [69, 229, 229], textColor: [0, 0, 0], fontStyle: "bold", fontSize: 8 },
-      styles: { fontSize: 7, cellPadding: 2 },
-      columnStyles: {
-        0: { cellWidth: 22 },
-        1: { cellWidth: 35 },
-        2: { cellWidth: 50 },
-        3: { cellWidth: 35 },
-        4: { cellWidth: 30 },
-        5: { cellWidth: 22 },
-        6: { cellWidth: 22, halign: "right" },
-        7: { cellWidth: 25, halign: "right" },
-        8: { cellWidth: 22, halign: "right" },
-      },
-      margin: { left: 10, right: 10 },
-    });
+    // Get configurations - use meta mensal if available
+    const metaMrr = (metaMensalAtual as any)?.meta_mrr ?? parseFloat(configuracoes.find((c) => c.chave === "meta_mrr")?.valor || "8500");
+    const metaQtd = (metaMensalAtual as any)?.meta_quantidade ?? parseFloat(configuracoes.find((c) => c.chave === "meta_quantidade")?.valor || "130");
+    const bonusEquipePerc = (metaMensalAtual as any)?.bonus_meta_equipe ?? parseFloat(configuracoes.find((c) => c.chave === "bonus_meta_equipe")?.valor || "10");
+    const bonusEmpresaPerc = (metaMensalAtual as any)?.bonus_meta_empresa ?? parseFloat(configuracoes.find((c) => c.chave === "bonus_meta_empresa")?.valor || "10");
+    const qtdColaboradores = (metaMensalAtual as any)?.num_colaboradores ?? parseFloat(configuracoes.find((c) => c.chave === "num_colaboradores")?.valor || "12");
+    const multiplicadorAnual = (metaMensalAtual as any)?.multiplicador_anual ?? parseFloat(configuracoes.find((c) => c.chave === "multiplicador_anual")?.valor || "2");
 
     // Calculate totals for summary
     const totalMrrBruto = vendasVend.reduce((acc, v) => acc + v.valor_mrr, 0);
@@ -477,8 +435,10 @@ export default function RelatorioVendas() {
     const totalAssinatura = vendasVend.reduce((acc, v) => acc + v.valor_assinatura, 0);
     const totalAdesao = vendasVend.reduce((acc, v) => acc + v.valor_adesao, 0);
     const totalVendas = vendasVend.length;
-    const vendasAnuais = vendasVend.filter((v) => v.intervalo === "Anual" && v.conta_comissao);
-    const totalVendaAnual = vendasAnuais.reduce((acc, v) => acc + v.valor_assinatura, 0);
+    
+    // Only MRR from annual sales (not total value)
+    const vendasAnuais = vendasVend.filter((v) => v.intervalo?.toLowerCase() === "anual" && v.conta_comissao);
+    const mrrVendasAnuais = vendasAnuais.reduce((acc, v) => acc + v.valor_mrr, 0);
     const ticketMedio = totalVendas > 0 ? totalMrrBruto / totalVendas : 0;
 
     // Global totals
@@ -487,100 +447,76 @@ export default function RelatorioVendas() {
     const totalMrrLiquidoGeral = vendas.filter((v) => v.conta_comissao).reduce((acc, v) => acc + v.valor_mrr, 0);
     const participacao = totalMrrBruto > 0 && totalMrrGeral > 0 ? (totalMrrBruto / totalMrrGeral) * 100 : 0;
 
-    // Add totals row to table
-    let yPos = (doc as any).lastAutoTable.finalY;
-    
+    const pageWidth = doc.internal.pageSize.getWidth();
+    let yPos = 10;
+
+    // ===== HEADER =====
+    doc.setFillColor(30, 58, 95);
+    doc.rect(0, 0, pageWidth, 25, "F");
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(255, 255, 255);
+    doc.text(`Comissão - ${mesAno.charAt(0).toUpperCase() + mesAno.slice(1)}`, pageWidth / 2, 10, { align: "center" });
+    doc.setFontSize(12);
+    doc.text(vendedor, pageWidth / 2, 18, { align: "center" });
+    doc.setTextColor(0, 0, 0);
+    yPos = 30;
+
+    // ===== RESUMO GERAL =====
+    doc.setFillColor(52, 73, 94);
+    doc.rect(10, yPos, pageWidth - 20, 7, "F");
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(255, 255, 255);
+    doc.text("RESUMO DO FECHAMENTO", pageWidth / 2, yPos + 5, { align: "center" });
+    doc.setTextColor(0, 0, 0);
+    yPos += 8;
+
     autoTable(doc, {
       startY: yPos,
       body: [
-        ["", "", "", "", "Total Assinaturas", totalVendas.toString(), "", formatCurrency(totalAssinatura), formatCurrency(totalAdesao)],
+        ["Meta Qtd Vendas", metaQtd.toString(), "Meta MRR", formatCurrency(metaMrr)],
+        ["Total Vendas Equipe", totalVendasGeral.toString(), "MRR Total Equipe", formatCurrency(totalMrrGeral)],
+        ["MRR Base Bônus", formatCurrency(totalMrrLiquidoGeral), "Colaboradores", qtdColaboradores.toString()],
       ],
-      theme: "plain",
-      styles: { fontSize: 8, fontStyle: "bold", cellPadding: 2 },
-      columnStyles: {
-        4: { halign: "right" },
-        5: { halign: "center" },
-        7: { halign: "right" },
-        8: { halign: "right" },
-      },
+      theme: "grid",
+      styles: { fontSize: 8, cellPadding: 2, halign: "center" },
+      headStyles: { fillColor: [52, 73, 94] },
+      alternateRowStyles: { fillColor: [245, 247, 250] },
+      columnStyles: { 0: { fontStyle: "bold", halign: "left" }, 2: { fontStyle: "bold", halign: "left" } },
       margin: { left: 10, right: 10 },
     });
+    yPos = (doc as any).lastAutoTable.finalY + 5;
 
-    // New page for summary
-    doc.addPage("portrait");
-    yPos = 15;
-
-    // Fechamento de Comissão section
-    doc.setFillColor(100, 100, 100);
-    doc.rect(14, yPos, 180, 8, "F");
-    doc.setFontSize(11);
+    // ===== DADOS DO VENDEDOR =====
+    doc.setFillColor(41, 128, 185);
+    doc.rect(10, yPos, pageWidth - 20, 7, "F");
+    doc.setFontSize(9);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(255, 255, 255);
-    doc.text("Fechamento de Comissão", 104, yPos + 5.5, { align: "center" });
+    doc.text(`VENDAS - ${vendedor.toUpperCase()}`, pageWidth / 2, yPos + 5, { align: "center" });
     doc.setTextColor(0, 0, 0);
-    yPos += 10;
-
-    const fechamentoData = [
-      ["Meta do Mês", metaQtd.toString()],
-      ["Meta Mês MRR", formatCurrency(metaMrr)],
-      ["Valor Total Recorrências Geral (Incluído Retorno de Clientes)", formatCurrency(totalMrrGeral)],
-      ["Valor Base Cálculo Bônus Metas (Comissão Líquida descontando Retornos e Afiliados)", formatCurrency(totalMrrLiquidoGeral)],
-      [`Total Bônus Comercial | % Base Cálculo | ${bonusEquipePerc.toFixed(2)}%`, fechamentoAtual.meta_batida ? formatCurrency(totalMrrLiquidoGeral * (bonusEquipePerc / 100)) : "R$ 0,00"],
-      [`Total Bônus Equipe | % Base Cálculo | ${bonusEmpresaPerc.toFixed(2)}%`, fechamentoAtual.meta_batida ? formatCurrency(totalMrrLiquidoGeral * (bonusEmpresaPerc / 100)) : "R$ 0,00"],
-      ["Quantidade Assinaturas Total", totalVendasGeral.toString()],
-      ["Quantidade de Colaboradores", qtdColaboradores.toString()],
-    ];
+    yPos += 8;
 
     autoTable(doc, {
       startY: yPos,
-      body: fechamentoData,
-      theme: "striped",
-      styles: { fontSize: 9, cellPadding: 3 },
-      columnStyles: { 0: { cellWidth: 130 }, 1: { halign: "right", fontStyle: "bold" } },
-      margin: { left: 14, right: 14 },
+      body: [
+        ["Qtd Vendas", totalVendas.toString(), "MRR Bruto", formatCurrency(totalMrrBruto)],
+        ["MRR Comissão", formatCurrency(totalMrrComissao), "MRR Anual", formatCurrency(mrrVendasAnuais)],
+        ["Total Adesão", formatCurrency(totalAdesao), "Ticket Médio", formatCurrency(ticketMedio)],
+        ["% Participação", `${participacao.toFixed(2)}%`, "", ""],
+      ],
+      theme: "grid",
+      styles: { fontSize: 8, cellPadding: 2, halign: "center" },
+      alternateRowStyles: { fillColor: [232, 245, 253] },
+      columnStyles: { 0: { fontStyle: "bold", halign: "left" }, 2: { fontStyle: "bold", halign: "left" } },
+      margin: { left: 10, right: 10 },
     });
     yPos = (doc as any).lastAutoTable.finalY + 5;
 
-    // Dados de Vendas Vendedor section
-    doc.setFillColor(180, 180, 100);
-    doc.rect(14, yPos, 180, 8, "F");
-    doc.setFontSize(11);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(0, 0, 0);
-    doc.text(`Dados de Vendas ${vendedor}`, 104, yPos + 5.5, { align: "center" });
-    yPos += 10;
-
-    const vendasVendedorData = [
-      ["Valor Bruto de Recorrência Incluindo Retorno de Clientes", formatCurrency(totalMrrBruto)],
-      ["Valor Líquido de Recorrências (Base para Comissão)", formatCurrency(totalMrrComissao)],
-      ["Total venda anual", formatCurrency(totalVendaAnual)],
-      ["% Participação Meta de Vendas (Valor total Incluído Retornos)", `${participacao.toFixed(2)}%`],
-      ["Ticket Médio", formatCurrency(ticketMedio)],
-      ["Valor Total Adesão - Vendedor (Valor Único)", formatCurrency(totalAdesao)],
-      ["Qtd de novas assinaturas", totalVendas.toString()],
-    ];
-
-    autoTable(doc, {
-      startY: yPos,
-      body: vendasVendedorData,
-      theme: "striped",
-      styles: { fontSize: 9, cellPadding: 3 },
-      columnStyles: { 0: { cellWidth: 130 }, 1: { halign: "right", fontStyle: "bold" } },
-      alternateRowStyles: { fillColor: [255, 255, 200] },
-      margin: { left: 14, right: 14 },
-    });
-    yPos = (doc as any).lastAutoTable.finalY + 5;
-
-    // Itens Da Comissão section
-    doc.setFillColor(180, 180, 100);
-    doc.rect(14, yPos, 180, 8, "F");
-    doc.setFontSize(11);
-    doc.setFont("helvetica", "bold");
-    doc.text("Itens Da Comissão", 104, yPos + 5.5, { align: "center" });
-    yPos += 10;
-
-    const faixaInfo = comissao ? `${comissao.faixa_nome} - ${comissao.percentual}%` : "-";
-    const percentualComissao = comissao ? `${comissao.percentual.toFixed(2)}%` : "0%";
+    // ===== CÁLCULO DE COMISSÃO =====
+    const faixaInfo = comissao ? `${comissao.faixa_nome}` : "-";
+    const percentualComissao = comissao ? comissao.percentual : 0;
     const valorComissao = comissao?.valor_comissao || 0;
     const bonusAnual = comissao?.bonus_anual || 0;
     const bonusMetaEquipe = comissao?.bonus_meta_equipe || 0;
@@ -588,62 +524,124 @@ export default function RelatorioVendas() {
 
     const comissaoVendaUnicaPercent =
       (metaMensalAtual as any)?.comissao_venda_unica ??
-      parseFloat(configuracoes.find((c: any) => c.chave === "comissao_venda_unica")?.valor || "0");
-
-    // Comissão Venda Única: preferir valor calculado no fechamento; se não existir, calcular
+      parseFloat(configuracoes.find((c: any) => c.chave === "comissao_venda_unica")?.valor || "10");
     const comissaoVendaUnicaCalculada = totalAdesao * (comissaoVendaUnicaPercent / 100);
     const comissaoVendaUnica = (comissao as any)?.comissao_venda_unica || comissaoVendaUnicaCalculada;
-
     const totalComissoes = valorComissao + comissaoVendaUnica;
     const totalBonusMetas = bonusAnual + bonusMetaEquipe + bonusEmpresa;
+    const totalReceber = (comissao?.total_receber || 0) > 0 ? (comissao?.total_receber || 0) : totalComissoes + totalBonusMetas;
 
-    const totalReceber =
-      (comissao?.total_receber || 0) > 0
-        ? (comissao?.total_receber || 0)
-        : totalComissoes + totalBonusMetas;
-
-    const percComissaoMrr = totalMrrComissao > 0 ? (totalReceber / totalMrrComissao) * 100 : 0;
-
-    const comissaoData = [
-      [`Faixa de Comissão: ${faixaInfo}`, `% Comissão: ${percentualComissao}`],
-      ["Valor de Comissão MRR", formatCurrency(valorComissao)],
-      [`Comissão Venda Única (Adesão) | ${comissaoVendaUnicaPercent}%`, formatCurrency(comissaoVendaUnica)],
-      ["Total Comissões", formatCurrency(totalComissoes)],
-      ["Bônus Venda Anual", formatCurrency(bonusAnual)],
-      ["Valor Bônus Meta Equipe de Vendas", formatCurrency(bonusMetaEquipe)],
-      ["Valor Bônus Equipe Toda", formatCurrency(bonusEmpresa)],
-      ["Total Bônus Por Metas", formatCurrency(totalBonusMetas)],
-    ];
+    doc.setFillColor(39, 174, 96);
+    doc.rect(10, yPos, pageWidth - 20, 7, "F");
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(255, 255, 255);
+    doc.text("COMISSÕES", pageWidth / 2, yPos + 5, { align: "center" });
+    doc.setTextColor(0, 0, 0);
+    yPos += 8;
 
     autoTable(doc, {
       startY: yPos,
-      body: comissaoData,
-      theme: "striped",
-      styles: { fontSize: 9, cellPadding: 3 },
-      columnStyles: { 0: { cellWidth: 130 }, 1: { halign: "right", fontStyle: "bold" } },
-      margin: { left: 14, right: 14 },
+      body: [
+        [`Faixa: ${faixaInfo}`, `${percentualComissao}%`, "Comissão MRR", formatCurrency(valorComissao)],
+        [`Adesão (${comissaoVendaUnicaPercent}%)`, formatCurrency(comissaoVendaUnica), "Total Comissões", formatCurrency(totalComissoes)],
+      ],
+      theme: "grid",
+      styles: { fontSize: 8, cellPadding: 2, halign: "center" },
+      alternateRowStyles: { fillColor: [232, 246, 237] },
+      columnStyles: { 0: { fontStyle: "bold", halign: "left" }, 2: { fontStyle: "bold", halign: "left" } },
+      margin: { left: 10, right: 10 },
     });
-    yPos = (doc as any).lastAutoTable.finalY + 3;
+    yPos = (doc as any).lastAutoTable.finalY + 5;
 
-    // Total final row
-    doc.setFillColor(69, 229, 229);
-    doc.rect(14, yPos, 180, 10, "F");
-    doc.setFontSize(10);
+    // ===== BÔNUS =====
+    doc.setFillColor(243, 156, 18);
+    doc.rect(10, yPos, pageWidth - 20, 7, "F");
+    doc.setFontSize(9);
     doc.setFont("helvetica", "bold");
+    doc.setTextColor(255, 255, 255);
+    doc.text("BÔNUS", pageWidth / 2, yPos + 5, { align: "center" });
     doc.setTextColor(0, 0, 0);
-    doc.text(`% Comissão Sobre MRR: ${percComissaoMrr.toFixed(2)}%`, 20, yPos + 7);
-    doc.text(`Valor Total Comissões + Bônus: ${formatCurrency(totalReceber)}`, 120, yPos + 7);
+    yPos += 8;
 
-    // Footer on all pages
-    const pageCount = doc.getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i);
-      doc.setFontSize(8);
-      doc.setFont("helvetica", "normal");
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const pageHeight = doc.internal.pageSize.getHeight();
-      doc.text(`Página ${i} de ${pageCount}`, pageWidth - 20, pageHeight - 10, { align: "right" });
+    autoTable(doc, {
+      startY: yPos,
+      body: [
+        [`Bônus Anual (x${multiplicadorAnual})`, formatCurrency(bonusAnual), "Bônus Meta Equipe", formatCurrency(bonusMetaEquipe)],
+        ["Bônus Empresa", formatCurrency(bonusEmpresa), "Total Bônus", formatCurrency(totalBonusMetas)],
+      ],
+      theme: "grid",
+      styles: { fontSize: 8, cellPadding: 2, halign: "center" },
+      alternateRowStyles: { fillColor: [254, 249, 231] },
+      columnStyles: { 0: { fontStyle: "bold", halign: "left" }, 2: { fontStyle: "bold", halign: "left" } },
+      margin: { left: 10, right: 10 },
+    });
+    yPos = (doc as any).lastAutoTable.finalY + 5;
+
+    // ===== TOTAL A RECEBER =====
+    doc.setFillColor(46, 204, 113);
+    doc.rect(10, yPos, pageWidth - 20, 12, "F");
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(255, 255, 255);
+    doc.text("TOTAL A RECEBER", 20, yPos + 8);
+    doc.text(formatCurrency(totalReceber), pageWidth - 20, yPos + 8, { align: "right" });
+    doc.setTextColor(0, 0, 0);
+    yPos += 18;
+
+    // ===== TABELA DE VENDAS (compacta) =====
+    if (vendasVend.length > 0 && yPos < 200) {
+      doc.setFillColor(52, 73, 94);
+      doc.rect(10, yPos, pageWidth - 20, 7, "F");
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(255, 255, 255);
+      doc.text(`DETALHAMENTO DE VENDAS (${vendasVend.length})`, pageWidth / 2, yPos + 5, { align: "center" });
+      doc.setTextColor(0, 0, 0);
+      yPos += 8;
+
+      const tableData = vendasVend.slice(0, 15).map((v) => [
+        v.data_contrato ? format(new Date(v.data_contrato), "dd/MM") : "-",
+        v.cliente?.substring(0, 25) || "-",
+        v.tipo_venda?.substring(0, 12) || "-",
+        v.intervalo?.substring(0, 6) || "-",
+        formatCurrency(v.valor_mrr),
+        formatCurrency(v.valor_adesao),
+      ]);
+
+      autoTable(doc, {
+        startY: yPos,
+        head: [["Data", "Cliente", "Tipo", "Int.", "MRR", "Adesão"]],
+        body: tableData,
+        theme: "striped",
+        headStyles: { fillColor: [52, 73, 94], textColor: [255, 255, 255], fontStyle: "bold", fontSize: 7 },
+        styles: { fontSize: 6, cellPadding: 1 },
+        columnStyles: {
+          0: { cellWidth: 15 },
+          1: { cellWidth: 55 },
+          2: { cellWidth: 25 },
+          3: { cellWidth: 15 },
+          4: { cellWidth: 25, halign: "right" },
+          5: { cellWidth: 25, halign: "right" },
+        },
+        margin: { left: 10, right: 10 },
+      });
+
+      if (vendasVend.length > 15) {
+        yPos = (doc as any).lastAutoTable.finalY + 2;
+        doc.setFontSize(7);
+        doc.setFont("helvetica", "italic");
+        doc.text(`+ ${vendasVend.length - 15} vendas adicionais não exibidas`, pageWidth / 2, yPos, { align: "center" });
+      }
     }
+
+    // Footer
+    const pageHeight = doc.internal.pageSize.getHeight();
+    doc.setFontSize(7);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(128, 128, 128);
+    doc.text(`Gerado em: ${format(new Date(), "dd/MM/yyyy HH:mm")}`, 10, pageHeight - 5);
+    doc.text("Página 1 de 1", pageWidth - 10, pageHeight - 5, { align: "right" });
 
     const vendedorSlug = vendedor.toLowerCase().replace(/\s+/g, "_");
     const mesAnoFile = format(parseISO(fechamentoAtual.mes_referencia), "yyyy-MM");
