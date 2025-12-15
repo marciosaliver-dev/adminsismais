@@ -112,20 +112,42 @@ const getVendaFlags = (tipoVenda: string | null) => {
   return { conta_comissao: false, conta_faixa: false, conta_meta: false };
 };
 
-// Parse CSV content
+// Parse CSV content - handles comma separator with quoted values containing commas
 const parseCSV = (content: string): { headers: string[]; rows: Record<string, string>[] } => {
   const lines = content.split(/\r?\n/).filter((line) => line.trim());
   if (lines.length < 2) return { headers: [], rows: [] };
 
-  const headers = lines[0].split(";").map((h) => h.trim().replace(/^"|"$/g, ""));
+  // Parse a single CSV line handling quoted values
+  const parseLine = (line: string): string[] => {
+    const result: string[] = [];
+    let current = "";
+    let inQuotes = false;
+    
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+      
+      if (char === '"') {
+        inQuotes = !inQuotes;
+      } else if (char === ',' && !inQuotes) {
+        result.push(current.trim().replace(/^"|"$/g, ""));
+        current = "";
+      } else {
+        current += char;
+      }
+    }
+    result.push(current.trim().replace(/^"|"$/g, ""));
+    return result;
+  };
+
+  const headers = parseLine(lines[0]);
   
   const rows: Record<string, string>[] = [];
   for (let i = 1; i < lines.length; i++) {
-    const values = lines[i].split(";").map((v) => v.trim().replace(/^"|"$/g, ""));
-    if (values.length === headers.length) {
+    const values = parseLine(lines[i]);
+    if (values.length >= headers.length - 1) {
       const row: Record<string, string> = {};
       headers.forEach((header, index) => {
-        row[header] = values[index];
+        row[header] = values[index] || "";
       });
       rows.push(row);
     }
