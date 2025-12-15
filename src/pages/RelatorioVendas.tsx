@@ -41,7 +41,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, FileText, Plus, Pencil, Trash2, Filter, Search, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { Loader2, FileText, Plus, Pencil, Trash2, Filter, Search, ArrowUpDown, ArrowUp, ArrowDown, Share2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -119,6 +119,7 @@ export default function RelatorioVendas() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [vendaToDelete, setVendaToDelete] = useState<string | null>(null);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [isGeneratingHtml, setIsGeneratingHtml] = useState(false);
 
   // Auto-select fechamento and vendedor from URL query parameters
   useEffect(() => {
@@ -589,63 +590,286 @@ export default function RelatorioVendas() {
     doc.setTextColor(0, 0, 0);
     yPos += 18;
 
-    // ===== TABELA DE VENDAS (compacta) =====
-    if (vendasVend.length > 0 && yPos < 200) {
+    const pageHeight = doc.internal.pageSize.getHeight();
+
+    // ===== TABELA DE VENDAS (todas as vendas, múltiplas páginas) =====
+    if (vendasVend.length > 0) {
+      doc.addPage();
+      yPos = 15;
+      
       doc.setFillColor(52, 73, 94);
       doc.rect(10, yPos, pageWidth - 20, 7, "F");
       doc.setFontSize(9);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(255, 255, 255);
-      doc.text(`DETALHAMENTO DE VENDAS (${vendasVend.length})`, pageWidth / 2, yPos + 5, { align: "center" });
+      doc.text(`DETALHAMENTO DE VENDAS - ${vendedor.toUpperCase()} (${vendasVend.length} vendas)`, pageWidth / 2, yPos + 5, { align: "center" });
       doc.setTextColor(0, 0, 0);
       yPos += 8;
 
-      const tableData = vendasVend.slice(0, 15).map((v) => [
-        v.data_contrato ? format(new Date(v.data_contrato), "dd/MM") : "-",
-        v.cliente?.substring(0, 25) || "-",
-        v.tipo_venda?.substring(0, 12) || "-",
+      const tableData = vendasVend.map((v) => [
+        v.data_contrato ? format(new Date(v.data_contrato), "dd/MM/yy") : "-",
+        v.cliente?.substring(0, 30) || "-",
+        v.tipo_venda?.substring(0, 15) || "-",
         v.intervalo?.substring(0, 6) || "-",
         formatCurrency(v.valor_mrr),
         formatCurrency(v.valor_adesao),
+        `${v.conta_comissao ? "C" : ""}${v.conta_faixa ? "F" : ""}${v.conta_meta ? "M" : ""}`,
       ]);
 
       autoTable(doc, {
         startY: yPos,
-        head: [["Data", "Cliente", "Tipo", "Int.", "MRR", "Adesão"]],
+        head: [["Data", "Cliente", "Tipo", "Int.", "MRR", "Adesão", "Flags"]],
         body: tableData,
         theme: "striped",
         headStyles: { fillColor: [52, 73, 94], textColor: [255, 255, 255], fontStyle: "bold", fontSize: 7 },
-        styles: { fontSize: 6, cellPadding: 1 },
+        styles: { fontSize: 6.5, cellPadding: 1.5 },
         columnStyles: {
-          0: { cellWidth: 15 },
+          0: { cellWidth: 18 },
           1: { cellWidth: 55 },
-          2: { cellWidth: 25 },
+          2: { cellWidth: 30 },
           3: { cellWidth: 15 },
           4: { cellWidth: 25, halign: "right" },
           5: { cellWidth: 25, halign: "right" },
+          6: { cellWidth: 15, halign: "center" },
         },
         margin: { left: 10, right: 10 },
+        didDrawPage: function (data) {
+          // Footer on each page
+          const pageCount = doc.getNumberOfPages();
+          doc.setFontSize(7);
+          doc.setFont("helvetica", "normal");
+          doc.setTextColor(128, 128, 128);
+          doc.text(`Gerado em: ${format(new Date(), "dd/MM/yyyy HH:mm")}`, 10, pageHeight - 5);
+          doc.text(`Página ${data.pageNumber} de ${pageCount}`, pageWidth - 10, pageHeight - 5, { align: "right" });
+        },
       });
-
-      if (vendasVend.length > 15) {
-        yPos = (doc as any).lastAutoTable.finalY + 2;
-        doc.setFontSize(7);
-        doc.setFont("helvetica", "italic");
-        doc.text(`+ ${vendasVend.length - 15} vendas adicionais não exibidas`, pageWidth / 2, yPos, { align: "center" });
-      }
+      
+      // Footer legend
+      yPos = (doc as any).lastAutoTable.finalY + 3;
+      doc.setFontSize(6);
+      doc.setFont("helvetica", "italic");
+      doc.setTextColor(100, 100, 100);
+      doc.text("Flags: C = Conta Comissão | F = Conta Faixa | M = Conta Meta", 10, yPos);
     }
 
-    // Footer
-    const pageHeight = doc.internal.pageSize.getHeight();
+    // Add footer to first page
+    doc.setPage(1);
     doc.setFontSize(7);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(128, 128, 128);
+    const totalPages = doc.getNumberOfPages();
     doc.text(`Gerado em: ${format(new Date(), "dd/MM/yyyy HH:mm")}`, 10, pageHeight - 5);
-    doc.text("Página 1 de 1", pageWidth - 10, pageHeight - 5, { align: "right" });
+    doc.text(`Página 1 de ${totalPages}`, pageWidth - 10, pageHeight - 5, { align: "right" });
 
     const vendedorSlug = vendedor.toLowerCase().replace(/\s+/g, "_");
     const mesAnoFile = format(parseISO(fechamentoAtual.mes_referencia), "yyyy-MM");
     doc.save(`comissao_${vendedorSlug}_${mesAnoFile}.pdf`);
+  };
+
+  // Generate shareable HTML report for a single salesperson
+  const generateHtmlReport = (vendedor: string) => {
+    if (!fechamentoAtual) return;
+
+    const mesAno = format(parseISO(fechamentoAtual.mes_referencia), "MMMM/yyyy", { locale: ptBR });
+    const vendasVend = vendasPorVendedor[vendedor] || [];
+    const comissao = comissoes.find((c) => c.vendedor === vendedor);
+
+    // Get configurations
+    const metaMrr = (metaMensalAtual as any)?.meta_mrr ?? parseFloat(configuracoes.find((c) => c.chave === "meta_mrr")?.valor || "8500");
+    const metaQtd = (metaMensalAtual as any)?.meta_quantidade ?? parseFloat(configuracoes.find((c) => c.chave === "meta_quantidade")?.valor || "130");
+    const multiplicadorAnual = (metaMensalAtual as any)?.multiplicador_anual ?? parseFloat(configuracoes.find((c) => c.chave === "multiplicador_anual")?.valor || "2");
+    const qtdColaboradores = (metaMensalAtual as any)?.num_colaboradores ?? parseFloat(configuracoes.find((c) => c.chave === "num_colaboradores")?.valor || "12");
+
+    // Calculate totals
+    const totalMrrBruto = vendasVend.reduce((acc, v) => acc + v.valor_mrr, 0);
+    const totalMrrComissao = vendasVend.filter((v) => v.conta_comissao).reduce((acc, v) => acc + v.valor_mrr, 0);
+    const totalAdesao = vendasVend.reduce((acc, v) => acc + v.valor_adesao, 0);
+    const totalVendas = vendasVend.length;
+    const vendasAnuais = vendasVend.filter((v) => v.intervalo?.toLowerCase() === "anual" && v.conta_comissao);
+    const mrrVendasAnuais = vendasAnuais.reduce((acc, v) => acc + v.valor_mrr, 0);
+    const ticketMedio = totalVendas > 0 ? totalMrrBruto / totalVendas : 0;
+
+    // Global totals
+    const totalMrrGeral = vendas.reduce((acc, v) => acc + v.valor_mrr, 0);
+    const totalVendasGeral = vendas.length;
+    const totalMrrLiquidoGeral = vendas.filter((v) => v.conta_comissao).reduce((acc, v) => acc + v.valor_mrr, 0);
+    const participacao = totalMrrBruto > 0 && totalMrrGeral > 0 ? (totalMrrBruto / totalMrrGeral) * 100 : 0;
+
+    // Commission values
+    const faixaInfo = comissao ? `${comissao.faixa_nome}` : "-";
+    const percentualComissao = comissao ? comissao.percentual : 0;
+    const valorComissao = comissao?.valor_comissao || 0;
+    const bonusAnual = comissao?.bonus_anual || 0;
+    const bonusMetaEquipe = comissao?.bonus_meta_equipe || 0;
+    const bonusEmpresa = comissao?.bonus_empresa || 0;
+    const comissaoVendaUnicaPercent = (metaMensalAtual as any)?.comissao_venda_unica ?? parseFloat(configuracoes.find((c: any) => c.chave === "comissao_venda_unica")?.valor || "10");
+    const comissaoVendaUnica = (comissao as any)?.comissao_venda_unica || totalAdesao * (comissaoVendaUnicaPercent / 100);
+    const totalComissoes = valorComissao + comissaoVendaUnica;
+    const totalBonusMetas = bonusAnual + bonusMetaEquipe + bonusEmpresa;
+    const totalReceber = (comissao?.total_receber || 0) > 0 ? (comissao?.total_receber || 0) : totalComissoes + totalBonusMetas;
+
+    const html = `
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Comissão ${vendedor} - ${mesAno}</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: linear-gradient(135deg, #1e3a5f 0%, #0f2744 100%); min-height: 100vh; padding: 20px; color: #333; }
+    .container { max-width: 900px; margin: 0 auto; }
+    .header { background: linear-gradient(135deg, #1e3a5f 0%, #2c5282 100%); color: white; padding: 24px; border-radius: 16px 16px 0 0; text-align: center; }
+    .header h1 { font-size: 1.5rem; margin-bottom: 4px; }
+    .header h2 { font-size: 1.2rem; font-weight: 400; opacity: 0.9; }
+    .content { background: white; border-radius: 0 0 16px 16px; overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,0.3); }
+    .section { padding: 16px 20px; border-bottom: 1px solid #e2e8f0; }
+    .section-title { background: #34495e; color: white; padding: 8px 16px; font-size: 0.85rem; font-weight: 600; margin: 0 -20px 16px -20px; }
+    .section-title.blue { background: #2980b9; }
+    .section-title.green { background: #27ae60; }
+    .section-title.orange { background: #f39c12; }
+    .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    @media (min-width: 600px) { .grid { grid-template-columns: repeat(4, 1fr); } }
+    .stat { background: #f8fafc; padding: 12px; border-radius: 8px; }
+    .stat-label { font-size: 0.75rem; color: #64748b; margin-bottom: 4px; }
+    .stat-value { font-size: 1rem; font-weight: 600; color: #1e293b; }
+    .total-box { background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%); color: white; padding: 20px; margin: 0; display: flex; justify-content: space-between; align-items: center; }
+    .total-box .label { font-size: 1rem; font-weight: 600; }
+    .total-box .value { font-size: 1.5rem; font-weight: 700; }
+    .sales-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+    .sales-table th { background: #34495e; color: white; padding: 10px 8px; text-align: left; font-weight: 600; }
+    .sales-table td { padding: 8px; border-bottom: 1px solid #e2e8f0; }
+    .sales-table tr:nth-child(even) { background: #f8fafc; }
+    .sales-table tr:hover { background: #e8f4fc; }
+    .flag { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 0.65rem; font-weight: 600; margin-right: 2px; }
+    .flag.c { background: #d4edda; color: #155724; }
+    .flag.f { background: #cce5ff; color: #004085; }
+    .flag.m { background: #fff3cd; color: #856404; }
+    .footer { text-align: center; padding: 16px; color: white; font-size: 0.75rem; opacity: 0.8; }
+    .legend { font-size: 0.7rem; color: #64748b; padding: 8px 20px; background: #f8fafc; }
+    @media print { body { background: white; padding: 0; } .container { max-width: 100%; } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>💰 Comissão - ${mesAno.charAt(0).toUpperCase() + mesAno.slice(1)}</h1>
+      <h2>${vendedor}</h2>
+    </div>
+    <div class="content">
+      <div class="section">
+        <div class="section-title">📊 RESUMO DO FECHAMENTO</div>
+        <div class="grid">
+          <div class="stat"><div class="stat-label">Meta Qtd Vendas</div><div class="stat-value">${metaQtd}</div></div>
+          <div class="stat"><div class="stat-label">Meta MRR</div><div class="stat-value">${formatCurrency(metaMrr)}</div></div>
+          <div class="stat"><div class="stat-label">Total Vendas Equipe</div><div class="stat-value">${totalVendasGeral}</div></div>
+          <div class="stat"><div class="stat-label">MRR Total Equipe</div><div class="stat-value">${formatCurrency(totalMrrGeral)}</div></div>
+        </div>
+      </div>
+      <div class="section">
+        <div class="section-title blue">📈 VENDAS - ${vendedor.toUpperCase()}</div>
+        <div class="grid">
+          <div class="stat"><div class="stat-label">Qtd Vendas</div><div class="stat-value">${totalVendas}</div></div>
+          <div class="stat"><div class="stat-label">MRR Bruto</div><div class="stat-value">${formatCurrency(totalMrrBruto)}</div></div>
+          <div class="stat"><div class="stat-label">MRR Comissão</div><div class="stat-value">${formatCurrency(totalMrrComissao)}</div></div>
+          <div class="stat"><div class="stat-label">MRR Anual</div><div class="stat-value">${formatCurrency(mrrVendasAnuais)}</div></div>
+          <div class="stat"><div class="stat-label">Total Adesão</div><div class="stat-value">${formatCurrency(totalAdesao)}</div></div>
+          <div class="stat"><div class="stat-label">Ticket Médio</div><div class="stat-value">${formatCurrency(ticketMedio)}</div></div>
+          <div class="stat"><div class="stat-label">% Participação</div><div class="stat-value">${participacao.toFixed(2)}%</div></div>
+          <div class="stat"><div class="stat-label">Colaboradores</div><div class="stat-value">${qtdColaboradores}</div></div>
+        </div>
+      </div>
+      <div class="section">
+        <div class="section-title green">💵 COMISSÕES</div>
+        <div class="grid">
+          <div class="stat"><div class="stat-label">Faixa</div><div class="stat-value">${faixaInfo} (${percentualComissao}%)</div></div>
+          <div class="stat"><div class="stat-label">Comissão MRR</div><div class="stat-value">${formatCurrency(valorComissao)}</div></div>
+          <div class="stat"><div class="stat-label">Adesão (${comissaoVendaUnicaPercent}%)</div><div class="stat-value">${formatCurrency(comissaoVendaUnica)}</div></div>
+          <div class="stat"><div class="stat-label">Total Comissões</div><div class="stat-value">${formatCurrency(totalComissoes)}</div></div>
+        </div>
+      </div>
+      <div class="section">
+        <div class="section-title orange">🎁 BÔNUS</div>
+        <div class="grid">
+          <div class="stat"><div class="stat-label">Bônus Anual (x${multiplicadorAnual})</div><div class="stat-value">${formatCurrency(bonusAnual)}</div></div>
+          <div class="stat"><div class="stat-label">Bônus Meta Equipe</div><div class="stat-value">${formatCurrency(bonusMetaEquipe)}</div></div>
+          <div class="stat"><div class="stat-label">Bônus Empresa</div><div class="stat-value">${formatCurrency(bonusEmpresa)}</div></div>
+          <div class="stat"><div class="stat-label">Total Bônus</div><div class="stat-value">${formatCurrency(totalBonusMetas)}</div></div>
+        </div>
+      </div>
+      <div class="total-box">
+        <span class="label">🏆 TOTAL A RECEBER</span>
+        <span class="value">${formatCurrency(totalReceber)}</span>
+      </div>
+      ${vendasVend.length > 0 ? `
+      <div class="section" style="padding-bottom: 0;">
+        <div class="section-title">📋 DETALHAMENTO DE VENDAS (${vendasVend.length})</div>
+        <div style="overflow-x: auto;">
+          <table class="sales-table">
+            <thead>
+              <tr>
+                <th>Data</th>
+                <th>Cliente</th>
+                <th>Tipo</th>
+                <th>Intervalo</th>
+                <th style="text-align: right;">MRR</th>
+                <th style="text-align: right;">Adesão</th>
+                <th>Flags</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${vendasVend.map(v => `
+              <tr>
+                <td>${v.data_contrato ? format(new Date(v.data_contrato), "dd/MM/yy") : "-"}</td>
+                <td>${v.cliente || "-"}</td>
+                <td>${v.tipo_venda || "-"}</td>
+                <td>${v.intervalo || "-"}</td>
+                <td style="text-align: right;">${formatCurrency(v.valor_mrr)}</td>
+                <td style="text-align: right;">${formatCurrency(v.valor_adesao)}</td>
+                <td>
+                  ${v.conta_comissao ? '<span class="flag c">C</span>' : ''}
+                  ${v.conta_faixa ? '<span class="flag f">F</span>' : ''}
+                  ${v.conta_meta ? '<span class="flag m">M</span>' : ''}
+                </td>
+              </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="legend">Flags: C = Conta Comissão | F = Conta Faixa | M = Conta Meta</div>
+      ` : ''}
+    </div>
+    <div class="footer">
+      Gerado em ${format(new Date(), "dd/MM/yyyy 'às' HH:mm")} • SISMAIS Cohort Analyzer
+    </div>
+  </div>
+</body>
+</html>`;
+
+    // Create blob and open in new tab
+    const blob = new Blob([html], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    window.open(url, '_blank');
+  };
+
+  const handleGenerateHtml = async () => {
+    if (!fechamentoAtual || vendas.length === 0) return;
+    if (selectedVendedor === "todos") {
+      toast({ title: "Atenção", description: "Selecione um vendedor específico para gerar o relatório HTML.", variant: "destructive" });
+      return;
+    }
+
+    setIsGeneratingHtml(true);
+    try {
+      generateHtmlReport(selectedVendedor);
+      toast({ title: "Sucesso!", description: "Relatório HTML gerado em nova aba." });
+    } catch (error) {
+      console.error("Erro ao gerar HTML:", error);
+      toast({ title: "Erro", description: "Erro ao gerar relatório HTML.", variant: "destructive" });
+    } finally {
+      setIsGeneratingHtml(false);
+    }
   };
 
   // Generate PDF for all salespeople or selected one
@@ -783,6 +1007,20 @@ export default function RelatorioVendas() {
                 )}
                 {selectedVendedor !== "todos" ? "Gerar PDF" : "Gerar PDFs"}
               </Button>
+              {selectedVendedor !== "todos" && (
+                <Button
+                  variant="outline"
+                  onClick={handleGenerateHtml}
+                  disabled={isGeneratingHtml || vendas.length === 0}
+                >
+                  {isGeneratingHtml ? (
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  ) : (
+                    <Share2 className="w-4 h-4 mr-2" />
+                  )}
+                  Compartilhar HTML
+                </Button>
+              )}
             </div>
           )}
         </CardContent>
