@@ -65,6 +65,7 @@ export default function ConfiguracoesComissao() {
   const [configForm, setConfigForm] = useState({
     meta_mrr: "",
     meta_quantidade: "",
+    meta_mes: "",
     bonus_meta_equipe: "",
     bonus_meta_empresa: "",
     num_colaboradores: "",
@@ -105,6 +106,7 @@ export default function ConfiguracoesComissao() {
       setConfigForm({
         meta_mrr: getConfig("meta_mrr"),
         meta_quantidade: getConfig("meta_quantidade"),
+        meta_mes: getConfig("meta_mes"),
         bonus_meta_equipe: getConfig("bonus_meta_equipe"),
         bonus_meta_empresa: getConfig("bonus_meta_empresa"),
         num_colaboradores: getConfig("num_colaboradores"),
@@ -392,28 +394,55 @@ export default function ConfiguracoesComissao() {
                 />
               </div>
               <div className="space-y-2">
+                <Label htmlFor="meta_mes">Meta Mensal</Label>
+                <Input
+                  id="meta_mes"
+                  type="text"
+                  value={configForm.meta_mes}
+                  onChange={(e) =>
+                    setConfigForm({ ...configForm, meta_mes: e.target.value })
+                  }
+                  placeholder="Ex: Janeiro/2025"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Mês de referência para a meta
+                </p>
+              </div>
+              <div className="space-y-2">
                 <Label htmlFor="bonus_meta_equipe">Bônus Meta Equipe (%)</Label>
                 <Input
                   id="bonus_meta_equipe"
                   type="number"
+                  step="1"
+                  min="0"
+                  max="100"
                   value={configForm.bonus_meta_equipe}
                   onChange={(e) =>
                     setConfigForm({ ...configForm, bonus_meta_equipe: e.target.value })
                   }
                   placeholder="Ex: 10"
                 />
+                <p className="text-xs text-muted-foreground">
+                  Digite 10 para 10%
+                </p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="bonus_meta_empresa">Bônus Meta Empresa (%)</Label>
                 <Input
                   id="bonus_meta_empresa"
                   type="number"
+                  step="1"
+                  min="0"
+                  max="100"
                   value={configForm.bonus_meta_empresa}
                   onChange={(e) =>
                     setConfigForm({ ...configForm, bonus_meta_empresa: e.target.value })
                   }
                   placeholder="Ex: 10"
                 />
+                <p className="text-xs text-muted-foreground">
+                  Digite 10 para 10%
+                </p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="num_colaboradores">Nº Colaboradores</Label>
@@ -445,7 +474,9 @@ export default function ConfiguracoesComissao() {
                 <Input
                   id="comissao_venda_unica"
                   type="number"
-                  step="0.1"
+                  step="1"
+                  min="0"
+                  max="100"
                   value={configForm.comissao_venda_unica}
                   onChange={(e) =>
                     setConfigForm({ ...configForm, comissao_venda_unica: e.target.value })
@@ -453,7 +484,7 @@ export default function ConfiguracoesComissao() {
                   placeholder="Ex: 10"
                 />
                 <p className="text-xs text-muted-foreground">
-                  Percentual aplicado sobre o valor de adesão
+                  Digite 10 para 10% sobre o valor de adesão
                 </p>
               </div>
             </div>
