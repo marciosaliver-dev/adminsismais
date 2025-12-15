@@ -18,6 +18,7 @@ import {
   Table,
   TableBody,
   TableCell,
+  TableFooter,
   TableHead,
   TableHeader,
   TableRow,
@@ -279,6 +280,18 @@ export default function RelatorioVendas() {
         ? String(valA).localeCompare(String(valB))
         : String(valB).localeCompare(String(valA));
     });
+
+  // Calculate totals for filtered data
+  const totaisFiltrados = vendasFiltradas.reduce(
+    (acc, v) => ({
+      qtd: acc.qtd + 1,
+      mrr: acc.mrr + v.valor_mrr,
+      mrrComissao: acc.mrrComissao + (v.conta_comissao ? v.valor_mrr : 0),
+      assinatura: acc.assinatura + v.valor_assinatura,
+      adesao: acc.adesao + v.valor_adesao,
+    }),
+    { qtd: 0, mrr: 0, mrrComissao: 0, assinatura: 0, adesao: 0 }
+  );
 
   // Group vendas por vendedor (usar vendas originais, não filtradas)
   const vendasPorVendedor = vendas.reduce((acc, venda) => {
@@ -777,15 +790,52 @@ export default function RelatorioVendas() {
         </CardContent>
       </Card>
 
+      {/* Summary Cards */}
+      {selectedFechamento && vendasFiltradas.length > 0 && (
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          <Card className="bg-gradient-to-br from-primary/10 to-primary/5">
+            <CardContent className="pt-4">
+              <p className="text-sm text-muted-foreground">Total Vendas</p>
+              <p className="text-2xl font-bold">{totaisFiltrados.qtd}</p>
+            </CardContent>
+          </Card>
+          <Card className="bg-gradient-to-br from-cyan-500/10 to-cyan-500/5">
+            <CardContent className="pt-4">
+              <p className="text-sm text-muted-foreground">MRR Total</p>
+              <p className="text-2xl font-bold text-cyan-600">{formatCurrency(totaisFiltrados.mrr)}</p>
+            </CardContent>
+          </Card>
+          <Card className="bg-gradient-to-br from-green-500/10 to-green-500/5">
+            <CardContent className="pt-4">
+              <p className="text-sm text-muted-foreground">MRR Comissão</p>
+              <p className="text-2xl font-bold text-green-600">{formatCurrency(totaisFiltrados.mrrComissao)}</p>
+            </CardContent>
+          </Card>
+          <Card className="bg-gradient-to-br from-blue-500/10 to-blue-500/5">
+            <CardContent className="pt-4">
+              <p className="text-sm text-muted-foreground">Total Assinaturas</p>
+              <p className="text-2xl font-bold text-blue-600">{formatCurrency(totaisFiltrados.assinatura)}</p>
+            </CardContent>
+          </Card>
+          <Card className="bg-gradient-to-br from-amber-500/10 to-amber-500/5">
+            <CardContent className="pt-4">
+              <p className="text-sm text-muted-foreground">Total Adesões</p>
+              <p className="text-2xl font-bold text-amber-600">{formatCurrency(totaisFiltrados.adesao)}</p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       {/* Vendas Table */}
       {selectedFechamento && (
         <Card>
-          <CardHeader>
-            <CardTitle>
-              Vendas {selectedVendedor !== "todos" && `- ${selectedVendedor}`} ({vendasFiltradas.length})
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg">
+              📋 Vendas {selectedVendedor !== "todos" && `- ${selectedVendedor}`} 
+              <Badge variant="secondary" className="ml-2">{vendasFiltradas.length}</Badge>
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-0">
             {loadingVendas ? (
               <div className="flex justify-center py-8">
                 <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
@@ -793,12 +843,12 @@ export default function RelatorioVendas() {
             ) : vendasFiltradas.length === 0 ? (
               <p className="text-center text-muted-foreground py-8">Nenhuma venda encontrada.</p>
             ) : (
-              <div className="overflow-x-auto">
+              <div className="overflow-auto max-h-[500px] border rounded-md">
                 <Table>
-                  <TableHeader>
+                  <TableHeader className="bg-primary/10 sticky top-0">
                     <TableRow>
                       <TableHead 
-                        className="cursor-pointer hover:bg-muted/50 select-none"
+                        className="cursor-pointer hover:bg-muted/50 select-none text-xs"
                         onClick={() => {
                           if (sortColumn === "data_contrato") {
                             setSortDirection(sortDirection === "asc" ? "desc" : "asc");
@@ -811,30 +861,13 @@ export default function RelatorioVendas() {
                         <div className="flex items-center gap-1">
                           Data
                           {sortColumn === "data_contrato" ? (
-                            sortDirection === "asc" ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />
-                          ) : <ArrowUpDown className="h-4 w-4 text-muted-foreground" />}
+                            sortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                          ) : <ArrowUpDown className="h-3 w-3 text-muted-foreground" />}
                         </div>
                       </TableHead>
+                      <TableHead className="text-xs">Contrato</TableHead>
                       <TableHead 
-                        className="cursor-pointer hover:bg-muted/50 select-none"
-                        onClick={() => {
-                          if (sortColumn === "vendedor") {
-                            setSortDirection(sortDirection === "asc" ? "desc" : "asc");
-                          } else {
-                            setSortColumn("vendedor");
-                            setSortDirection("asc");
-                          }
-                        }}
-                      >
-                        <div className="flex items-center gap-1">
-                          Vendedor
-                          {sortColumn === "vendedor" ? (
-                            sortDirection === "asc" ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />
-                          ) : <ArrowUpDown className="h-4 w-4 text-muted-foreground" />}
-                        </div>
-                      </TableHead>
-                      <TableHead 
-                        className="cursor-pointer hover:bg-muted/50 select-none"
+                        className="cursor-pointer hover:bg-muted/50 select-none text-xs"
                         onClick={() => {
                           if (sortColumn === "cliente") {
                             setSortDirection(sortDirection === "asc" ? "desc" : "asc");
@@ -847,12 +880,12 @@ export default function RelatorioVendas() {
                         <div className="flex items-center gap-1">
                           Cliente
                           {sortColumn === "cliente" ? (
-                            sortDirection === "asc" ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />
-                          ) : <ArrowUpDown className="h-4 w-4 text-muted-foreground" />}
+                            sortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                          ) : <ArrowUpDown className="h-3 w-3 text-muted-foreground" />}
                         </div>
                       </TableHead>
                       <TableHead 
-                        className="cursor-pointer hover:bg-muted/50 select-none"
+                        className="cursor-pointer hover:bg-muted/50 select-none text-xs"
                         onClick={() => {
                           if (sortColumn === "tipo_venda") {
                             setSortDirection(sortDirection === "asc" ? "desc" : "asc");
@@ -865,12 +898,12 @@ export default function RelatorioVendas() {
                         <div className="flex items-center gap-1">
                           Tipo
                           {sortColumn === "tipo_venda" ? (
-                            sortDirection === "asc" ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />
-                          ) : <ArrowUpDown className="h-4 w-4 text-muted-foreground" />}
+                            sortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                          ) : <ArrowUpDown className="h-3 w-3 text-muted-foreground" />}
                         </div>
                       </TableHead>
                       <TableHead 
-                        className="cursor-pointer hover:bg-muted/50 select-none"
+                        className="cursor-pointer hover:bg-muted/50 select-none text-xs"
                         onClick={() => {
                           if (sortColumn === "intervalo") {
                             setSortDirection(sortDirection === "asc" ? "desc" : "asc");
@@ -883,12 +916,30 @@ export default function RelatorioVendas() {
                         <div className="flex items-center gap-1">
                           Intervalo
                           {sortColumn === "intervalo" ? (
-                            sortDirection === "asc" ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />
-                          ) : <ArrowUpDown className="h-4 w-4 text-muted-foreground" />}
+                            sortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                          ) : <ArrowUpDown className="h-3 w-3 text-muted-foreground" />}
                         </div>
                       </TableHead>
                       <TableHead 
-                        className="text-right cursor-pointer hover:bg-muted/50 select-none"
+                        className="cursor-pointer hover:bg-muted/50 select-none text-xs"
+                        onClick={() => {
+                          if (sortColumn === "vendedor") {
+                            setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+                          } else {
+                            setSortColumn("vendedor");
+                            setSortDirection("asc");
+                          }
+                        }}
+                      >
+                        <div className="flex items-center gap-1">
+                          Vendedor
+                          {sortColumn === "vendedor" ? (
+                            sortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                          ) : <ArrowUpDown className="h-3 w-3 text-muted-foreground" />}
+                        </div>
+                      </TableHead>
+                      <TableHead 
+                        className="text-right cursor-pointer hover:bg-muted/50 select-none text-xs"
                         onClick={() => {
                           if (sortColumn === "valor_mrr") {
                             setSortDirection(sortDirection === "asc" ? "desc" : "asc");
@@ -901,12 +952,12 @@ export default function RelatorioVendas() {
                         <div className="flex items-center justify-end gap-1">
                           MRR
                           {sortColumn === "valor_mrr" ? (
-                            sortDirection === "asc" ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />
-                          ) : <ArrowUpDown className="h-4 w-4 text-muted-foreground" />}
+                            sortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                          ) : <ArrowUpDown className="h-3 w-3 text-muted-foreground" />}
                         </div>
                       </TableHead>
                       <TableHead 
-                        className="text-right cursor-pointer hover:bg-muted/50 select-none"
+                        className="text-right cursor-pointer hover:bg-muted/50 select-none text-xs"
                         onClick={() => {
                           if (sortColumn === "valor_assinatura") {
                             setSortDirection(sortDirection === "asc" ? "desc" : "asc");
@@ -919,70 +970,80 @@ export default function RelatorioVendas() {
                         <div className="flex items-center justify-end gap-1">
                           Assinatura
                           {sortColumn === "valor_assinatura" ? (
-                            sortDirection === "asc" ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />
-                          ) : <ArrowUpDown className="h-4 w-4 text-muted-foreground" />}
+                            sortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                          ) : <ArrowUpDown className="h-3 w-3 text-muted-foreground" />}
                         </div>
                       </TableHead>
-                      <TableHead className="text-center">Flags</TableHead>
-                      {isRascunho && <TableHead className="text-center">Ações</TableHead>}
+                      <TableHead className="text-right text-xs">Adesão</TableHead>
+                      <TableHead className="text-center text-xs">Flags</TableHead>
+                      {isRascunho && <TableHead className="text-center text-xs">Ações</TableHead>}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {vendasFiltradas.map((venda, idx) => (
-                      <TableRow key={venda.id} className={idx % 2 === 0 ? "bg-muted/30" : ""}>
-                        <TableCell>
+                      <TableRow key={venda.id} className={idx % 2 === 0 ? "bg-muted/20" : ""}>
+                        <TableCell className="text-sm py-2">
                           {venda.data_contrato
                             ? format(new Date(venda.data_contrato), "dd/MM/yyyy")
                             : "-"}
                         </TableCell>
-                        <TableCell className="font-medium">{venda.vendedor || "-"}</TableCell>
-                        <TableCell>{venda.cliente || "-"}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline">{venda.tipo_venda || "-"}</Badge>
+                        <TableCell className="text-sm py-2 font-mono text-xs">
+                          {venda.num_contrato ? venda.num_contrato.substring(0, 20) : "-"}
                         </TableCell>
-                        <TableCell>{venda.intervalo || "-"}</TableCell>
-                        <TableCell className="text-right font-medium">
+                        <TableCell className="text-sm py-2 max-w-[200px] truncate" title={venda.cliente || ""}>
+                          {venda.cliente || "-"}
+                        </TableCell>
+                        <TableCell className="py-2">
+                          <Badge variant="outline" className="text-xs">{venda.tipo_venda || "-"}</Badge>
+                        </TableCell>
+                        <TableCell className="text-sm py-2">{venda.intervalo || "-"}</TableCell>
+                        <TableCell className="text-sm py-2 font-medium">{venda.vendedor || "-"}</TableCell>
+                        <TableCell className="text-right text-sm py-2 font-semibold text-cyan-600">
                           {formatCurrency(venda.valor_mrr)}
                         </TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="text-right text-sm py-2">
                           {formatCurrency(venda.valor_assinatura)}
                         </TableCell>
-                        <TableCell className="text-center">
-                          <div className="flex justify-center gap-1">
+                        <TableCell className="text-right text-sm py-2">
+                          {formatCurrency(venda.valor_adesao)}
+                        </TableCell>
+                        <TableCell className="text-center py-2">
+                          <div className="flex justify-center gap-0.5">
                             {venda.conta_comissao && (
-                              <Badge variant="outline" className="text-xs bg-green-100 text-green-700">
+                              <Badge variant="outline" className="text-[10px] px-1 bg-green-100 text-green-700">
                                 C
                               </Badge>
                             )}
                             {venda.conta_faixa && (
-                              <Badge variant="outline" className="text-xs bg-blue-100 text-blue-700">
+                              <Badge variant="outline" className="text-[10px] px-1 bg-blue-100 text-blue-700">
                                 F
                               </Badge>
                             )}
                             {venda.conta_meta && (
-                              <Badge variant="outline" className="text-xs bg-yellow-100 text-yellow-700">
+                              <Badge variant="outline" className="text-[10px] px-1 bg-yellow-100 text-yellow-700">
                                 M
                               </Badge>
                             )}
                           </div>
                         </TableCell>
                         {isRascunho && (
-                          <TableCell>
-                            <div className="flex justify-center gap-1">
+                          <TableCell className="py-2">
+                            <div className="flex justify-center gap-0.5">
                               <Button
                                 variant="ghost"
                                 size="icon"
+                                className="h-7 w-7"
                                 onClick={() => handleEditVenda(venda)}
                               >
-                                <Pencil className="w-4 h-4" />
+                                <Pencil className="w-3 h-3" />
                               </Button>
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="text-destructive"
+                                className="h-7 w-7 text-destructive"
                                 onClick={() => handleDeleteVenda(venda.id)}
                               >
-                                <Trash2 className="w-4 h-4" />
+                                <Trash2 className="w-3 h-3" />
                               </Button>
                             </div>
                           </TableCell>
@@ -990,6 +1051,24 @@ export default function RelatorioVendas() {
                       </TableRow>
                     ))}
                   </TableBody>
+                  <TableFooter className="bg-primary/20 sticky bottom-0">
+                    <TableRow className="font-bold">
+                      <TableCell colSpan={2} className="text-sm">Total Assinaturas</TableCell>
+                      <TableCell className="text-sm font-bold">{totaisFiltrados.qtd}</TableCell>
+                      <TableCell colSpan={3}></TableCell>
+                      <TableCell className="text-right text-sm font-bold text-cyan-700">
+                        {formatCurrency(totaisFiltrados.mrr)}
+                      </TableCell>
+                      <TableCell className="text-right text-sm font-bold">
+                        {formatCurrency(totaisFiltrados.assinatura)}
+                      </TableCell>
+                      <TableCell className="text-right text-sm font-bold">
+                        {formatCurrency(totaisFiltrados.adesao)}
+                      </TableCell>
+                      <TableCell></TableCell>
+                      {isRascunho && <TableCell></TableCell>}
+                    </TableRow>
+                  </TableFooter>
                 </Table>
               </div>
             )}
