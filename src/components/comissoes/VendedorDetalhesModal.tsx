@@ -129,6 +129,11 @@ export default function VendedorDetalhesModal({
     .filter((v) => v.intervalo === "Anual" && v.conta_comissao)
     .reduce((acc, v) => acc + v.valor_mrr, 0);
 
+  // Calcular total adesão
+  const totalAdesao = vendas
+    .filter((v) => v.conta_comissao)
+    .reduce((acc, v) => acc + v.valor_adesao, 0);
+
   const mesAnoFormatado = format(new Date(mesReferencia), "MMMM/yyyy", { locale: ptBR });
 
   return (
@@ -224,6 +229,15 @@ export default function VendedorDetalhesModal({
                       {metaBatida ? formatCurrency(comissao.bonus_empresa) : (
                         <span className="text-muted-foreground">R$ 0,00</span>
                       )}
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell>Comissão Venda Única (Adesão)</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      10% de {formatCurrency(totalAdesao)}
+                    </TableCell>
+                    <TableCell className="text-right font-medium">
+                      {formatCurrency((comissao as any).comissao_venda_unica || 0)}
                     </TableCell>
                   </TableRow>
                   <TableRow className="bg-muted/50 font-bold">
