@@ -41,7 +41,7 @@ import { Badge } from "@/components/ui/badge";
 import { TableSkeleton } from "@/components/ui/table-skeleton";
 import { Eye, Download, Trash2, Loader2, Filter, AlertCircle, FileSpreadsheet } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import * as XLSX from "xlsx";
 import type { Tables } from "@/integrations/supabase/types";
@@ -183,8 +183,8 @@ export default function HistoricoComissoes() {
         .eq("fechamento_id", fechamento.id)
         .order("data_contrato", { ascending: false });
 
-      const mesAnoRef = format(new Date(fechamento.mes_referencia), "MMMM/yyyy", { locale: ptBR });
-      const mesAnoFile = format(new Date(fechamento.mes_referencia), "yyyy-MM");
+      const mesAnoRef = format(parseISO(fechamento.mes_referencia), "MMMM/yyyy", { locale: ptBR });
+      const mesAnoFile = format(parseISO(fechamento.mes_referencia), "yyyy-MM");
 
       // ABA 1: RESUMO
       const resumoData: (string | number)[][] = [

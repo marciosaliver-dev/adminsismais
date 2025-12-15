@@ -33,7 +33,7 @@ import { Badge } from "@/components/ui/badge";
 import { TableSkeleton } from "@/components/ui/table-skeleton";
 import { Upload, FileText, Loader2, Eye, Download, Trash2, AlertCircle, FileSpreadsheet, ClipboardList } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
-import { format, parse } from "date-fns";
+import { format, parse, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import type { Tables, TablesInsert } from "@/integrations/supabase/types";
 
@@ -179,6 +179,26 @@ export default function Comissoes() {
   const [deletingFechamento, setDeletingFechamento] = useState<FechamentoComissao | null>(null);
   const [replaceDialogOpen, setReplaceDialogOpen] = useState(false);
   const [existingFechamento, setExistingFechamento] = useState<FechamentoComissao | null>(null);
+
+  // Fetch metas mensais para destacar no seletor
+  const { data: metasMensais = [] } = useQuery({
+    queryKey: ["metas_mensais_lista"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("meta_mensal")
+        .select("mes_referencia")
+        .order("mes_referencia", { ascending: false });
+      if (error) throw error;
+      return data.map(m => m.mes_referencia);
+    },
+  });
+
+  // Criar lista de meses com indicador de meta
+  const mesesComMeta = MESES.map(mes => {
+    const mesRef = `${selectedYear}-${mes.value.padStart(2, "0")}-01`;
+    const temMeta = metasMensais.includes(mesRef);
+    return { ...mes, temMeta };
+  });
 
   // Fetch últimos fechamentos
   const { data: fechamentos = [], isLoading } = useQuery({
@@ -416,7 +436,8 @@ export default function Comissoes() {
   };
 
   const formatMesAno = (date: string) => {
-    const d = new Date(date);
+    // Use parseISO to avoid timezone issues
+    const d = parseISO(date);
     return format(d, "MMMM/yyyy", { locale: ptBR });
   };
 
@@ -442,19 +463,29 @@ export default function Comissoes() {
           {/* Seletores */}
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="flex-1 space-y-2">
-              <label className="text-sm font-medium">Mês</label>
+              <label className="text-sm font-medium">Mês de Referência</label>
               <Select value={selectedMonth} onValueChange={setSelectedMonth}>
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione o mês" />
                 </SelectTrigger>
                 <SelectContent className="bg-card border border-border">
-                  {MESES.map((mes) => (
+                  {mesesComMeta.map((mes) => (
                     <SelectItem key={mes.value} value={mes.value}>
-                      {mes.label}
+                      <div className="flex items-center gap-2">
+                        {mes.label}
+                        {mes.temMeta && (
+                          <Badge variant="outline" className="text-[10px] px-1 py-0 bg-green-100 text-green-700 border-green-300">
+                            Meta
+                          </Badge>
+                        )}
+                      </div>
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              <p className="text-xs text-muted-foreground">
+                Meses com <Badge variant="outline" className="text-[10px] px-1 py-0 bg-green-100 text-green-700 border-green-300 inline-flex">Meta</Badge> possuem configuração de meta cadastrada
+              </p>
             </div>
             <div className="flex-1 space-y-2">
               <label className="text-sm font-medium">Ano</label>
