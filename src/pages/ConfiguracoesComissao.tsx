@@ -19,6 +19,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -30,12 +31,24 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Plus, Pencil, Trash2, Save } from "lucide-react";
+import { Plus, Pencil, Trash2, Save, Calendar, Target } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
-import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
+import type { Tables } from "@/integrations/supabase/types";
+import { format, parse } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 type FaixaComissao = Tables<"faixa_comissao">;
 type ConfiguracaoComissao = Tables<"configuracao_comissao">;
+
+interface MetaMensal {
+  id: string;
+  mes_referencia: string;
+  meta_mrr: number;
+  meta_quantidade: number;
+  observacao: string | null;
+  created_at: string;
+  updated_at: string;
+}
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat("pt-BR", {
@@ -46,6 +59,15 @@ const formatCurrency = (value: number) => {
 
 const formatPercent = (value: number) => {
   return `${value}%`;
+};
+
+const formatMonthYear = (dateStr: string) => {
+  try {
+    const date = new Date(dateStr + "T00:00:00");
+    return format(date, "MMMM/yyyy", { locale: ptBR });
+  } catch {
+    return dateStr;
+  }
 };
 
 export default function ConfiguracoesComissao() {
@@ -60,6 +82,18 @@ export default function ConfiguracoesComissao() {
     mrr_max: null as number | null,
     percentual: 0,
     ordem: 0,
+  });
+
+  // Meta mensal state
+  const [isMetaDialogOpen, setIsMetaDialogOpen] = useState(false);
+  const [isDeleteMetaDialogOpen, setIsDeleteMetaDialogOpen] = useState(false);
+  const [editingMeta, setEditingMeta] = useState<MetaMensal | null>(null);
+  const [deletingMeta, setDeletingMeta] = useState<MetaMensal | null>(null);
+  const [metaForm, setMetaForm] = useState({
+    mes_referencia: "",
+    meta_mrr: 0,
+    meta_quantidade: 0,
+    observacao: "",
   });
 
   const [configForm, setConfigForm] = useState({
@@ -83,6 +117,19 @@ export default function ConfiguracoesComissao() {
         .order("ordem", { ascending: true });
       if (error) throw error;
       return data as FaixaComissao[];
+    },
+  });
+
+  // Fetch metas mensais
+  const { data: metasMensais = [], isLoading: loadingMetas } = useQuery({
+    queryKey: ["metas_mensais"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("meta_mensal")
+        .select("*")
+        .order("mes_referencia", { ascending: false });
+      if (error) throw error;
+      return data as MetaMensal[];
     },
   });
 
@@ -229,9 +276,86 @@ export default function ConfiguracoesComissao() {
     },
   });
 
+  // Create/Update meta mensal mutation
+  const metaMutation = useMutation({
+    mutationFn: async () => {
+      if (editingMeta) {
+        const { error } = await supabase
+          .from("meta_mensal")
+          .update({
+            mes_referencia: metaForm.mes_referencia,
+            meta_mrr: metaForm.meta_mrr,
+            meta_quantidade: metaForm.meta_quantidade,
+            observacao: metaForm.observacao || null,
+          })
+          .eq("id", editingMeta.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("meta_mensal").insert([{
+          mes_referencia: metaForm.mes_referencia,
+          meta_mrr: metaForm.meta_mrr,
+          meta_quantidade: metaForm.meta_quantidade,
+          observacao: metaForm.observacao || null,
+        }]);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["metas_mensais"] });
+      setIsMetaDialogOpen(false);
+      resetMetaForm();
+      toast({
+        title: "Sucesso!",
+        description: editingMeta
+          ? "Meta mensal atualizada com sucesso."
+          : "Meta mensal criada com sucesso.",
+      });
+    },
+    onError: (error: any) => {
+      const isDuplicate = error?.message?.includes("duplicate") || error?.code === "23505";
+      toast({
+        title: "Erro",
+        description: isDuplicate 
+          ? "Já existe uma meta para este mês." 
+          : "Ocorreu um erro ao salvar a meta mensal.",
+        variant: "destructive",
+      });
+      console.error(error);
+    },
+  });
+
+  // Delete meta mensal mutation
+  const deleteMetaMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("meta_mensal").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["metas_mensais"] });
+      setIsDeleteMetaDialogOpen(false);
+      setDeletingMeta(null);
+      toast({
+        title: "Sucesso!",
+        description: "Meta mensal excluída com sucesso.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Erro",
+        description: error.message || "Ocorreu um erro ao excluir a meta mensal.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const resetFaixaForm = () => {
     setFaixaForm({ nome: "", mrr_min: 0, mrr_max: null, percentual: 0, ordem: 0 });
     setEditingFaixa(null);
+  };
+
+  const resetMetaForm = () => {
+    setMetaForm({ mes_referencia: "", meta_mrr: 0, meta_quantidade: 0, observacao: "" });
+    setEditingMeta(null);
   };
 
   const openEditDialog = (faixa: FaixaComissao) => {
@@ -251,6 +375,22 @@ export default function ConfiguracoesComissao() {
     setIsDeleteDialogOpen(true);
   };
 
+  const openEditMetaDialog = (meta: MetaMensal) => {
+    setEditingMeta(meta);
+    setMetaForm({
+      mes_referencia: meta.mes_referencia,
+      meta_mrr: meta.meta_mrr,
+      meta_quantidade: meta.meta_quantidade,
+      observacao: meta.observacao || "",
+    });
+    setIsMetaDialogOpen(true);
+  };
+
+  const openDeleteMetaDialog = (meta: MetaMensal) => {
+    setDeletingMeta(meta);
+    setIsDeleteMetaDialogOpen(true);
+  };
+
   const handleFaixaSubmit = () => {
     // Validation
     if (!faixaForm.nome.trim()) {
@@ -267,6 +407,20 @@ export default function ConfiguracoesComissao() {
     }
 
     faixaMutation.mutate();
+  };
+
+  const handleMetaSubmit = () => {
+    // Validation
+    if (!metaForm.mes_referencia) {
+      toast({ title: "Erro", description: "Mês de referência é obrigatório.", variant: "destructive" });
+      return;
+    }
+    if (metaForm.meta_mrr <= 0) {
+      toast({ title: "Erro", description: "Meta de MRR deve ser maior que zero.", variant: "destructive" });
+      return;
+    }
+
+    metaMutation.mutate();
   };
 
   const handleConfigSubmit = () => {
@@ -359,55 +513,99 @@ export default function ConfiguracoesComissao() {
         </CardContent>
       </Card>
 
-      {/* Seção 2: Metas e Bônus */}
+      {/* Seção 2: Metas Mensais */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="flex items-center gap-2">
+            <Calendar className="w-5 h-5" />
+            Metas Mensais
+          </CardTitle>
+          <Button
+            onClick={() => {
+              resetMetaForm();
+              setIsMetaDialogOpen(true);
+            }}
+            className="gap-2"
+          >
+            <Plus className="w-4 h-4" />
+            Nova Meta
+          </Button>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Mês</TableHead>
+                <TableHead>Meta MRR</TableHead>
+                <TableHead>Meta Quantidade</TableHead>
+                <TableHead>Observação</TableHead>
+                <TableHead className="text-right">Ações</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loadingMetas ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center">
+                    Carregando...
+                  </TableCell>
+                </TableRow>
+              ) : metasMensais.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center text-muted-foreground">
+                    Nenhuma meta mensal cadastrada
+                  </TableCell>
+                </TableRow>
+              ) : (
+                metasMensais.map((meta) => (
+                  <TableRow key={meta.id}>
+                    <TableCell className="font-medium capitalize">
+                      {formatMonthYear(meta.mes_referencia)}
+                    </TableCell>
+                    <TableCell>{formatCurrency(meta.meta_mrr)}</TableCell>
+                    <TableCell>{meta.meta_quantidade}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {meta.observacao || "—"}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={() => openEditMetaDialog(meta)}
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="text-destructive hover:text-destructive"
+                          onClick={() => openDeleteMetaDialog(meta)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      {/* Seção 3: Bônus e Configurações Gerais */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">🎯 Metas e Bônus</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <Target className="w-5 h-5" />
+            Bônus e Configurações Gerais
+          </CardTitle>
         </CardHeader>
         <CardContent>
           {loadingConfig ? (
             <p className="text-muted-foreground">Carregando...</p>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <div className="space-y-2">
-                <Label htmlFor="meta_mrr">Meta de MRR</Label>
-                <Input
-                  id="meta_mrr"
-                  type="number"
-                  value={configForm.meta_mrr}
-                  onChange={(e) =>
-                    setConfigForm({ ...configForm, meta_mrr: e.target.value })
-                  }
-                  placeholder="Ex: 8500"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="meta_quantidade">Meta de Quantidade</Label>
-                <Input
-                  id="meta_quantidade"
-                  type="number"
-                  value={configForm.meta_quantidade}
-                  onChange={(e) =>
-                    setConfigForm({ ...configForm, meta_quantidade: e.target.value })
-                  }
-                  placeholder="Ex: 130"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="meta_mes">Meta Mensal</Label>
-                <Input
-                  id="meta_mes"
-                  type="text"
-                  value={configForm.meta_mes}
-                  onChange={(e) =>
-                    setConfigForm({ ...configForm, meta_mes: e.target.value })
-                  }
-                  placeholder="Ex: Janeiro/2025"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Mês de referência para a meta
-                </p>
-              </div>
               <div className="space-y-2">
                 <Label htmlFor="bonus_meta_equipe">Bônus Meta Equipe (%)</Label>
                 <Input
@@ -602,6 +800,99 @@ export default function ConfiguracoesComissao() {
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={() => deletingFaixa && deleteMutation.mutate(deletingFaixa.id)}
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Dialog para criar/editar meta mensal */}
+      <Dialog open={isMetaDialogOpen} onOpenChange={setIsMetaDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {editingMeta ? "Editar Meta Mensal" : "Nova Meta Mensal"}
+            </DialogTitle>
+            <DialogDescription>
+              Defina a meta de MRR e quantidade de vendas para o mês
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="mes_referencia">Mês de Referência</Label>
+              <Input
+                id="mes_referencia"
+                type="month"
+                value={metaForm.mes_referencia?.substring(0, 7) || ""}
+                onChange={(e) =>
+                  setMetaForm({ ...metaForm, mes_referencia: e.target.value + "-01" })
+                }
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="meta_mrr_form">Meta de MRR</Label>
+                <Input
+                  id="meta_mrr_form"
+                  type="number"
+                  value={metaForm.meta_mrr}
+                  onChange={(e) =>
+                    setMetaForm({ ...metaForm, meta_mrr: Number(e.target.value) })
+                  }
+                  placeholder="Ex: 8500"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="meta_quantidade_form">Meta de Quantidade</Label>
+                <Input
+                  id="meta_quantidade_form"
+                  type="number"
+                  value={metaForm.meta_quantidade}
+                  onChange={(e) =>
+                    setMetaForm({ ...metaForm, meta_quantidade: Number(e.target.value) })
+                  }
+                  placeholder="Ex: 130"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="observacao">Observação (opcional)</Label>
+              <Input
+                id="observacao"
+                value={metaForm.observacao}
+                onChange={(e) => setMetaForm({ ...metaForm, observacao: e.target.value })}
+                placeholder="Ex: Meta especial fim de ano"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsMetaDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleMetaSubmit} disabled={metaMutation.isPending}>
+              Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Alert Dialog para confirmar exclusão de meta */}
+      <AlertDialog open={isDeleteMetaDialogOpen} onOpenChange={setIsDeleteMetaDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir a meta de{" "}
+              {deletingMeta && formatMonthYear(deletingMeta.mes_referencia)}? Esta ação
+              não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => deletingMeta && deleteMetaMutation.mutate(deletingMeta.id)}
             >
               Excluir
             </AlertDialogAction>

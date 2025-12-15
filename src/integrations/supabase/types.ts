@@ -178,6 +178,36 @@ export type Database = {
         }
         Relationships: []
       }
+      meta_mensal: {
+        Row: {
+          created_at: string
+          id: string
+          mes_referencia: string
+          meta_mrr: number
+          meta_quantidade: number
+          observacao: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          mes_referencia: string
+          meta_mrr?: number
+          meta_quantidade?: number
+          observacao?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          mes_referencia?: string
+          meta_mrr?: number
+          meta_quantidade?: number
+          observacao?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       venda_importada: {
         Row: {
           cliente: string | null

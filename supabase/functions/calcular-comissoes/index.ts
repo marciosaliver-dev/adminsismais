@@ -29,6 +29,13 @@ interface ConfiguracaoComissao {
   valor: string;
 }
 
+interface MetaMensal {
+  id: string;
+  mes_referencia: string;
+  meta_mrr: number;
+  meta_quantidade: number;
+}
+
 interface VendedorDados {
   vendedor: string;
   qtd_vendas: number;
@@ -63,11 +70,24 @@ Deno.serve(async (req) => {
 
     console.log(`[calcular-comissoes] Iniciando cálculo para fechamento: ${fechamento_id}`);
 
-    // Passo 1: Buscar dados
-    const [vendasResult, faixasResult, configResult] = await Promise.all([
+    // Passo 1: Buscar fechamento para obter o mês de referência
+    const { data: fechamento, error: fechamentoError } = await supabase
+      .from("fechamento_comissao")
+      .select("mes_referencia")
+      .eq("id", fechamento_id)
+      .single();
+
+    if (fechamentoError) throw fechamentoError;
+
+    const mesReferencia = fechamento.mes_referencia;
+    console.log(`[calcular-comissoes] Mês de referência: ${mesReferencia}`);
+
+    // Passo 2: Buscar dados
+    const [vendasResult, faixasResult, configResult, metaMensalResult] = await Promise.all([
       supabase.from("venda_importada").select("*").eq("fechamento_id", fechamento_id),
       supabase.from("faixa_comissao").select("*").eq("ativo", true).order("ordem", { ascending: false }),
       supabase.from("configuracao_comissao").select("*"),
+      supabase.from("meta_mensal").select("*").eq("mes_referencia", mesReferencia).maybeSingle(),
     ]);
 
     if (vendasResult.error) throw vendasResult.error;
@@ -77,8 +97,10 @@ Deno.serve(async (req) => {
     const vendas = vendasResult.data as VendaImportada[];
     const faixas = faixasResult.data as FaixaComissao[];
     const configuracoes = configResult.data as ConfiguracaoComissao[];
+    const metaMensal = metaMensalResult.data as MetaMensal | null;
 
     console.log(`[calcular-comissoes] Vendas: ${vendas.length}, Faixas: ${faixas.length}`);
+    console.log(`[calcular-comissoes] Meta mensal encontrada: ${metaMensal ? "Sim" : "Não (usando padrão)"}`);
 
     // Parse configurations
     const getConfig = (chave: string): number => {
@@ -86,13 +108,14 @@ Deno.serve(async (req) => {
       return config ? parseFloat(config.valor) : 0;
     };
 
-    const metaMrr = getConfig("meta_mrr");
-    const metaQuantidade = getConfig("meta_quantidade");
+    // Usar meta mensal se existir, caso contrário usar configuração padrão
+    const metaMrr = metaMensal ? metaMensal.meta_mrr : getConfig("meta_mrr");
+    const metaQuantidade = metaMensal ? metaMensal.meta_quantidade : getConfig("meta_quantidade");
     const bonusMetaEquipePercent = getConfig("bonus_meta_equipe") / 100;
     const bonusMetaEmpresaPercent = getConfig("bonus_meta_empresa") / 100;
     const numColaboradores = getConfig("num_colaboradores") || 1;
 
-    console.log(`[calcular-comissoes] Meta MRR: ${metaMrr}, Meta Qtd: ${metaQuantidade}`);
+    console.log(`[calcular-comissoes] Meta MRR: ${metaMrr}, Meta Qtd: ${metaQuantidade} (${metaMensal ? "meta mensal" : "padrão"})`);
 
     // Passo 2: Agrupar por vendedor
     const vendedoresMap = new Map<string, VendedorDados>();
