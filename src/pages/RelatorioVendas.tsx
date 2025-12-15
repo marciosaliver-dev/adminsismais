@@ -481,14 +481,21 @@ export default function RelatorioVendas() {
     const bonusAnual = comissao?.bonus_anual || 0;
     const bonusMetaEquipe = comissao?.bonus_meta_equipe || 0;
     const bonusEmpresa = comissao?.bonus_empresa || 0;
+    
+    // Calculate commission on venda única (adesão) using the same percentage
+    const percentualDecimal = comissao ? comissao.percentual / 100 : 0;
+    const comissaoVendaUnica = totalAdesao * percentualDecimal;
+    
+    const totalComissoes = valorComissao + comissaoVendaUnica;
     const totalBonusMetas = bonusAnual + bonusMetaEquipe + bonusEmpresa;
-    const totalReceber = comissao?.total_receber || 0;
+    const totalReceber = (comissao?.total_receber || 0) + comissaoVendaUnica;
     const percComissaoMrr = totalMrrComissao > 0 ? (totalReceber / totalMrrComissao) * 100 : 0;
 
     const comissaoData = [
       [`Faixa de Comissão: ${faixaInfo}`, `% Comissão: ${percentualComissao}`],
-      ["Valor de Comissão", formatCurrency(valorComissao)],
-      ["Total Comissões", formatCurrency(valorComissao)],
+      ["Valor de Comissão MRR", formatCurrency(valorComissao)],
+      ["Comissão Venda Única (Adesão)", formatCurrency(comissaoVendaUnica)],
+      ["Total Comissões", formatCurrency(totalComissoes)],
       ["Bônus Venda Anual", formatCurrency(bonusAnual)],
       ["Valor Bônus Meta Equipe de Vendas", formatCurrency(bonusMetaEquipe)],
       ["Valor Bônus Equipe Toda", formatCurrency(bonusEmpresa)],
