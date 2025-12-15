@@ -180,29 +180,44 @@ export type Database = {
       }
       meta_mensal: {
         Row: {
+          bonus_meta_empresa: number
+          bonus_meta_equipe: number
+          comissao_venda_unica: number
           created_at: string
           id: string
           mes_referencia: string
           meta_mrr: number
           meta_quantidade: number
+          multiplicador_anual: number
+          num_colaboradores: number
           observacao: string | null
           updated_at: string
         }
         Insert: {
+          bonus_meta_empresa?: number
+          bonus_meta_equipe?: number
+          comissao_venda_unica?: number
           created_at?: string
           id?: string
           mes_referencia: string
           meta_mrr?: number
           meta_quantidade?: number
+          multiplicador_anual?: number
+          num_colaboradores?: number
           observacao?: string | null
           updated_at?: string
         }
         Update: {
+          bonus_meta_empresa?: number
+          bonus_meta_equipe?: number
+          comissao_venda_unica?: number
           created_at?: string
           id?: string
           mes_referencia?: string
           meta_mrr?: number
           meta_quantidade?: number
+          multiplicador_anual?: number
+          num_colaboradores?: number
           observacao?: string | null
           updated_at?: string
         }
