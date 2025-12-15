@@ -23,7 +23,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ArrowLeft, Download, CheckCircle, Loader2, RefreshCw, ClipboardList, Plus, Pencil } from "lucide-react";
+import { ArrowLeft, Download, CheckCircle, Loader2, RefreshCw, ClipboardList, Plus, Pencil, ExternalLink } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -497,6 +497,7 @@ export default function ResultadoFechamento() {
                   <TableHead className="text-right">Comissão</TableHead>
                   <TableHead className="text-right">Bônus</TableHead>
                   <TableHead className="text-right">Total</TableHead>
+                  <TableHead className="text-center w-12">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -525,6 +526,20 @@ export default function ResultadoFechamento() {
                     <TableCell className="text-right font-semibold">
                       {formatCurrency(comissao.total_receber)}
                     </TableCell>
+                    <TableCell className="text-center">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/comissoes/relatorio-vendas?fechamento=${id}&vendedor=${encodeURIComponent(comissao.vendedor)}`);
+                        }}
+                        title="Ver vendas do vendedor"
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -538,6 +553,7 @@ export default function ResultadoFechamento() {
                   <TableCell className="text-right">{formatCurrency(totals.comissao)}</TableCell>
                   <TableCell className="text-right">{formatCurrency(totals.bonusTotal)}</TableCell>
                   <TableCell className="text-right">{formatCurrency(totals.total)}</TableCell>
+                  <TableCell></TableCell>
                 </TableRow>
               </TableFooter>
             </Table>
