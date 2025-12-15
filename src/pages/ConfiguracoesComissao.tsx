@@ -69,6 +69,7 @@ export default function ConfiguracoesComissao() {
     bonus_meta_empresa: "",
     num_colaboradores: "",
     multiplicador_anual: "",
+    comissao_venda_unica: "",
   });
 
   // Fetch faixas
@@ -108,6 +109,7 @@ export default function ConfiguracoesComissao() {
         bonus_meta_empresa: getConfig("bonus_meta_empresa"),
         num_colaboradores: getConfig("num_colaboradores"),
         multiplicador_anual: getConfig("multiplicador_anual"),
+        comissao_venda_unica: getConfig("comissao_venda_unica"),
       });
     }
   }, [configuracoes]);
@@ -437,6 +439,22 @@ export default function ConfiguracoesComissao() {
                   }
                   placeholder="Ex: 2"
                 />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="comissao_venda_unica">Comissão Venda Única (%)</Label>
+                <Input
+                  id="comissao_venda_unica"
+                  type="number"
+                  step="0.1"
+                  value={configForm.comissao_venda_unica}
+                  onChange={(e) =>
+                    setConfigForm({ ...configForm, comissao_venda_unica: e.target.value })
+                  }
+                  placeholder="Ex: 10"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Percentual aplicado sobre o valor de adesão
+                </p>
               </div>
             </div>
           )}
