@@ -830,10 +830,27 @@ export default function RelatorioVendas() {
       {selectedFechamento && (
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-lg">
-              📋 Vendas {selectedVendedor !== "todos" && `- ${selectedVendedor}`} 
-              <Badge variant="secondary" className="ml-2">{vendasFiltradas.length}</Badge>
-            </CardTitle>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <CardTitle className="text-lg">
+                📋 Vendas {selectedVendedor !== "todos" && `- ${selectedVendedor}`} 
+                <Badge variant="secondary" className="ml-2">{vendasFiltradas.length}</Badge>
+              </CardTitle>
+              <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                <span className="font-medium">Legenda:</span>
+                <div className="flex items-center gap-1">
+                  <Badge variant="outline" className="text-[10px] px-1 bg-green-100 text-green-700">C</Badge>
+                  <span>Comissão</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Badge variant="outline" className="text-[10px] px-1 bg-blue-100 text-blue-700">F</Badge>
+                  <span>Faixa</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Badge variant="outline" className="text-[10px] px-1 bg-yellow-100 text-yellow-700">M</Badge>
+                  <span>Meta</span>
+                </div>
+              </div>
+            </div>
           </CardHeader>
           <CardContent className="p-0">
             {loadingVendas ? (
