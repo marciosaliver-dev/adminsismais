@@ -504,6 +504,10 @@ export default function ConfiguracoesComissao() {
                 <Input
                   id="percentual"
                   type="number"
+                  min="0"
+                  max="100"
+                  step="1"
+                  placeholder="Ex: 20, 30, 40"
                   value={faixaForm.percentual}
                   onChange={(e) =>
                     setFaixaForm({ ...faixaForm, percentual: Number(e.target.value) })
