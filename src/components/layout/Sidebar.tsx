@@ -57,6 +57,7 @@ const navSections: NavSection[] = [
     items: [
       { title: "Novo Fechamento", icon: Calculator, href: "/comissoes" },
       { title: "📋 Histórico", icon: History, href: "/comissoes/historico" },
+      { title: "📊 Relatório Vendas", icon: Receipt, href: "/comissoes/relatorio-vendas" },
       { title: "⚙️ Configurações", icon: Settings, href: "/comissoes/configuracoes" },
     ],
   },
