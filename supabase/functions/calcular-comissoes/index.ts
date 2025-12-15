@@ -9,6 +9,7 @@ interface VendaImportada {
   id: string;
   vendedor: string | null;
   valor_mrr: number;
+  valor_adesao: number;
   intervalo: string | null;
   conta_comissao: boolean;
   conta_faixa: boolean;
@@ -47,12 +48,14 @@ interface VendedorDados {
   mrr_total: number;
   mrr_comissao: number;
   mrr_anual: number;
+  total_adesao: number;
   faixa_nome: string | null;
   percentual: number;
   valor_comissao: number;
   bonus_anual: number;
   bonus_meta_equipe: number;
   bonus_empresa: number;
+  comissao_venda_unica: number;
   total_receber: number;
 }
 
@@ -138,12 +141,14 @@ Deno.serve(async (req) => {
           mrr_total: 0,
           mrr_comissao: 0,
           mrr_anual: 0,
+          total_adesao: 0,
           faixa_nome: null,
           percentual: 0,
           valor_comissao: 0,
           bonus_anual: 0,
           bonus_meta_equipe: 0,
           bonus_empresa: 0,
+          comissao_venda_unica: 0,
           total_receber: 0,
         });
       }
@@ -157,6 +162,7 @@ Deno.serve(async (req) => {
 
       if (venda.conta_comissao) {
         dados.mrr_comissao += venda.valor_mrr;
+        dados.total_adesao += venda.valor_adesao || 0;
         
         // Verificar se é venda anual
         const intervalo = venda.intervalo?.toLowerCase().trim() || "";
@@ -187,6 +193,9 @@ Deno.serve(async (req) => {
 
       // Passo 5: Calcular bônus venda anual
       dados.bonus_anual = dados.mrr_anual * dados.percentual;
+
+      // Calcular comissão de venda única (adesão)
+      dados.comissao_venda_unica = dados.total_adesao * comissaoVendaUnicaPercent;
     }
 
     // Passo 6: Verificar meta da empresa
@@ -227,7 +236,7 @@ Deno.serve(async (req) => {
 
     // Passo 9: Total a receber
     for (const dados of vendedoresMap.values()) {
-      dados.total_receber = dados.valor_comissao + dados.bonus_anual + dados.bonus_meta_equipe + dados.bonus_empresa;
+      dados.total_receber = dados.valor_comissao + dados.bonus_anual + dados.bonus_meta_equipe + dados.bonus_empresa + dados.comissao_venda_unica;
     }
 
     // Passo 10: Salvar em comissao_calculada
@@ -254,6 +263,7 @@ Deno.serve(async (req) => {
       bonus_anual: dados.bonus_anual,
       bonus_meta_equipe: dados.bonus_meta_equipe,
       bonus_empresa: dados.bonus_empresa,
+      comissao_venda_unica: dados.comissao_venda_unica,
       total_receber: dados.total_receber,
     }));
 

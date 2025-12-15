@@ -19,6 +19,7 @@ export type Database = {
           bonus_anual: number
           bonus_empresa: number
           bonus_meta_equipe: number
+          comissao_venda_unica: number
           created_at: string
           faixa_nome: string | null
           fechamento_id: string
@@ -36,6 +37,7 @@ export type Database = {
           bonus_anual?: number
           bonus_empresa?: number
           bonus_meta_equipe?: number
+          comissao_venda_unica?: number
           created_at?: string
           faixa_nome?: string | null
           fechamento_id: string
@@ -53,6 +55,7 @@ export type Database = {
           bonus_anual?: number
           bonus_empresa?: number
           bonus_meta_equipe?: number
+          comissao_venda_unica?: number
           created_at?: string
           faixa_nome?: string | null
           fechamento_id?: string
