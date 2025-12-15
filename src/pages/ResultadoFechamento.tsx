@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { ArrowLeft, Download, CheckCircle, Loader2, RefreshCw, ClipboardList, Plus, Pencil, ExternalLink } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useState } from "react";
 import * as XLSX from "xlsx";
@@ -190,8 +190,8 @@ export default function ResultadoFechamento() {
         .eq("fechamento_id", id)
         .order("data_contrato", { ascending: false });
 
-      const mesAnoRef = format(new Date(fechamento.mes_referencia), "MMMM/yyyy", { locale: ptBR });
-      const mesAnoFile = format(new Date(fechamento.mes_referencia), "yyyy-MM");
+      const mesAnoRef = format(parseISO(fechamento.mes_referencia), "MMMM/yyyy", { locale: ptBR });
+      const mesAnoFile = format(parseISO(fechamento.mes_referencia), "yyyy-MM");
 
       // ========== ABA 1: RESUMO ==========
       const resumoData: (string | number)[][] = [
@@ -354,7 +354,7 @@ export default function ResultadoFechamento() {
     );
   }
 
-  const mesAno = format(new Date(fechamento.mes_referencia), "MMMM/yyyy", { locale: ptBR });
+  const mesAno = format(parseISO(fechamento.mes_referencia), "MMMM/yyyy", { locale: ptBR });
 
   // Calculate totals
   const totals = comissoes.reduce(

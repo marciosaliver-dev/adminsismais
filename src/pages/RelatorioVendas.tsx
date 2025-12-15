@@ -43,7 +43,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Loader2, FileText, Plus, Pencil, Trash2, Filter, Search, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -417,7 +417,7 @@ export default function RelatorioVendas() {
     if (!fechamentoAtual) return;
 
     const doc = new jsPDF({ orientation: "landscape" });
-    const mesAno = format(new Date(fechamentoAtual.mes_referencia), "MMMM/yyyy", { locale: ptBR });
+    const mesAno = format(parseISO(fechamentoAtual.mes_referencia), "MMMM/yyyy", { locale: ptBR });
     const vendasVend = vendasPorVendedor[vendedor] || [];
     const comissao = comissoes.find((c) => c.vendedor === vendedor);
 
@@ -646,7 +646,7 @@ export default function RelatorioVendas() {
     }
 
     const vendedorSlug = vendedor.toLowerCase().replace(/\s+/g, "_");
-    const mesAnoFile = format(new Date(fechamentoAtual.mes_referencia), "yyyy-MM");
+    const mesAnoFile = format(parseISO(fechamentoAtual.mes_referencia), "yyyy-MM");
     doc.save(`comissao_${vendedorSlug}_${mesAnoFile}.pdf`);
   };
 
@@ -704,7 +704,7 @@ export default function RelatorioVendas() {
                 <SelectContent>
                   {fechamentos.map((f) => (
                     <SelectItem key={f.id} value={f.id}>
-                      {format(new Date(f.mes_referencia), "MMMM/yyyy", { locale: ptBR })} -{" "}
+                      {format(parseISO(f.mes_referencia), "MMMM/yyyy", { locale: ptBR })} -{" "}
                       {f.status === "rascunho" ? "📝 Rascunho" : "✅ Fechado"}
                     </SelectItem>
                   ))}
