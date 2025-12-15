@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -30,6 +31,7 @@ import type { Tables } from "@/integrations/supabase/types";
 type ComissaoCalculada = Tables<"comissao_calculada">;
 type VendaImportada = Tables<"venda_importada">;
 type ConfiguracaoComissao = Tables<"configuracao_comissao">;
+type MetaMensal = Tables<"meta_mensal">;
 
 interface VendedorDetalhesModalProps {
   open: boolean;
@@ -93,7 +95,7 @@ export default function VendedorDetalhesModal({
     enabled: !!comissao && open,
   });
 
-  // Fetch configurações para número de colaboradores
+  // Fetch configurações (fallback)
   const { data: configuracoes = [] } = useQuery({
     queryKey: ["configuracao_comissao"],
     queryFn: async () => {
@@ -105,7 +107,36 @@ export default function VendedorDetalhesModal({
     },
   });
 
-  const numColaboradores = parseInt(configuracoes.find((c) => c.chave === "num_colaboradores")?.valor || "12");
+  // Fetch meta mensal (prioridade)
+  const { data: metaMensal } = useQuery({
+    queryKey: ["meta_mensal", mesReferencia],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("meta_mensal")
+        .select("*")
+        .eq("mes_referencia", mesReferencia)
+        .maybeSingle();
+      if (error) throw error;
+      return data as MetaMensal | null;
+    },
+    enabled: !!mesReferencia && open,
+  });
+
+  const numColaboradores =
+    metaMensal?.num_colaboradores ??
+    parseInt(configuracoes.find((c) => c.chave === "num_colaboradores")?.valor || "12");
+
+  const bonusMetaEquipePercent =
+    metaMensal?.bonus_meta_equipe ??
+    parseFloat(configuracoes.find((c) => c.chave === "bonus_meta_equipe")?.valor || "10");
+
+  const bonusMetaEmpresaPercent =
+    metaMensal?.bonus_meta_empresa ??
+    parseFloat(configuracoes.find((c) => c.chave === "bonus_meta_empresa")?.valor || "10");
+
+  const comissaoVendaUnicaPercent =
+    metaMensal?.comissao_venda_unica ??
+    parseFloat(configuracoes.find((c) => c.chave === "comissao_venda_unica")?.valor || "0");
 
   if (!comissao) return null;
 
@@ -136,15 +167,27 @@ export default function VendedorDetalhesModal({
 
   const mesAnoFormatado = format(new Date(mesReferencia), "MMMM/yyyy", { locale: ptBR });
 
+  const comissaoVendaUnicaCalculada = totalAdesao * (comissaoVendaUnicaPercent / 100);
+  const comissaoVendaUnica = comissao.comissao_venda_unica || comissaoVendaUnicaCalculada;
+
+  const totalReceberCalculado =
+    comissao.valor_comissao +
+    comissao.bonus_anual +
+    comissao.bonus_meta_equipe +
+    comissao.bonus_empresa +
+    comissaoVendaUnica;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="text-xl font-bold">
-            {comissao.vendedor}
-          </DialogTitle>
-          <p className="text-muted-foreground capitalize">{mesAnoFormatado}</p>
-        </DialogHeader>
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold">
+              {comissao.vendedor}
+            </DialogTitle>
+            <DialogDescription className="capitalize text-muted-foreground">
+              {mesAnoFormatado}
+            </DialogDescription>
+          </DialogHeader>
 
         <div className="space-y-6">
           {/* Card Resumo */}
@@ -212,7 +255,7 @@ export default function VendedorDetalhesModal({
                   <TableRow>
                     <TableCell>Bônus Meta Equipe</TableCell>
                     <TableCell className="text-muted-foreground">
-                      {metaBatida ? "10% proporcional" : "(meta não batida)"}
+                      {metaBatida ? `${bonusMetaEquipePercent}% proporcional` : "(meta não batida)"}
                     </TableCell>
                     <TableCell className="text-right font-medium">
                       {metaBatida ? formatCurrency(comissao.bonus_meta_equipe) : (
@@ -223,7 +266,7 @@ export default function VendedorDetalhesModal({
                   <TableRow>
                     <TableCell>Bônus Empresa</TableCell>
                     <TableCell className="text-muted-foreground">
-                      {metaBatida ? `10% / ${numColaboradores} colaboradores` : "(meta não batida)"}
+                      {metaBatida ? `${bonusMetaEmpresaPercent}% / ${numColaboradores} colaboradores` : "(meta não batida)"}
                     </TableCell>
                     <TableCell className="text-right font-medium">
                       {metaBatida ? formatCurrency(comissao.bonus_empresa) : (
@@ -234,17 +277,17 @@ export default function VendedorDetalhesModal({
                   <TableRow>
                     <TableCell>Comissão Venda Única (Adesão)</TableCell>
                     <TableCell className="text-muted-foreground">
-                      10% de {formatCurrency(totalAdesao)}
+                      {comissaoVendaUnicaPercent}% de {formatCurrency(totalAdesao)}
                     </TableCell>
                     <TableCell className="text-right font-medium">
-                      {formatCurrency((comissao as any).comissao_venda_unica || 0)}
+                      {formatCurrency(comissaoVendaUnica)}
                     </TableCell>
                   </TableRow>
                   <TableRow className="bg-muted/50 font-bold">
                     <TableCell className="font-bold">TOTAL A RECEBER</TableCell>
                     <TableCell></TableCell>
                     <TableCell className="text-right font-bold text-lg">
-                      {formatCurrency(comissao.total_receber)}
+                      {formatCurrency(totalReceberCalculado)}
                     </TableCell>
                   </TableRow>
                 </TableBody>

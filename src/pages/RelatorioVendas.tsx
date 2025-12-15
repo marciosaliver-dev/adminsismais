@@ -177,6 +177,31 @@ export default function RelatorioVendas() {
     },
   });
 
+  // Fetch meta mensal do mês do fechamento (para PDF)
+  const { data: metaMensalAtual } = useQuery({
+    queryKey: ["meta_mensal_pdf", selectedFechamento],
+    queryFn: async () => {
+      if (!selectedFechamento) return null;
+
+      const { data: fechamentoData, error: fechamentoError } = await supabase
+        .from("fechamento_comissao")
+        .select("mes_referencia")
+        .eq("id", selectedFechamento)
+        .maybeSingle();
+      if (fechamentoError) throw fechamentoError;
+      if (!fechamentoData?.mes_referencia) return null;
+
+      const { data, error } = await supabase
+        .from("meta_mensal")
+        .select("*")
+        .eq("mes_referencia", fechamentoData.mes_referencia)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!selectedFechamento,
+  });
+
   const fechamentoAtual = fechamentos.find((f) => f.id === selectedFechamento);
   const isRascunho = fechamentoAtual?.status === "rascunho";
 
@@ -481,20 +506,29 @@ export default function RelatorioVendas() {
     const bonusAnual = comissao?.bonus_anual || 0;
     const bonusMetaEquipe = comissao?.bonus_meta_equipe || 0;
     const bonusEmpresa = comissao?.bonus_empresa || 0;
-    
-    // Calculate commission on venda única (adesão) using the same percentage
-    const percentualDecimal = comissao ? comissao.percentual / 100 : 0;
-    const comissaoVendaUnica = totalAdesao * percentualDecimal;
-    
+
+    const comissaoVendaUnicaPercent =
+      (metaMensalAtual as any)?.comissao_venda_unica ??
+      parseFloat(configuracoes.find((c: any) => c.chave === "comissao_venda_unica")?.valor || "0");
+
+    // Comissão Venda Única: preferir valor calculado no fechamento; se não existir, calcular
+    const comissaoVendaUnicaCalculada = totalAdesao * (comissaoVendaUnicaPercent / 100);
+    const comissaoVendaUnica = (comissao as any)?.comissao_venda_unica || comissaoVendaUnicaCalculada;
+
     const totalComissoes = valorComissao + comissaoVendaUnica;
     const totalBonusMetas = bonusAnual + bonusMetaEquipe + bonusEmpresa;
-    const totalReceber = (comissao?.total_receber || 0) + comissaoVendaUnica;
+
+    const totalReceber =
+      (comissao?.total_receber || 0) > 0
+        ? (comissao?.total_receber || 0)
+        : totalComissoes + totalBonusMetas;
+
     const percComissaoMrr = totalMrrComissao > 0 ? (totalReceber / totalMrrComissao) * 100 : 0;
 
     const comissaoData = [
       [`Faixa de Comissão: ${faixaInfo}`, `% Comissão: ${percentualComissao}`],
       ["Valor de Comissão MRR", formatCurrency(valorComissao)],
-      ["Comissão Venda Única (Adesão)", formatCurrency(comissaoVendaUnica)],
+      [`Comissão Venda Única (Adesão) | ${comissaoVendaUnicaPercent}%`, formatCurrency(comissaoVendaUnica)],
       ["Total Comissões", formatCurrency(totalComissoes)],
       ["Bônus Venda Anual", formatCurrency(bonusAnual)],
       ["Valor Bônus Meta Equipe de Vendas", formatCurrency(bonusMetaEquipe)],
