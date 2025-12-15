@@ -23,7 +23,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ArrowLeft, Download, CheckCircle, Loader2, RefreshCw } from "lucide-react";
+import { ArrowLeft, Download, CheckCircle, Loader2, RefreshCw, ClipboardList } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -441,6 +441,14 @@ export default function ResultadoFechamento() {
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>💰 Comissões por Vendedor</CardTitle>
           <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate(`/comissoes/relatorio-vendas?fechamento=${id}`)}
+            >
+              <ClipboardList className="w-4 h-4 mr-2" />
+              Ver Vendas
+            </Button>
             {fechamento.status === "rascunho" && (
               <Button
                 variant="outline"
