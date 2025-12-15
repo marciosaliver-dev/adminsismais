@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -105,6 +106,7 @@ const INTERVALOS = ["Mensal", "Anual", "Semestral"];
 
 export default function RelatorioVendas() {
   const queryClient = useQueryClient();
+  const [searchParams] = useSearchParams();
   const [selectedFechamento, setSelectedFechamento] = useState<string>("");
   const [selectedVendedor, setSelectedVendedor] = useState<string>("todos");
   const [vendaFormOpen, setVendaFormOpen] = useState(false);
@@ -112,6 +114,14 @@ export default function RelatorioVendas() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [vendaToDelete, setVendaToDelete] = useState<string | null>(null);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+
+  // Auto-select fechamento from URL query parameter
+  useEffect(() => {
+    const fechamentoParam = searchParams.get("fechamento");
+    if (fechamentoParam && !selectedFechamento) {
+      setSelectedFechamento(fechamentoParam);
+    }
+  }, [searchParams, selectedFechamento]);
 
   // Fetch fechamentos em rascunho
   const { data: fechamentos = [], isLoading: loadingFechamentos } = useQuery({
@@ -298,127 +308,148 @@ export default function RelatorioVendas() {
     setVendaFormOpen(true);
   };
 
+  // Generate individual PDF for a single salesperson
+  const generateVendedorPdf = (vendedor: string) => {
+    if (!fechamentoAtual) return;
+
+    const doc = new jsPDF();
+    const mesAno = format(new Date(fechamentoAtual.mes_referencia), "MMMM/yyyy", { locale: ptBR });
+    const vendasVend = vendasPorVendedor[vendedor] || [];
+    const comissao = comissoes.find((c) => c.vendedor === vendedor);
+
+    // Header
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.text(`Relatório de Vendas - ${vendedor}`, 14, 20);
+
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Referência: ${mesAno}`, 14, 32);
+    doc.text(`Data de Geração: ${format(new Date(), "dd/MM/yyyy HH:mm")}`, 14, 40);
+
+    // Sales table
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text("Vendas Realizadas", 14, 55);
+
+    const tableData = vendasVend.map((v) => [
+      v.data_contrato ? format(new Date(v.data_contrato), "dd/MM/yyyy") : "-",
+      v.cliente?.substring(0, 25) || "-",
+      v.plano?.substring(0, 15) || "-",
+      v.tipo_venda || "-",
+      v.intervalo || "-",
+      formatCurrency(v.valor_mrr),
+      formatCurrency(v.valor_assinatura),
+    ]);
+
+    autoTable(doc, {
+      startY: 60,
+      head: [["Data", "Cliente", "Plano", "Tipo", "Intervalo", "MRR", "Assinatura"]],
+      body: tableData,
+      theme: "striped",
+      headStyles: { fillColor: [69, 229, 229], textColor: [0, 0, 0], fontStyle: "bold" },
+      styles: { fontSize: 8 },
+      margin: { left: 14, right: 14 },
+    });
+
+    let yPos = (doc as any).lastAutoTable.finalY + 20;
+
+    // Summary section
+    if (yPos > 220) {
+      doc.addPage();
+      yPos = 20;
+    }
+
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text("Resumo da Comissão", 14, yPos);
+    yPos += 10;
+
+    // Calculate totals
+    const totalMrr = vendasVend.filter((v) => v.conta_faixa).reduce((acc, v) => acc + v.valor_mrr, 0);
+    const totalVendas = vendasVend.length;
+    const vendasComissao = vendasVend.filter((v) => v.conta_comissao).length;
+
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+
+    const summaryItems = [
+      ["Total de Vendas", totalVendas.toString()],
+      ["Vendas p/ Comissão", vendasComissao.toString()],
+      ["MRR Total (p/ Faixa)", formatCurrency(totalMrr)],
+    ];
+
+    if (comissao) {
+      summaryItems.push(
+        ["Faixa Atingida", comissao.faixa_nome || "-"],
+        ["Percentual", `${comissao.percentual}%`],
+        ["Comissão Base", formatCurrency(comissao.valor_comissao)],
+        ["Bônus Anual", formatCurrency(comissao.bonus_anual)],
+        ["Bônus Meta Equipe", formatCurrency(comissao.bonus_meta_equipe)],
+        ["Bônus Empresa", formatCurrency(comissao.bonus_empresa)]
+      );
+    }
+
+    autoTable(doc, {
+      startY: yPos,
+      head: [["Descrição", "Valor"]],
+      body: summaryItems,
+      theme: "striped",
+      headStyles: { fillColor: [69, 229, 229], textColor: [0, 0, 0], fontStyle: "bold" },
+      styles: { fontSize: 10 },
+      columnStyles: { 0: { fontStyle: "bold" } },
+      margin: { left: 14, right: 100 },
+    });
+
+    yPos = (doc as any).lastAutoTable.finalY + 15;
+
+    // Total a receber
+    if (comissao) {
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.setFillColor(69, 229, 229);
+      doc.rect(14, yPos, 90, 12, "F");
+      doc.setTextColor(0, 0, 0);
+      doc.text(`TOTAL A RECEBER: ${formatCurrency(comissao.total_receber)}`, 18, yPos + 8);
+      doc.setTextColor(0, 0, 0);
+    }
+
+    // Footer
+    const pageCount = doc.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "normal");
+      doc.text(`Página ${i} de ${pageCount}`, 190, 285, { align: "right" });
+    }
+
+    const vendedorSlug = vendedor.toLowerCase().replace(/\s+/g, "_");
+    const mesAnoFile = format(new Date(fechamentoAtual.mes_referencia), "yyyy-MM");
+    doc.save(`comissao_${vendedorSlug}_${mesAnoFile}.pdf`);
+  };
+
+  // Generate PDF for all salespeople or selected one
   const handleGeneratePdf = async () => {
     if (!fechamentoAtual || vendas.length === 0) return;
 
     setIsGeneratingPdf(true);
 
     try {
-      const doc = new jsPDF();
-      const mesAno = format(new Date(fechamentoAtual.mes_referencia), "MMMM/yyyy", { locale: ptBR });
-
-      // Header
-      doc.setFontSize(18);
-      doc.text(`Fechamento de Comissões - ${mesAno}`, 14, 20);
-
-      doc.setFontSize(12);
-      doc.text(`Total Vendas: ${fechamentoAtual.total_vendas}`, 14, 32);
-      doc.text(`MRR Total: ${formatCurrency(fechamentoAtual.total_mrr)}`, 14, 40);
-      doc.text(`Meta: ${fechamentoAtual.meta_batida ? "✓ Batida" : "✗ Não Batida"}`, 14, 48);
-
-      let yPos = 58;
-
-      // Para cada vendedor
-      Object.entries(vendasPorVendedor).forEach(([vendedor, vendasVend]) => {
-        const comissao = comissoes.find((c) => c.vendedor === vendedor);
-
-        // Check if we need a new page
-        if (yPos > 250) {
-          doc.addPage();
-          yPos = 20;
+      if (selectedVendedor !== "todos") {
+        // Single salesperson
+        generateVendedorPdf(selectedVendedor);
+        toast({ title: "Sucesso!", description: "PDF gerado com sucesso." });
+      } else {
+        // Generate one PDF for each salesperson
+        const vendedoresList = Object.keys(vendasPorVendedor);
+        for (const vendedor of vendedoresList) {
+          generateVendedorPdf(vendedor);
         }
-
-        doc.setFontSize(14);
-        doc.setFont("helvetica", "bold");
-        doc.text(`${vendedor}`, 14, yPos);
-        yPos += 8;
-
-        // Comissão do vendedor
-        if (comissao) {
-          doc.setFontSize(10);
-          doc.setFont("helvetica", "normal");
-          doc.text(
-            `Faixa: ${comissao.faixa_nome || "-"} | Comissão: ${formatCurrency(comissao.valor_comissao)} | Bônus: ${formatCurrency(comissao.bonus_anual + comissao.bonus_meta_equipe + comissao.bonus_empresa)} | Total: ${formatCurrency(comissao.total_receber)}`,
-            14,
-            yPos
-          );
-          yPos += 8;
-        }
-
-        // Tabela de vendas do vendedor
-        const tableData = vendasVend.map((v) => [
-          v.data_contrato ? format(new Date(v.data_contrato), "dd/MM/yy") : "-",
-          v.cliente?.substring(0, 20) || "-",
-          v.tipo_venda || "-",
-          v.intervalo || "-",
-          formatCurrency(v.valor_mrr),
-        ]);
-
-        autoTable(doc, {
-          startY: yPos,
-          head: [["Data", "Cliente", "Tipo", "Intervalo", "MRR"]],
-          body: tableData,
-          theme: "striped",
-          headStyles: { fillColor: [69, 229, 229], textColor: [0, 0, 0], fontStyle: "bold" },
-          styles: { fontSize: 8 },
-          margin: { left: 14, right: 14 },
+        toast({
+          title: "Sucesso!",
+          description: `${vendedoresList.length} PDFs gerados com sucesso.`,
         });
-
-        yPos = (doc as any).lastAutoTable.finalY + 15;
-      });
-
-      // Summary page
-      doc.addPage();
-      doc.setFontSize(16);
-      doc.text("Resumo Geral de Comissões", 14, 20);
-
-      const summaryData = comissoes.map((c) => [
-        c.vendedor,
-        c.qtd_vendas.toString(),
-        formatCurrency(c.mrr_total),
-        c.faixa_nome || "-",
-        `${c.percentual}%`,
-        formatCurrency(c.valor_comissao),
-        formatCurrency(c.bonus_anual + c.bonus_meta_equipe + c.bonus_empresa),
-        formatCurrency(c.total_receber),
-      ]);
-
-      const totals = comissoes.reduce(
-        (acc, c) => ({
-          vendas: acc.vendas + c.qtd_vendas,
-          mrr: acc.mrr + c.mrr_total,
-          comissao: acc.comissao + c.valor_comissao,
-          bonus: acc.bonus + c.bonus_anual + c.bonus_meta_equipe + c.bonus_empresa,
-          total: acc.total + c.total_receber,
-        }),
-        { vendas: 0, mrr: 0, comissao: 0, bonus: 0, total: 0 }
-      );
-
-      summaryData.push([
-        "TOTAL",
-        totals.vendas.toString(),
-        formatCurrency(totals.mrr),
-        "-",
-        "-",
-        formatCurrency(totals.comissao),
-        formatCurrency(totals.bonus),
-        formatCurrency(totals.total),
-      ]);
-
-      autoTable(doc, {
-        startY: 30,
-        head: [["Vendedor", "Vendas", "MRR", "Faixa", "%", "Comissão", "Bônus", "Total"]],
-        body: summaryData,
-        theme: "striped",
-        headStyles: { fillColor: [69, 229, 229], textColor: [0, 0, 0], fontStyle: "bold" },
-        styles: { fontSize: 9 },
-        foot: [],
-      });
-
-      const mesAnoFile = format(new Date(fechamentoAtual.mes_referencia), "yyyy-MM");
-      doc.save(`fechamento_comissoes_${mesAnoFile}.pdf`);
-
-      toast({ title: "Sucesso!", description: "PDF gerado com sucesso." });
+      }
     } catch (error) {
       console.error("Erro ao gerar PDF:", error);
       toast({ title: "Erro", description: "Erro ao gerar PDF.", variant: "destructive" });
@@ -495,7 +526,7 @@ export default function RelatorioVendas() {
                   ) : (
                     <FileText className="w-4 h-4 mr-2" />
                   )}
-                  Gerar PDF
+                  {selectedVendedor !== "todos" ? "Gerar PDF" : "Gerar PDFs"}
                 </Button>
               </div>
             )}
