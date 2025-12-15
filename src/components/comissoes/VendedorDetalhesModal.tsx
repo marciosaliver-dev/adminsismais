@@ -345,7 +345,7 @@ export default function VendedorDetalhesModal({
                               >
                                 <TableCell>
                                   {venda.data_contrato
-                                    ? format(new Date(venda.data_contrato), "dd/MM/yyyy")
+                                    ? format(new Date(venda.data_contrato + "T12:00:00"), "dd/MM/yyyy")
                                     : "-"}
                                 </TableCell>
                                 <TableCell>{venda.cliente || "-"}</TableCell>

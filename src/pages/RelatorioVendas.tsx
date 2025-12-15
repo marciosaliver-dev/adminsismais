@@ -418,7 +418,7 @@ export default function RelatorioVendas() {
     if (!fechamentoAtual) return;
 
     const doc = new jsPDF({ orientation: "portrait" });
-    const mesAno = format(parseISO(fechamentoAtual.mes_referencia), "MMMM/yyyy", { locale: ptBR });
+    const mesAno = format(parseISO(fechamentoAtual.mes_referencia + "T12:00:00"), "MMMM/yyyy", { locale: ptBR });
     const vendasVend = vendasPorVendedor[vendedor] || [];
     const comissao = comissoes.find((c) => c.vendedor === vendedor);
 
@@ -607,7 +607,7 @@ export default function RelatorioVendas() {
       yPos += 8;
 
       const tableData = vendasVend.map((v) => [
-        v.data_contrato ? format(new Date(v.data_contrato), "dd/MM/yy") : "-",
+        v.data_contrato ? format(new Date(v.data_contrato + "T12:00:00"), "dd/MM/yy") : "-",
         v.cliente?.substring(0, 30) || "-",
         v.tipo_venda?.substring(0, 15) || "-",
         v.intervalo?.substring(0, 6) || "-",
@@ -639,7 +639,7 @@ export default function RelatorioVendas() {
           doc.setFontSize(7);
           doc.setFont("helvetica", "normal");
           doc.setTextColor(128, 128, 128);
-          doc.text(`Gerado em: ${format(new Date(), "dd/MM/yyyy HH:mm")}`, 10, pageHeight - 5);
+          doc.text(`Gerado em: ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}`, 10, pageHeight - 5);
           doc.text(`Página ${data.pageNumber} de ${pageCount}`, pageWidth - 10, pageHeight - 5, { align: "right" });
         },
       });
@@ -820,7 +820,7 @@ export default function RelatorioVendas() {
             <tbody>
               ${vendasVend.map(v => `
               <tr>
-                <td>${v.data_contrato ? format(new Date(v.data_contrato), "dd/MM/yy") : "-"}</td>
+                <td>${v.data_contrato ? format(new Date(v.data_contrato + "T12:00:00"), "dd/MM/yy") : "-"}</td>
                 <td>${v.cliente || "-"}</td>
                 <td>${v.tipo_venda || "-"}</td>
                 <td>${v.intervalo || "-"}</td>
@@ -841,7 +841,7 @@ export default function RelatorioVendas() {
       ` : ''}
     </div>
     <div class="footer">
-      Gerado em ${format(new Date(), "dd/MM/yyyy 'às' HH:mm")} • SISMAIS Cohort Analyzer
+      Gerado em ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }).replace(',', ' às')} • SISMAIS Cohort Analyzer
     </div>
   </div>
 </body>
@@ -1237,7 +1237,7 @@ export default function RelatorioVendas() {
                       <TableRow key={venda.id} className={idx % 2 === 0 ? "bg-muted/20" : ""}>
                         <TableCell className="text-sm py-2">
                           {venda.data_contrato
-                            ? format(new Date(venda.data_contrato), "dd/MM/yyyy")
+                            ? format(new Date(venda.data_contrato + "T12:00:00"), "dd/MM/yyyy")
                             : "-"}
                         </TableCell>
                         <TableCell className="text-sm py-2 font-mono text-xs">
