@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { TableSkeleton } from "@/components/ui/table-skeleton";
-import { Upload, FileText, Loader2, Eye, Download, Trash2, AlertCircle, FileSpreadsheet } from "lucide-react";
+import { Upload, FileText, Loader2, Eye, Download, Trash2, AlertCircle, FileSpreadsheet, ClipboardList } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { format, parse } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -580,8 +580,16 @@ export default function Comissoes() {
                           </Badge>
                         )}
                       </TableCell>
-                      <TableCell className="text-right">
+                        <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => navigate(`/comissoes/relatorio-vendas?fechamento=${fechamento.id}`)}
+                            title="Ver Vendas"
+                          >
+                            <ClipboardList className="w-4 h-4" />
+                          </Button>
                           <Button
                             variant="outline"
                             size="icon"
