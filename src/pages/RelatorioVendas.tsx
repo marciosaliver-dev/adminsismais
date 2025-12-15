@@ -115,11 +115,15 @@ export default function RelatorioVendas() {
   const [vendaToDelete, setVendaToDelete] = useState<string | null>(null);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
-  // Auto-select fechamento from URL query parameter
+  // Auto-select fechamento and vendedor from URL query parameters
   useEffect(() => {
     const fechamentoParam = searchParams.get("fechamento");
+    const vendedorParam = searchParams.get("vendedor");
     if (fechamentoParam && !selectedFechamento) {
       setSelectedFechamento(fechamentoParam);
+    }
+    if (vendedorParam) {
+      setSelectedVendedor(vendedorParam);
     }
   }, [searchParams, selectedFechamento]);
 
