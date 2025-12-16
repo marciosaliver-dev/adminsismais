@@ -106,6 +106,10 @@ export default function ConfiguracoesComissao() {
     comissao_venda_unica: 10,
   });
 
+  // State for LTV Médio
+  const [ltvMedio, setLtvMedio] = useState<number>(12);
+  const [isSavingLtv, setIsSavingLtv] = useState(false);
+
   // Fetch faixas
   const { data: faixas = [], isLoading: loadingFaixas } = useQuery({
     queryKey: ["faixas_comissao"],
@@ -118,6 +122,38 @@ export default function ConfiguracoesComissao() {
       return data as FaixaComissao[];
     },
   });
+
+  // Fetch LTV Médio config
+  const { data: ltvConfig } = useQuery({
+    queryKey: ["ltv_medio_config"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("configuracao_comissao")
+        .select("*")
+        .eq("chave", "ltv_medio")
+        .maybeSingle();
+      if (error) throw error;
+      if (data) {
+        setLtvMedio(Number(data.valor));
+      }
+      return data;
+    },
+  });
+
+  const saveLtvMedio = async () => {
+    setIsSavingLtv(true);
+    try {
+      const { error } = await supabase
+        .from("configuracao_comissao")
+        .upsert({ chave: "ltv_medio", valor: String(ltvMedio), descricao: "LTV Médio em meses para cálculo de faturamento total" }, { onConflict: "chave" });
+      if (error) throw error;
+      toast({ title: "Sucesso!", description: "LTV Médio atualizado." });
+      queryClient.invalidateQueries({ queryKey: ["ltv_medio_config"] });
+    } catch (error) {
+      toast({ title: "Erro", description: "Falha ao salvar LTV Médio.", variant: "destructive" });
+    }
+    setIsSavingLtv(false);
+  };
 
   // Fetch metas mensais
   const { data: metasMensais = [], isLoading: loadingMetas } = useQuery({
@@ -465,7 +501,39 @@ export default function ConfiguracoesComissao() {
         </CardContent>
       </Card>
 
-      {/* Seção 2: Metas Mensais */}
+      {/* Seção 2: Parâmetros Globais */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            ⚙️ Parâmetros Globais
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-end gap-4 max-w-sm">
+            <div className="flex-1 space-y-2">
+              <Label htmlFor="ltv_medio">LTV Médio (meses)</Label>
+              <Input
+                id="ltv_medio"
+                type="number"
+                min="1"
+                max="120"
+                value={ltvMedio}
+                onChange={(e) => setLtvMedio(Number(e.target.value))}
+                placeholder="Ex: 12"
+              />
+              <p className="text-xs text-muted-foreground">
+                Usado para calcular Faturamento Total = MRR × LTV
+              </p>
+            </div>
+            <Button onClick={saveLtvMedio} disabled={isSavingLtv}>
+              <Save className="w-4 h-4 mr-2" />
+              Salvar
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Seção 3: Metas Mensais */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="flex items-center gap-2">
