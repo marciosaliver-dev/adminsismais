@@ -183,8 +183,8 @@ export default function HistoricoComissoes() {
         .eq("fechamento_id", fechamento.id)
         .order("data_contrato", { ascending: false });
 
-      const mesAnoRef = format(parseISO(fechamento.mes_referencia), "MMMM/yyyy", { locale: ptBR });
-      const mesAnoFile = format(parseISO(fechamento.mes_referencia), "yyyy-MM");
+      const mesAnoRef = format(parseISO(fechamento.mes_referencia + "T12:00:00"), "MMMM/yyyy", { locale: ptBR });
+      const mesAnoFile = format(parseISO(fechamento.mes_referencia + "T12:00:00"), "yyyy-MM");
 
       // ABA 1: RESUMO
       const resumoData: (string | number)[][] = [
@@ -323,7 +323,7 @@ export default function HistoricoComissoes() {
   };
 
   const formatMesAno = (date: string) => {
-    const d = new Date(date);
+    const d = new Date(date + "T12:00:00");
     return format(d, "MMMM/yyyy", { locale: ptBR });
   };
 

@@ -668,7 +668,7 @@ export default function RelatorioVendas() {
     doc.text(`Página 1 de ${totalPages}`, pageWidth - 10, pageHeight - 5, { align: "right" });
 
     const vendedorSlug = vendedor.toLowerCase().replace(/\s+/g, "_");
-    const mesAnoFile = format(parseISO(fechamentoAtual.mes_referencia), "yyyy-MM");
+    const mesAnoFile = format(parseISO(fechamentoAtual.mes_referencia + "T12:00:00"), "yyyy-MM");
     doc.save(`comissao_${vendedorSlug}_${mesAnoFile}.pdf`);
   };
 
@@ -676,7 +676,7 @@ export default function RelatorioVendas() {
   const generateHtmlReport = (vendedor: string) => {
     if (!fechamentoAtual) return;
 
-    const mesAno = format(parseISO(fechamentoAtual.mes_referencia), "MMMM/yyyy", { locale: ptBR });
+    const mesAno = format(parseISO(fechamentoAtual.mes_referencia + "T12:00:00"), "MMMM/yyyy", { locale: ptBR });
     const vendasVend = vendasPorVendedor[vendedor] || [];
     const comissao = comissoes.find((c) => c.vendedor === vendedor);
 
@@ -932,7 +932,7 @@ export default function RelatorioVendas() {
                 <SelectContent>
                   {fechamentos.map((f) => (
                     <SelectItem key={f.id} value={f.id}>
-                      {format(parseISO(f.mes_referencia), "MMMM/yyyy", { locale: ptBR })} -{" "}
+                      {format(parseISO(f.mes_referencia + "T12:00:00"), "MMMM/yyyy", { locale: ptBR })} -{" "}
                       {f.status === "rascunho" ? "📝 Rascunho" : "✅ Fechado"}
                     </SelectItem>
                   ))}
