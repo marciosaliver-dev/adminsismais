@@ -51,6 +51,7 @@ interface MetaMensal {
   num_colaboradores: number;
   multiplicador_anual: number;
   comissao_venda_unica: number;
+  ltv_medio: number;
   created_at: string;
   updated_at: string;
 }
@@ -104,11 +105,8 @@ export default function ConfiguracoesComissao() {
     num_colaboradores: 12,
     multiplicador_anual: 2,
     comissao_venda_unica: 10,
+    ltv_medio: 6,
   });
-
-  // State for LTV Médio
-  const [ltvMedio, setLtvMedio] = useState<number>(12);
-  const [isSavingLtv, setIsSavingLtv] = useState(false);
 
   // Fetch faixas
   const { data: faixas = [], isLoading: loadingFaixas } = useQuery({
@@ -122,38 +120,6 @@ export default function ConfiguracoesComissao() {
       return data as FaixaComissao[];
     },
   });
-
-  // Fetch LTV Médio config
-  const { data: ltvConfig } = useQuery({
-    queryKey: ["ltv_medio_config"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("configuracao_comissao")
-        .select("*")
-        .eq("chave", "ltv_medio")
-        .maybeSingle();
-      if (error) throw error;
-      if (data) {
-        setLtvMedio(Number(data.valor));
-      }
-      return data;
-    },
-  });
-
-  const saveLtvMedio = async () => {
-    setIsSavingLtv(true);
-    try {
-      const { error } = await supabase
-        .from("configuracao_comissao")
-        .upsert({ chave: "ltv_medio", valor: String(ltvMedio), descricao: "LTV Médio em meses para cálculo de faturamento total" }, { onConflict: "chave" });
-      if (error) throw error;
-      toast({ title: "Sucesso!", description: "LTV Médio atualizado." });
-      queryClient.invalidateQueries({ queryKey: ["ltv_medio_config"] });
-    } catch (error) {
-      toast({ title: "Erro", description: "Falha ao salvar LTV Médio.", variant: "destructive" });
-    }
-    setIsSavingLtv(false);
-  };
 
   // Fetch metas mensais
   const { data: metasMensais = [], isLoading: loadingMetas } = useQuery({
@@ -265,6 +231,7 @@ export default function ConfiguracoesComissao() {
         num_colaboradores: metaForm.num_colaboradores,
         multiplicador_anual: metaForm.multiplicador_anual,
         comissao_venda_unica: metaForm.comissao_venda_unica,
+        ltv_medio: metaForm.ltv_medio,
       };
       if (editingMeta) {
         const { error } = await supabase
@@ -341,6 +308,7 @@ export default function ConfiguracoesComissao() {
       num_colaboradores: 12,
       multiplicador_anual: 2,
       comissao_venda_unica: 10,
+      ltv_medio: 6,
     });
     setEditingMeta(null);
   };
@@ -374,6 +342,7 @@ export default function ConfiguracoesComissao() {
       num_colaboradores: meta.num_colaboradores,
       multiplicador_anual: meta.multiplicador_anual,
       comissao_venda_unica: meta.comissao_venda_unica,
+      ltv_medio: meta.ltv_medio || 6,
     });
     setIsMetaDialogOpen(true);
   };
@@ -501,39 +470,7 @@ export default function ConfiguracoesComissao() {
         </CardContent>
       </Card>
 
-      {/* Seção 2: Parâmetros Globais */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            ⚙️ Parâmetros Globais
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-end gap-4 max-w-sm">
-            <div className="flex-1 space-y-2">
-              <Label htmlFor="ltv_medio">LTV Médio (meses)</Label>
-              <Input
-                id="ltv_medio"
-                type="number"
-                min="1"
-                max="120"
-                value={ltvMedio}
-                onChange={(e) => setLtvMedio(Number(e.target.value))}
-                placeholder="Ex: 12"
-              />
-              <p className="text-xs text-muted-foreground">
-                Usado para calcular Faturamento Total = MRR × LTV
-              </p>
-            </div>
-            <Button onClick={saveLtvMedio} disabled={isSavingLtv}>
-              <Save className="w-4 h-4 mr-2" />
-              Salvar
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Seção 3: Metas Mensais */}
+      {/* Seção 2: Metas Mensais */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="flex items-center gap-2">
@@ -558,6 +495,7 @@ export default function ConfiguracoesComissao() {
                 <TableHead>Mês</TableHead>
                 <TableHead>Meta MRR</TableHead>
                 <TableHead>Meta Qtd</TableHead>
+                <TableHead>LTV</TableHead>
                 <TableHead>Bônus Equipe</TableHead>
                 <TableHead>Bônus Empresa</TableHead>
                 <TableHead>Colaboradores</TableHead>
@@ -567,13 +505,13 @@ export default function ConfiguracoesComissao() {
             <TableBody>
               {loadingMetas ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center">
+                  <TableCell colSpan={8} className="text-center">
                     Carregando...
                   </TableCell>
                 </TableRow>
               ) : metasMensais.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-muted-foreground">
+                  <TableCell colSpan={8} className="text-center text-muted-foreground">
                     Nenhuma meta mensal cadastrada
                   </TableCell>
                 </TableRow>
@@ -585,6 +523,7 @@ export default function ConfiguracoesComissao() {
                     </TableCell>
                     <TableCell>{formatCurrency(meta.meta_mrr)}</TableCell>
                     <TableCell>{meta.meta_quantidade}</TableCell>
+                    <TableCell>{meta.ltv_medio} meses</TableCell>
                     <TableCell>{formatPercent(meta.bonus_meta_equipe)}</TableCell>
                     <TableCell>{formatPercent(meta.bonus_meta_empresa)}</TableCell>
                     <TableCell>{meta.num_colaboradores}</TableCell>
@@ -851,6 +790,21 @@ export default function ConfiguracoesComissao() {
                     placeholder="Ex: 10"
                   />
                   <p className="text-xs text-muted-foreground">Digite 10 para 10% sobre adesão</p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="ltv_medio_form">LTV Médio (meses)</Label>
+                  <Input
+                    id="ltv_medio_form"
+                    type="number"
+                    min="1"
+                    max="120"
+                    value={metaForm.ltv_medio}
+                    onChange={(e) =>
+                      setMetaForm({ ...metaForm, ltv_medio: Number(e.target.value) })
+                    }
+                    placeholder="Ex: 6"
+                  />
+                  <p className="text-xs text-muted-foreground">Para cálculo de Faturamento Total</p>
                 </div>
               </div>
             </div>

@@ -282,8 +282,8 @@ export default function RelatorioVendas() {
         : String(valB).localeCompare(String(valA));
     });
 
-  // Get LTV Médio from config
-  const ltvMedio = Number(configuracoes.find(c => c.chave === "ltv_medio")?.valor || 12);
+  // Get LTV Médio from meta mensal (monthly) or fallback to 12
+  const ltvMedio = metaMensalAtual?.ltv_medio || 12;
 
   // Calculate totals for filtered data
   const totaisFiltrados = vendasFiltradas.reduce(

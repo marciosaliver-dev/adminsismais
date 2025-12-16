@@ -188,6 +188,7 @@ export type Database = {
           comissao_venda_unica: number
           created_at: string
           id: string
+          ltv_medio: number
           mes_referencia: string
           meta_mrr: number
           meta_quantidade: number
@@ -202,6 +203,7 @@ export type Database = {
           comissao_venda_unica?: number
           created_at?: string
           id?: string
+          ltv_medio?: number
           mes_referencia: string
           meta_mrr?: number
           meta_quantidade?: number
@@ -216,6 +218,7 @@ export type Database = {
           comissao_venda_unica?: number
           created_at?: string
           id?: string
+          ltv_medio?: number
           mes_referencia?: string
           meta_mrr?: number
           meta_quantidade?: number
