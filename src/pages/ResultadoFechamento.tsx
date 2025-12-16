@@ -190,8 +190,8 @@ export default function ResultadoFechamento() {
         .eq("fechamento_id", id)
         .order("data_contrato", { ascending: false });
 
-      const mesAnoRef = format(parseISO(fechamento.mes_referencia), "MMMM/yyyy", { locale: ptBR });
-      const mesAnoFile = format(parseISO(fechamento.mes_referencia), "yyyy-MM");
+      const mesAnoRef = format(parseISO(fechamento.mes_referencia + "T12:00:00"), "MMMM/yyyy", { locale: ptBR });
+      const mesAnoFile = format(parseISO(fechamento.mes_referencia + "T12:00:00"), "yyyy-MM");
 
       // ========== ABA 1: RESUMO ==========
       const resumoData: (string | number)[][] = [
@@ -354,7 +354,7 @@ export default function ResultadoFechamento() {
     );
   }
 
-  const mesAno = format(parseISO(fechamento.mes_referencia), "MMMM/yyyy", { locale: ptBR });
+  const mesAno = format(parseISO(fechamento.mes_referencia + "T12:00:00"), "MMMM/yyyy", { locale: ptBR });
 
   // Calculate totals
   const totals = comissoes.reduce(
