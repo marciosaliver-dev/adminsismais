@@ -282,17 +282,23 @@ export default function RelatorioVendas() {
         : String(valB).localeCompare(String(valA));
     });
 
+  // Get LTV Médio from config
+  const ltvMedio = Number(configuracoes.find(c => c.chave === "ltv_medio")?.valor || 12);
+
   // Calculate totals for filtered data
   const totaisFiltrados = vendasFiltradas.reduce(
     (acc, v) => ({
       qtd: acc.qtd + 1,
       mrr: acc.mrr + v.valor_mrr,
       mrrComissao: acc.mrrComissao + (v.conta_comissao ? v.valor_mrr : 0),
-      assinatura: acc.assinatura + v.valor_assinatura,
       adesao: acc.adesao + v.valor_adesao,
     }),
-    { qtd: 0, mrr: 0, mrrComissao: 0, assinatura: 0, adesao: 0 }
+    { qtd: 0, mrr: 0, mrrComissao: 0, adesao: 0 }
   );
+
+  // Calculate Faturamento Total and Ticket Médio
+  const faturamentoTotal = totaisFiltrados.mrr * ltvMedio;
+  const ticketMedio = totaisFiltrados.qtd > 0 ? totaisFiltrados.mrr / totaisFiltrados.qtd : 0;
 
   // Group vendas por vendedor (usar vendas originais, não filtradas)
   const vendasPorVendedor = vendas.reduce((acc, venda) => {
@@ -1028,10 +1034,10 @@ export default function RelatorioVendas() {
 
       {/* Summary Cards */}
       {selectedFechamento && vendasFiltradas.length > 0 && (
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
           <Card className="bg-gradient-to-br from-primary/10 to-primary/5">
             <CardContent className="pt-4">
-              <p className="text-sm text-muted-foreground">Total Vendas</p>
+              <p className="text-sm text-muted-foreground">Qtd Vendas</p>
               <p className="text-2xl font-bold">{totaisFiltrados.qtd}</p>
             </CardContent>
           </Card>
@@ -1047,10 +1053,17 @@ export default function RelatorioVendas() {
               <p className="text-2xl font-bold text-green-600">{formatCurrency(totaisFiltrados.mrrComissao)}</p>
             </CardContent>
           </Card>
+          <Card className="bg-gradient-to-br from-purple-500/10 to-purple-500/5">
+            <CardContent className="pt-4">
+              <p className="text-sm text-muted-foreground">Faturamento Total</p>
+              <p className="text-xl font-bold text-purple-600">{formatCurrency(faturamentoTotal)}</p>
+              <p className="text-xs text-muted-foreground">MRR × {ltvMedio} meses</p>
+            </CardContent>
+          </Card>
           <Card className="bg-gradient-to-br from-blue-500/10 to-blue-500/5">
             <CardContent className="pt-4">
-              <p className="text-sm text-muted-foreground">Total Assinaturas</p>
-              <p className="text-2xl font-bold text-blue-600">{formatCurrency(totaisFiltrados.assinatura)}</p>
+              <p className="text-sm text-muted-foreground">Ticket Médio</p>
+              <p className="text-2xl font-bold text-blue-600">{formatCurrency(ticketMedio)}</p>
             </CardContent>
           </Card>
           <Card className="bg-gradient-to-br from-amber-500/10 to-amber-500/5">
@@ -1306,15 +1319,13 @@ export default function RelatorioVendas() {
                   </TableBody>
                   <TableFooter className="bg-primary/20 sticky bottom-0">
                     <TableRow className="font-bold">
-                      <TableCell colSpan={2} className="text-sm">Total Assinaturas</TableCell>
+                      <TableCell colSpan={2} className="text-sm">Totais</TableCell>
                       <TableCell className="text-sm font-bold">{totaisFiltrados.qtd}</TableCell>
                       <TableCell colSpan={3}></TableCell>
                       <TableCell className="text-right text-sm font-bold text-cyan-700">
                         {formatCurrency(totaisFiltrados.mrr)}
                       </TableCell>
-                      <TableCell className="text-right text-sm font-bold">
-                        {formatCurrency(totaisFiltrados.assinatura)}
-                      </TableCell>
+                      <TableCell></TableCell>
                       <TableCell className="text-right text-sm font-bold">
                         {formatCurrency(totaisFiltrados.adesao)}
                       </TableCell>
