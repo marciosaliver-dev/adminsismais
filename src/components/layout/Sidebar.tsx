@@ -16,6 +16,7 @@ import {
   X,
   Calculator,
   History,
+  FileSpreadsheet,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -50,6 +51,7 @@ const navSections: NavSection[] = [
       { title: "Lançamentos", icon: Wallet, href: "/financeiro" },
       { title: "Conciliação", icon: Receipt, href: "/conciliacao" },
       { title: "Orçamentos", icon: Building2, href: "/orcamentos" },
+      { title: "📄 Extrato Asaas", icon: FileSpreadsheet, href: "/extrato-asaas" },
     ],
   },
   {

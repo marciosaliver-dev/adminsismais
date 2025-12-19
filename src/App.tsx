@@ -12,6 +12,8 @@ import ConfiguracoesComissao from "./pages/ConfiguracoesComissao";
 import ResultadoFechamento from "./pages/ResultadoFechamento";
 import HistoricoComissoes from "./pages/HistoricoComissoes";
 import RelatorioVendas from "./pages/RelatorioVendas";
+import ExtratoAsaas from "./pages/ExtratoAsaas";
+import ExtratoAsaasDetalhe from "./pages/ExtratoAsaasDetalhe";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -37,6 +39,8 @@ const App = () => (
             <Route path="/comissoes/historico" element={<HistoricoComissoes />} />
             <Route path="/comissoes/configuracoes" element={<ConfiguracoesComissao />} />
             <Route path="/comissoes/relatorio-vendas" element={<RelatorioVendas />} />
+            <Route path="/extrato-asaas" element={<ExtratoAsaas />} />
+            <Route path="/extrato-asaas/:id" element={<ExtratoAsaasDetalhe />} />
             <Route path="/configuracoes" element={<Financeiro />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
