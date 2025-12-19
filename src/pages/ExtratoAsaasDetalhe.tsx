@@ -46,6 +46,7 @@ import {
 import { TransactionSummaryGrid } from "@/components/extrato/TransactionSummaryGrid";
 import { ActiveFiltersBar } from "@/components/extrato/ActiveFiltersBar";
 import { LookerCards } from "@/components/extrato/LookerCards";
+import { PeriodSummaryGrid } from "@/components/extrato/PeriodSummaryGrid";
 import { formatarTipoTransacao, formatCurrency as formatCurrencyUtil } from "@/lib/extratoUtils";
 
 interface ImportacaoExtrato {
@@ -554,6 +555,15 @@ export default function ExtratoAsaasDetalhe() {
             />
           </div>
         </div>
+
+        {/* Resumo por Período do Mês */}
+        <PeriodSummaryGrid
+          transacoes={transacoesFiltradas.map(t => ({
+            data: t.data,
+            valor: t.valor,
+            tipo_lancamento: t.tipo_lancamento,
+          }))}
+        />
 
         {/* Active Filters Bar */}
         <ActiveFiltersBar
