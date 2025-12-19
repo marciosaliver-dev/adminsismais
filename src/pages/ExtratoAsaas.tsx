@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -53,6 +53,10 @@ import { format, parse, startOfMonth, endOfMonth, subMonths, startOfYear } from 
 import { ptBR } from "date-fns/locale";
 import { useNavigate } from "react-router-dom";
 import * as XLSX from "xlsx";
+import { TransactionSummaryGrid } from "@/components/extrato/TransactionSummaryGrid";
+import { ActiveFiltersBar } from "@/components/extrato/ActiveFiltersBar";
+import { LookerCards } from "@/components/extrato/LookerCards";
+import { formatarTipoTransacao, formatCurrency as formatCurrencyUtil } from "@/lib/extratoUtils";
 import {
   LineChart,
   Line,
@@ -118,7 +122,7 @@ type SortField = "data" | "tipo_transacao" | "valor" | "saldo";
 type SortOrder = "asc" | "desc";
 
 const ITEMS_PER_PAGE = 10;
-const ITEMS_PER_PAGE_VISAO = 20;
+const ITEMS_PER_PAGE_VISAO = 100;
 
 const CHART_COLORS = ["#45E5E5", "#FFB800", "#22C55E", "#EF4444", "#8B5CF6"];
 
@@ -1015,8 +1019,8 @@ export default function ExtratoAsaas() {
 
           {/* Tab: Visão Geral */}
           <TabsContent value="visao-geral" className="space-y-6">
-            {/* Filtros */}
-            <Card className="bg-white shadow-sm">
+            {/* Filtros de Período */}
+            <Card className="bg-card shadow-sm">
               <CardContent className="p-4">
                 <div className="flex flex-wrap gap-4 items-center">
                   {/* Preset */}
@@ -1059,22 +1063,6 @@ export default function ExtratoAsaas() {
                     </SelectContent>
                   </Select>
 
-                  {/* Tipo de Transação */}
-                  <Select 
-                    value={tiposSelecionados.length === 1 ? tiposSelecionados[0] : "__all__"}
-                    onValueChange={(val) => setTiposSelecionados(val === "__all__" ? [] : [val])}
-                  >
-                    <SelectTrigger className="w-[200px]">
-                      <SelectValue placeholder="Tipo de transação" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__all__">Todos os tipos</SelectItem>
-                      {tiposUnicos.map(tipo => (
-                        <SelectItem key={tipo} value={tipo}>{tipo}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-
                   {/* Lançamento */}
                   <Select value={lancamentoFiltro} onValueChange={setLancamentoFiltro}>
                     <SelectTrigger className="w-[140px]">
@@ -1100,7 +1088,7 @@ export default function ExtratoAsaas() {
                     size="sm"
                     onClick={() => exportToExcel(transacoesFiltradas, "extrato_asaas_visao_geral")}
                     disabled={transacoesFiltradas.length === 0}
-                    className="border-[#45E5E5] text-[#45E5E5] hover:bg-[#45E5E5] hover:text-white"
+                    className="border-primary text-primary hover:bg-primary hover:text-primary-foreground"
                   >
                     <Download className="w-4 h-4 mr-2" />
                     Exportar Excel
@@ -1111,7 +1099,7 @@ export default function ExtratoAsaas() {
 
             {/* Metric Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <Card className="bg-white shadow-sm border-l-4 border-l-emerald-500">
+              <Card className="bg-card shadow-sm border-l-4 border-l-emerald-500">
                 <CardContent className="p-6">
                   <div className="flex items-center gap-4">
                     <div className="p-3 rounded-lg bg-emerald-100">
@@ -1127,7 +1115,7 @@ export default function ExtratoAsaas() {
                 </CardContent>
               </Card>
 
-              <Card className="bg-white shadow-sm border-l-4 border-l-red-500">
+              <Card className="bg-card shadow-sm border-l-4 border-l-red-500">
                 <CardContent className="p-6">
                   <div className="flex items-center gap-4">
                     <div className="p-3 rounded-lg bg-red-100">
@@ -1143,15 +1131,15 @@ export default function ExtratoAsaas() {
                 </CardContent>
               </Card>
 
-              <Card className="bg-white shadow-sm border-l-4 border-l-[#45E5E5]">
+              <Card className="bg-card shadow-sm border-l-4 border-l-primary">
                 <CardContent className="p-6">
                   <div className="flex items-center gap-4">
-                    <div className="p-3 rounded-lg bg-[#45E5E5]/20">
-                      <Calculator className="w-6 h-6 text-[#45E5E5]" />
+                    <div className="p-3 rounded-lg bg-primary/20">
+                      <Calculator className="w-6 h-6 text-primary" />
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Resultado Líquido</p>
-                      <p className="text-2xl font-bold text-[#10293F]">
+                      <p className="text-2xl font-bold text-secondary">
                         {formatCurrency(metrics.resultado)}
                       </p>
                     </div>
@@ -1159,11 +1147,11 @@ export default function ExtratoAsaas() {
                 </CardContent>
               </Card>
 
-              <Card className="bg-white shadow-sm border-l-4 border-l-[#FFB800]">
+              <Card className="bg-card shadow-sm border-l-4 border-l-accent">
                 <CardContent className="p-6">
                   <div className="flex items-center gap-4">
-                    <div className="p-3 rounded-lg bg-[#FFB800]/20">
-                      <List className="w-6 h-6 text-[#FFB800]" />
+                    <div className="p-3 rounded-lg bg-accent/20">
+                      <List className="w-6 h-6 text-accent-foreground" />
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Transações</p>
@@ -1175,6 +1163,34 @@ export default function ExtratoAsaas() {
                 </CardContent>
               </Card>
             </div>
+
+            {/* Grid de Resumo + Looker Cards */}
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+              <div className="lg:col-span-3">
+                <TransactionSummaryGrid
+                  transacoes={transacoesFiltradas.map(t => ({
+                    tipo_transacao: t.tipo_transacao,
+                    valor: t.valor,
+                    tipo_lancamento: t.tipo_lancamento,
+                  }))}
+                  selectedTipos={tiposSelecionados}
+                  onSelectionChange={setTiposSelecionados}
+                />
+              </div>
+              <div className="lg:col-span-1">
+                <LookerCards
+                  recordCount={transacoesFiltradas.length}
+                  totalValue={transacoesFiltradas.reduce((sum, t) => sum + t.valor, 0)}
+                />
+              </div>
+            </div>
+
+            {/* Active Filters Bar */}
+            <ActiveFiltersBar
+              selectedTipos={tiposSelecionados}
+              onRemoveTipo={(tipo) => setTiposSelecionados(prev => prev.filter(t => t !== tipo))}
+              onClearAll={() => setTiposSelecionados([])}
+            />
 
             {/* Charts */}
             {isLoadingTransacoes ? (
@@ -1329,12 +1345,12 @@ export default function ExtratoAsaas() {
                             paginatedTransacoes.map((t, idx) => (
                               <TableRow 
                                 key={t.id} 
-                                className={idx % 2 === 0 ? "bg-white" : "bg-muted/30"}
+                                className={idx % 2 === 0 ? "bg-card" : "bg-muted/30"}
                               >
                                 <TableCell>{formatDate(t.data)}</TableCell>
                                 <TableCell>
                                   <Badge variant="outline" className="font-normal">
-                                    {t.tipo_transacao}
+                                    {formatarTipoTransacao(t.tipo_transacao)}
                                   </Badge>
                                 </TableCell>
                                 <TableCell className="max-w-[200px]">
@@ -1366,7 +1382,7 @@ export default function ExtratoAsaas() {
                                     variant="ghost"
                                     size="sm"
                                     onClick={() => navigate(`/extrato-asaas/${t.importacao_id}`)}
-                                    className="text-[#45E5E5] hover:text-[#3cd4d4]"
+                                    className="text-primary hover:text-primary/80"
                                   >
                                     <ExternalLink className="w-4 h-4" />
                                   </Button>
@@ -1375,6 +1391,18 @@ export default function ExtratoAsaas() {
                             ))
                           )}
                         </TableBody>
+                        <TableFooter>
+                          <TableRow className="bg-muted/50 font-bold">
+                            <TableCell colSpan={4}>Total geral</TableCell>
+                            <TableCell className={`text-right font-bold ${
+                              transacoesFiltradas.reduce((sum, t) => sum + t.valor, 0) >= 0 ? "text-emerald-600" : "text-red-500"
+                            }`}>
+                              {formatCurrency(transacoesFiltradas.reduce((sum, t) => sum + t.valor, 0))}
+                            </TableCell>
+                            <TableCell></TableCell>
+                            <TableCell></TableCell>
+                          </TableRow>
+                        </TableFooter>
                       </Table>
                     </div>
 

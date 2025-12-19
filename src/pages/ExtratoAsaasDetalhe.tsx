@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
@@ -43,6 +43,10 @@ import {
   Tooltip as RechartsTooltip,
   Legend,
 } from "recharts";
+import { TransactionSummaryGrid } from "@/components/extrato/TransactionSummaryGrid";
+import { ActiveFiltersBar } from "@/components/extrato/ActiveFiltersBar";
+import { LookerCards } from "@/components/extrato/LookerCards";
+import { formatarTipoTransacao, formatCurrency as formatCurrencyUtil } from "@/lib/extratoUtils";
 
 interface ImportacaoExtrato {
   id: string;
@@ -79,7 +83,7 @@ interface ExtratoAsaas {
 type SortField = "data" | "tipo_transacao" | "valor" | "saldo";
 type SortOrder = "asc" | "desc";
 
-const ITEMS_PER_PAGE = 20;
+const ITEMS_PER_PAGE = 100;
 
 const CHART_COLORS = [
   "#45E5E5", "#FFB800", "#22C55E", "#EF4444", "#8B5CF6", 
@@ -468,7 +472,7 @@ export default function ExtratoAsaasDetalhe() {
         </div>
 
         {/* Filters */}
-        <Card className="bg-white shadow-sm">
+        <Card className="bg-card shadow-sm">
           <CardContent className="p-4">
             <div className="flex flex-wrap gap-4 items-center">
               {/* Data Inicial */}
@@ -485,6 +489,7 @@ export default function ExtratoAsaasDetalhe() {
                     selected={dataInicio}
                     onSelect={setDataInicio}
                     locale={ptBR}
+                    className="pointer-events-auto"
                   />
                 </PopoverContent>
               </Popover>
@@ -503,25 +508,10 @@ export default function ExtratoAsaasDetalhe() {
                     selected={dataFim}
                     onSelect={setDataFim}
                     locale={ptBR}
+                    className="pointer-events-auto"
                   />
                 </PopoverContent>
               </Popover>
-
-              {/* Tipo de Transação */}
-              <Select 
-                value={tiposSelecionados.length === 1 ? tiposSelecionados[0] : "__all__"}
-                onValueChange={(val) => setTiposSelecionados(val === "__all__" ? [] : [val])}
-              >
-                <SelectTrigger className="w-[200px]">
-                  <SelectValue placeholder="Tipo de transação" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__all__">Todos os tipos</SelectItem>
-                  {tiposUnicos.map(tipo => (
-                    <SelectItem key={tipo} value={tipo}>{tipo}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
 
               {/* Lançamento */}
               <Select value={lancamentoFiltro} onValueChange={setLancamentoFiltro}>
@@ -543,6 +533,34 @@ export default function ExtratoAsaasDetalhe() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Grid de Resumo + Looker Cards */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          <div className="lg:col-span-3">
+            <TransactionSummaryGrid
+              transacoes={transacoesFiltradas.map(t => ({
+                tipo_transacao: t.tipo_transacao,
+                valor: t.valor,
+                tipo_lancamento: t.tipo_lancamento,
+              }))}
+              selectedTipos={tiposSelecionados}
+              onSelectionChange={setTiposSelecionados}
+            />
+          </div>
+          <div className="lg:col-span-1">
+            <LookerCards
+              recordCount={transacoesFiltradas.length}
+              totalValue={transacoesFiltradas.reduce((sum, t) => sum + t.valor, 0)}
+            />
+          </div>
+        </div>
+
+        {/* Active Filters Bar */}
+        <ActiveFiltersBar
+          selectedTipos={tiposSelecionados}
+          onRemoveTipo={(tipo) => setTiposSelecionados(prev => prev.filter(t => t !== tipo))}
+          onClearAll={() => setTiposSelecionados([])}
+        />
 
         {/* Charts */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -674,12 +692,12 @@ export default function ExtratoAsaasDetalhe() {
                     paginatedTransacoes.map((t, idx) => (
                       <TableRow 
                         key={t.id} 
-                        className={idx % 2 === 0 ? "bg-white" : "bg-muted/30"}
+                        className={idx % 2 === 0 ? "bg-card" : "bg-muted/30"}
                       >
                         <TableCell>{formatDate(t.data)}</TableCell>
                         <TableCell>
                           <Badge variant="outline" className="font-normal">
-                            {t.tipo_transacao}
+                            {formatarTipoTransacao(t.tipo_transacao)}
                           </Badge>
                         </TableCell>
                         <TableCell className="max-w-[250px]">
@@ -710,6 +728,17 @@ export default function ExtratoAsaasDetalhe() {
                     ))
                   )}
                 </TableBody>
+                <TableFooter>
+                  <TableRow className="bg-muted/50 font-bold">
+                    <TableCell colSpan={4}>Total geral</TableCell>
+                    <TableCell className={`text-right font-bold ${
+                      transacoesFiltradas.reduce((sum, t) => sum + t.valor, 0) >= 0 ? "text-emerald-600" : "text-red-500"
+                    }`}>
+                      {formatCurrency(transacoesFiltradas.reduce((sum, t) => sum + t.valor, 0))}
+                    </TableCell>
+                    <TableCell></TableCell>
+                  </TableRow>
+                </TableFooter>
               </Table>
             </div>
 
