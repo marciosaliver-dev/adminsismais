@@ -57,7 +57,7 @@ import { TransactionSummaryGrid } from "@/components/extrato/TransactionSummaryG
 import { ActiveFiltersBar } from "@/components/extrato/ActiveFiltersBar";
 import { LookerCards } from "@/components/extrato/LookerCards";
 import { PeriodSummaryGrid } from "@/components/extrato/PeriodSummaryGrid";
-import { formatarTipoTransacao, formatCurrency as formatCurrencyUtil } from "@/lib/extratoUtils";
+import { formatarTipoTransacao, formatCurrency as formatCurrencyUtil, formatDateBR, parseDateBR } from "@/lib/extratoUtils";
 import {
   LineChart,
   Line,
@@ -271,13 +271,20 @@ export default function ExtratoAsaas() {
   const transacoesFiltradas = useMemo(() => {
     let filtered = [...allTransacoes];
 
-    // Filter by period
-    const inicioDate = startOfMonth(new Date(mesInicio + "-01"));
-    const fimDate = endOfMonth(new Date(mesFim + "-01"));
+    // Filter by period - comparar strings YYYY-MM-DD diretamente (sem Date objects)
+    // Isso evita problemas de timezone
+    const [anoInicio, mesInicioNum] = mesInicio.split("-").map(Number);
+    const [anoFim, mesFimNum] = mesFim.split("-").map(Number);
+    
+    // Calcular último dia do mês final
+    const ultimoDiaMesFim = new Date(anoFim, mesFimNum, 0).getDate();
+    
+    const inicioStr = `${mesInicio}-01`;
+    const fimStr = `${mesFim}-${String(ultimoDiaMesFim).padStart(2, '0')}`;
     
     filtered = filtered.filter(t => {
-      const tDate = new Date(t.data + "T12:00:00");
-      return tDate >= inicioDate && tDate <= fimDate;
+      // Comparação direta de strings YYYY-MM-DD
+      return t.data >= inicioStr && t.data <= fimStr;
     });
 
     // Filter by tipos
@@ -300,13 +307,14 @@ export default function ExtratoAsaas() {
       );
     }
 
-    // Sort
+    // Sort - usar strings diretamente para datas (formato YYYY-MM-DD permite comparação lexicográfica)
     filtered.sort((a, b) => {
       let aVal: any, bVal: any;
       switch (sortField) {
         case "data":
-          aVal = new Date(a.data);
-          bVal = new Date(b.data);
+          // Comparar strings YYYY-MM-DD diretamente (funciona pois o formato é ordenável)
+          aVal = a.data;
+          bVal = b.data;
           break;
         case "tipo_transacao":
           aVal = a.tipo_transacao;
@@ -367,10 +375,14 @@ export default function ExtratoAsaas() {
 
     return Object.values(grouped)
       .sort((a, b) => a.month.localeCompare(b.month))
-      .map(d => ({
-        ...d,
-        monthFormatted: format(new Date(d.month + "-01T12:00:00"), "MMM/yy", { locale: ptBR }),
-      }));
+      .map(d => {
+        const [year, month] = d.month.split("-");
+        const monthNames = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+        return {
+          ...d,
+          monthFormatted: `${monthNames[parseInt(month, 10) - 1]}/${year.slice(2)}`,
+        };
+      });
   }, [transacoesFiltradas]);
 
   // Top 5 tipos bar chart data
@@ -472,14 +484,11 @@ export default function ExtratoAsaas() {
     return (bytes / (1024 * 1024)).toFixed(1) + " MB";
   };
 
-  const parseDate = (dateStr: string): string | null => {
-    if (!dateStr) return null;
-    try {
-      const parsed = parse(dateStr.trim(), "dd/MM/yyyy", new Date());
-      return format(parsed, "yyyy-MM-dd");
-    } catch {
-      return null;
-    }
+  // Parser de data SEM timezone - usa parseDateBR do extratoUtils
+  const parseDate = (dateValue: string | number | Date | null | undefined): string | null => {
+    // Importa função do utils que trata todos os formatos sem timezone
+    const { parseDateBR } = require("@/lib/extratoUtils");
+    return parseDateBR(dateValue);
   };
 
   const parseValue = (valueStr: string): number => {
@@ -509,10 +518,16 @@ export default function ExtratoAsaas() {
 
     try {
       const arrayBuffer = await file.arrayBuffer();
-      const workbook = XLSX.read(arrayBuffer, { type: "array" });
+      // Ler XLSX sem conversão automática de datas - manter como raw values
+      const workbook = XLSX.read(arrayBuffer, { 
+        type: "array",
+        cellDates: false,  // NÃO converter para Date automaticamente
+        cellText: true,    // Manter como texto quando possível
+        raw: false         // Usar valores formatados
+      });
       const sheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[sheetName];
-      const rawData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" }) as string[][];
+      const rawData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "", raw: false }) as string[][];
 
       if (rawData.length < 4) {
         throw new Error("Arquivo vazio ou formato inválido");
