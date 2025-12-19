@@ -484,10 +484,8 @@ export default function ExtratoAsaas() {
     return (bytes / (1024 * 1024)).toFixed(1) + " MB";
   };
 
-  // Parser de data SEM timezone - usa parseDateBR do extratoUtils
+  // Parser de data SEM timezone - usa parseDateBR do extratoUtils (já importado no topo)
   const parseDate = (dateValue: string | number | Date | null | undefined): string | null => {
-    // Importa função do utils que trata todos os formatos sem timezone
-    const { parseDateBR } = require("@/lib/extratoUtils");
     return parseDateBR(dateValue);
   };
 
