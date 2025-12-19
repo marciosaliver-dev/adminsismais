@@ -24,8 +24,10 @@ import {
   ChevronUp,
   ChevronDown,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Download
 } from "lucide-react";
+import * as XLSX from "xlsx";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
@@ -333,23 +335,49 @@ export default function ExtratoAsaasDetalhe() {
     <div className="min-h-screen bg-[#F5F5F5] p-6">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
-        <div className="flex items-start gap-4">
-          <Button 
-            variant="ghost" 
-            size="icon"
-            onClick={() => navigate("/extrato-asaas")}
-            className="mt-1"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">
-              Extrato: {importacao.arquivo_nome}
-            </h1>
-            <p className="text-muted-foreground">
-              Período: {formatDate(importacao.periodo_inicio)} a {formatDate(importacao.periodo_fim)}
-            </p>
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-start gap-4">
+            <Button 
+              variant="ghost" 
+              size="icon"
+              onClick={() => navigate("/extrato-asaas")}
+              className="mt-1"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
+            <div>
+              <h1 className="text-2xl font-bold text-foreground">
+                Extrato: {importacao.arquivo_nome}
+              </h1>
+              <p className="text-muted-foreground">
+                Período: {formatDate(importacao.periodo_inicio)} a {formatDate(importacao.periodo_fim)}
+              </p>
+            </div>
           </div>
+          <Button
+            variant="outline"
+            onClick={() => {
+              const exportData = transacoesFiltradas.map(t => ({
+                "Data": format(new Date(t.data + "T12:00:00"), "dd/MM/yyyy"),
+                "Tipo Transação": t.tipo_transacao,
+                "Descrição": t.descricao,
+                "Valor": t.valor,
+                "Saldo": t.saldo,
+                "Fatura": t.fatura_cobranca || t.fatura_parcelamento || "",
+                "Tipo Lançamento": t.tipo_lancamento,
+              }));
+              const ws = XLSX.utils.json_to_sheet(exportData);
+              const wb = XLSX.utils.book_new();
+              XLSX.utils.book_append_sheet(wb, ws, "Extrato");
+              const today = format(new Date(), "yyyy-MM-dd");
+              XLSX.writeFile(wb, `extrato_asaas_${today}.xlsx`);
+            }}
+            disabled={transacoesFiltradas.length === 0}
+            className="border-[#45E5E5] text-[#45E5E5] hover:bg-[#45E5E5] hover:text-white"
+          >
+            <Download className="w-4 h-4 mr-2" />
+            Exportar Excel
+          </Button>
         </div>
 
         {/* Metric Cards */}

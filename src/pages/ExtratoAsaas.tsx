@@ -9,6 +9,25 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Progress } from "@/components/ui/progress";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/use-toast";
 import { 
   Upload, 
@@ -24,7 +43,11 @@ import {
   X,
   ChevronUp,
   ChevronDown,
-  ExternalLink
+  ExternalLink,
+  Download,
+  Trash2,
+  CheckCircle2,
+  AlertTriangle
 } from "lucide-react";
 import { format, parse, startOfMonth, endOfMonth, subMonths, startOfYear } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -123,6 +146,22 @@ export default function ExtratoAsaas() {
   const [isDragging, setIsDragging] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [processProgress, setProcessProgress] = useState(0);
+  const [processStatus, setProcessStatus] = useState("");
+  
+  // Import result modal state
+  const [showResultModal, setShowResultModal] = useState(false);
+  const [importResult, setImportResult] = useState<{
+    novos: number;
+    duplicados: number;
+    duplicadosIds: string[];
+    importacaoId: string;
+  } | null>(null);
+  
+  // Delete confirmation state
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [importacaoToDelete, setImportacaoToDelete] = useState<ImportacaoExtrato | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   
   // Visão Geral tab state
   const [periodoPreset, setPeriodoPreset] = useState("ultimos3meses");
@@ -444,6 +483,8 @@ export default function ExtratoAsaas() {
     if (!file) return;
 
     setIsProcessing(true);
+    setProcessProgress(0);
+    setProcessStatus("Lendo arquivo...");
 
     try {
       const arrayBuffer = await file.arrayBuffer();
@@ -456,8 +497,12 @@ export default function ExtratoAsaas() {
         throw new Error("Arquivo vazio ou formato inválido");
       }
 
+      setProcessProgress(10);
+      setProcessStatus("Extraindo período...");
+
       const periodoInfo = extractPeriodo(rawData[0]?.join(" ") || "");
       const dataRows = rawData.slice(3);
+      const totalRows = dataRows.length;
 
       const registrosParaInserir: ExtratoRow[] = [];
       const transacoesIds: string[] = [];
@@ -465,11 +510,18 @@ export default function ExtratoAsaas() {
       let totalDebitos = 0;
       let saldoFinal = 0;
 
-      for (const row of dataRows) {
+      for (let i = 0; i < dataRows.length; i++) {
+        const row = dataRows[i];
         const transacaoId = row[1]?.toString().trim();
         
         if (!transacaoId || row[2]?.toString().includes("Saldo Inicial")) {
           continue;
+        }
+
+        // Update progress every 50 rows
+        if (i % 50 === 0) {
+          setProcessProgress(10 + Math.floor((i / totalRows) * 40));
+          setProcessStatus(`Processando linha ${i + 1} de ${totalRows}...`);
         }
 
         transacoesIds.push(transacaoId);
@@ -500,6 +552,9 @@ export default function ExtratoAsaas() {
         });
       }
 
+      setProcessProgress(55);
+      setProcessStatus("Verificando duplicados...");
+
       const { data: existentes } = await supabase
         .from("extrato_asaas")
         .select("transacao_id")
@@ -507,7 +562,13 @@ export default function ExtratoAsaas() {
 
       const existentesSet = new Set(existentes?.map((e) => e.transacao_id) || []);
       const novosRegistros = registrosParaInserir.filter((r) => !existentesSet.has(r.transacao_id));
-      const duplicados = registrosParaInserir.length - novosRegistros.length;
+      const duplicadosIds = registrosParaInserir
+        .filter((r) => existentesSet.has(r.transacao_id))
+        .map((r) => r.transacao_id);
+      const duplicados = duplicadosIds.length;
+
+      setProcessProgress(70);
+      setProcessStatus("Criando importação...");
 
       const { data: importacao, error: importError } = await supabase
         .from("importacoes_extrato")
@@ -528,6 +589,9 @@ export default function ExtratoAsaas() {
 
       if (importError) throw importError;
 
+      setProcessProgress(80);
+      setProcessStatus("Inserindo transações...");
+
       if (novosRegistros.length > 0) {
         const { error: insertError } = await supabase.from("extrato_asaas").insert(
           novosRegistros.map((r) => ({
@@ -545,15 +609,25 @@ export default function ExtratoAsaas() {
         }
       }
 
+      setProcessProgress(95);
+      setProcessStatus("Finalizando...");
+
       await supabase
         .from("importacoes_extrato")
         .update({ status: "concluido" })
         .eq("id", importacao.id);
 
-      toast({
-        title: "Importação concluída!",
-        description: `${novosRegistros.length} registros importados, ${duplicados} duplicados ignorados.`,
+      setProcessProgress(100);
+      setProcessStatus("Concluído!");
+
+      // Show result modal
+      setImportResult({
+        novos: novosRegistros.length,
+        duplicados: duplicados,
+        duplicadosIds: duplicadosIds,
+        importacaoId: importacao.id,
       });
+      setShowResultModal(true);
 
       setFile(null);
       queryClient.invalidateQueries({ queryKey: ["importacoes-extrato"] });
@@ -567,7 +641,67 @@ export default function ExtratoAsaas() {
       });
     } finally {
       setIsProcessing(false);
+      setProcessProgress(0);
+      setProcessStatus("");
     }
+  };
+
+  const handleDeleteImportacao = async () => {
+    if (!importacaoToDelete) return;
+    
+    setIsDeleting(true);
+    try {
+      // Delete transações first (cascade should handle this, but being explicit)
+      await supabase
+        .from("extrato_asaas")
+        .delete()
+        .eq("importacao_id", importacaoToDelete.id);
+      
+      // Delete importação
+      const { error } = await supabase
+        .from("importacoes_extrato")
+        .delete()
+        .eq("id", importacaoToDelete.id);
+      
+      if (error) throw error;
+      
+      toast({
+        title: "Importação excluída com sucesso",
+        description: `${importacaoToDelete.total_registros} transações foram removidas.`,
+      });
+      
+      queryClient.invalidateQueries({ queryKey: ["importacoes-extrato"] });
+      queryClient.invalidateQueries({ queryKey: ["extrato-asaas-all"] });
+    } catch (error: any) {
+      toast({
+        title: "Erro ao excluir",
+        description: error.message || "Não foi possível excluir a importação.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
+      setDeleteConfirmOpen(false);
+      setImportacaoToDelete(null);
+    }
+  };
+
+  const exportToExcel = (data: ExtratoAsaasRecord[], filename: string) => {
+    const exportData = data.map(t => ({
+      "Data": format(new Date(t.data + "T12:00:00"), "dd/MM/yyyy"),
+      "Tipo Transação": t.tipo_transacao,
+      "Descrição": t.descricao,
+      "Valor": t.valor,
+      "Saldo": t.saldo,
+      "Fatura": t.fatura_cobranca || t.fatura_parcelamento || "",
+      "Tipo Lançamento": t.tipo_lancamento,
+    }));
+    
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Extrato");
+    
+    const today = format(new Date(), "yyyy-MM-dd");
+    XLSX.writeFile(wb, `${filename}_${today}.xlsx`);
   };
 
   const formatCurrency = (value: number) => {
@@ -664,30 +798,43 @@ export default function ExtratoAsaas() {
                 </div>
 
                 {file && (
-                  <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <FileSpreadsheet className="w-8 h-8 text-[#45E5E5]" />
-                      <div>
-                        <p className="font-medium text-foreground">{file.name}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {formatFileSize(file.size)}
-                        </p>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <FileSpreadsheet className="w-8 h-8 text-[#45E5E5]" />
+                        <div>
+                          <p className="font-medium text-foreground">{file.name}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {formatFileSize(file.size)}
+                          </p>
+                        </div>
                       </div>
+                      <Button
+                        onClick={processFile}
+                        disabled={isProcessing}
+                        className="bg-[#45E5E5] hover:bg-[#3cd4d4] text-white"
+                      >
+                        {isProcessing ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Processando...
+                          </>
+                        ) : (
+                          "Processar Importação"
+                        )}
+                      </Button>
                     </div>
-                    <Button
-                      onClick={processFile}
-                      disabled={isProcessing}
-                      className="bg-[#45E5E5] hover:bg-[#3cd4d4] text-white"
-                    >
-                      {isProcessing ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Processando...
-                        </>
-                      ) : (
-                        "Processar Importação"
-                      )}
-                    </Button>
+                    
+                    {/* Progress Bar */}
+                    {isProcessing && (
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">{processStatus}</span>
+                          <span className="font-medium">{processProgress}%</span>
+                        </div>
+                        <Progress value={processProgress} className="h-2" />
+                      </div>
+                    )}
                   </div>
                 )}
               </CardContent>
@@ -721,6 +868,7 @@ export default function ExtratoAsaas() {
                             <TableHead className="text-right">Créditos</TableHead>
                             <TableHead className="text-right">Débitos</TableHead>
                             <TableHead>Status</TableHead>
+                            <TableHead className="text-center">Ações</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -755,6 +903,20 @@ export default function ExtratoAsaas() {
                                 {formatCurrency(imp.total_debitos)}
                               </TableCell>
                               <TableCell>{getStatusBadge(imp.status)}</TableCell>
+                              <TableCell className="text-center">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setImportacaoToDelete(imp);
+                                    setDeleteConfirmOpen(true);
+                                  }}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </TableCell>
                             </TableRow>
                           ))}
                         </TableBody>
@@ -874,6 +1036,19 @@ export default function ExtratoAsaas() {
                   <Button variant="ghost" onClick={clearFilters} size="sm">
                     <X className="w-4 h-4 mr-1" />
                     Limpar filtros
+                  </Button>
+
+                  {/* Export Button */}
+                  <div className="flex-1" />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => exportToExcel(transacoesFiltradas, "extrato_asaas_visao_geral")}
+                    disabled={transacoesFiltradas.length === 0}
+                    className="border-[#45E5E5] text-[#45E5E5] hover:bg-[#45E5E5] hover:text-white"
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Exportar Excel
                   </Button>
                 </div>
               </CardContent>
@@ -1184,6 +1359,99 @@ export default function ExtratoAsaas() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir importação</AlertDialogTitle>
+            <AlertDialogDescription>
+              Excluir importação "{importacaoToDelete?.arquivo_nome}"? 
+              Isso removerá {importacaoToDelete?.total_registros} transações.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteImportacao}
+              disabled={isDeleting}
+              className="bg-red-500 hover:bg-red-600"
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Excluindo...
+                </>
+              ) : (
+                "Excluir"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Import Result Modal */}
+      <Dialog open={showResultModal} onOpenChange={setShowResultModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Importação Concluída</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="flex items-center gap-3">
+              <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+              <span className="text-foreground">
+                {importResult?.novos} transações importadas com sucesso
+              </span>
+            </div>
+            {importResult?.duplicados && importResult.duplicados > 0 && (
+              <Collapsible>
+                <div className="flex items-center gap-3">
+                  <AlertTriangle className="w-5 h-5 text-amber-500" />
+                  <span className="text-foreground">
+                    {importResult.duplicados} transações ignoradas (já existiam)
+                  </span>
+                  <CollapsibleTrigger asChild>
+                    <Button variant="ghost" size="sm" className="ml-auto">
+                      Ver IDs
+                    </Button>
+                  </CollapsibleTrigger>
+                </div>
+                <CollapsibleContent className="mt-2">
+                  <div className="max-h-[150px] overflow-y-auto bg-muted rounded p-2 text-xs font-mono">
+                    {importResult.duplicadosIds.slice(0, 50).map((id, idx) => (
+                      <div key={idx} className="py-0.5">{id}</div>
+                    ))}
+                    {importResult.duplicadosIds.length > 50 && (
+                      <div className="py-0.5 text-muted-foreground">
+                        ... e mais {importResult.duplicadosIds.length - 50}
+                      </div>
+                    )}
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowResultModal(false)}
+            >
+              Fechar
+            </Button>
+            <Button
+              onClick={() => {
+                setShowResultModal(false);
+                if (importResult?.importacaoId) {
+                  navigate(`/extrato-asaas/${importResult.importacaoId}`);
+                }
+              }}
+              className="bg-[#45E5E5] hover:bg-[#3cd4d4] text-white"
+            >
+              Ver Extrato
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
