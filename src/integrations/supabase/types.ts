@@ -333,6 +333,39 @@ export type Database = {
         }
         Relationships: []
       }
+      profiles: {
+        Row: {
+          aprovado: boolean | null
+          created_at: string
+          departamento: string | null
+          email: string
+          id: string
+          nome: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          aprovado?: boolean | null
+          created_at?: string
+          departamento?: string | null
+          email: string
+          id?: string
+          nome: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          aprovado?: boolean | null
+          created_at?: string
+          departamento?: string | null
+          email?: string
+          id?: string
+          nome?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       venda_importada: {
         Row: {
           cliente: string | null
@@ -412,7 +445,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      is_user_approved: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
       [_ in never]: never
