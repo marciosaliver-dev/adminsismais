@@ -1006,14 +1006,14 @@ export default function ExtratoAsaas() {
 
                   {/* Tipo de Transação */}
                   <Select 
-                    value={tiposSelecionados.length === 1 ? tiposSelecionados[0] : ""}
-                    onValueChange={(val) => setTiposSelecionados(val ? [val] : [])}
+                    value={tiposSelecionados.length === 1 ? tiposSelecionados[0] : "__all__"}
+                    onValueChange={(val) => setTiposSelecionados(val === "__all__" ? [] : [val])}
                   >
                     <SelectTrigger className="w-[200px]">
                       <SelectValue placeholder="Tipo de transação" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Todos os tipos</SelectItem>
+                      <SelectItem value="__all__">Todos os tipos</SelectItem>
                       {tiposUnicos.map(tipo => (
                         <SelectItem key={tipo} value={tipo}>{tipo}</SelectItem>
                       ))}
