@@ -118,18 +118,34 @@ export default function ExtratoAsaasDetalhe() {
     enabled: !!id,
   });
 
-  // Fetch transações
+  // Fetch transações (with pagination to handle >1000 records)
   const { data: transacoes = [], isLoading: isLoadingTransacoes } = useQuery({
     queryKey: ["extrato-asaas", id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("extrato_asaas")
-        .select("*")
-        .eq("importacao_id", id)
-        .order("data", { ascending: false });
-      
-      if (error) throw error;
-      return data as ExtratoAsaas[];
+      const PAGE_SIZE = 1000;
+      let allData: ExtratoAsaas[] = [];
+      let page = 0;
+      let hasMore = true;
+
+      while (hasMore) {
+        const from = page * PAGE_SIZE;
+        const to = from + PAGE_SIZE - 1;
+
+        const { data, error } = await supabase
+          .from("extrato_asaas")
+          .select("*")
+          .eq("importacao_id", id)
+          .order("data", { ascending: false })
+          .range(from, to);
+
+        if (error) throw error;
+
+        allData = [...allData, ...(data || [])];
+        hasMore = (data?.length || 0) === PAGE_SIZE;
+        page++;
+      }
+
+      return allData as ExtratoAsaas[];
     },
     enabled: !!id,
   });

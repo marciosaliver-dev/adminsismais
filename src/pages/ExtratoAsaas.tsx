@@ -192,17 +192,33 @@ export default function ExtratoAsaas() {
     },
   });
 
-  // Fetch all extrato records for Visão Geral
+  // Fetch all extrato records for Visão Geral (with pagination to handle >1000 records)
   const { data: allTransacoes = [], isLoading: isLoadingTransacoes } = useQuery({
     queryKey: ["extrato-asaas-all"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("extrato_asaas")
-        .select("*")
-        .order("data", { ascending: false });
+      const PAGE_SIZE = 1000;
+      let allData: ExtratoAsaasRecord[] = [];
+      let page = 0;
+      let hasMore = true;
 
-      if (error) throw error;
-      return data as ExtratoAsaasRecord[];
+      while (hasMore) {
+        const from = page * PAGE_SIZE;
+        const to = from + PAGE_SIZE - 1;
+
+        const { data, error } = await supabase
+          .from("extrato_asaas")
+          .select("*")
+          .order("data", { ascending: false })
+          .range(from, to);
+
+        if (error) throw error;
+
+        allData = [...allData, ...(data || [])];
+        hasMore = (data?.length || 0) === PAGE_SIZE;
+        page++;
+      }
+
+      return allData as ExtratoAsaasRecord[];
     },
     enabled: activeTab === "visao-geral",
   });
@@ -555,12 +571,19 @@ export default function ExtratoAsaas() {
       setProcessProgress(55);
       setProcessStatus("Verificando duplicados...");
 
-      const { data: existentes } = await supabase
-        .from("extrato_asaas")
-        .select("transacao_id")
-        .in("transacao_id", transacoesIds);
+      // Fetch existing transacao_ids in batches to handle large arrays
+      const existentesSet = new Set<string>();
+      const BATCH_CHECK_SIZE = 500;
+      for (let i = 0; i < transacoesIds.length; i += BATCH_CHECK_SIZE) {
+        const batch = transacoesIds.slice(i, i + BATCH_CHECK_SIZE);
+        const { data: existentes } = await supabase
+          .from("extrato_asaas")
+          .select("transacao_id")
+          .in("transacao_id", batch);
+        
+        existentes?.forEach((e) => existentesSet.add(e.transacao_id));
+      }
 
-      const existentesSet = new Set(existentes?.map((e) => e.transacao_id) || []);
       const novosRegistros = registrosParaInserir.filter((r) => !existentesSet.has(r.transacao_id));
       const duplicadosIds = registrosParaInserir
         .filter((r) => existentesSet.has(r.transacao_id))
@@ -589,32 +612,64 @@ export default function ExtratoAsaas() {
 
       if (importError) throw importError;
 
-      setProcessProgress(80);
+      setProcessProgress(75);
       setProcessStatus("Inserindo transações...");
 
-      if (novosRegistros.length > 0) {
-        const { error: insertError } = await supabase.from("extrato_asaas").insert(
-          novosRegistros.map((r) => ({
-            ...r,
-            importacao_id: importacao.id,
-          }))
-        );
+      // Insert in batches of 500 records
+      const BATCH_INSERT_SIZE = 500;
+      const registrosComImportacao = novosRegistros.map((r) => ({
+        ...r,
+        importacao_id: importacao.id,
+      }));
+
+      const totalLotes = Math.ceil(registrosComImportacao.length / BATCH_INSERT_SIZE);
+      let insertedCount = 0;
+
+      for (let i = 0; i < registrosComImportacao.length; i += BATCH_INSERT_SIZE) {
+        const lote = registrosComImportacao.slice(i, i + BATCH_INSERT_SIZE);
+        const loteAtual = Math.floor(i / BATCH_INSERT_SIZE) + 1;
+
+        setProcessStatus(`Importando lote ${loteAtual} de ${totalLotes}... (${lote.length} registros)`);
+
+        const { error: insertError } = await supabase
+          .from("extrato_asaas")
+          .insert(lote);
 
         if (insertError) {
           await supabase
             .from("importacoes_extrato")
-            .update({ status: "erro", observacao: insertError.message })
+            .update({ status: "erro", observacao: `Erro no lote ${loteAtual}: ${insertError.message}` })
             .eq("id", importacao.id);
           throw insertError;
         }
+
+        insertedCount += lote.length;
+        const progresso = 75 + Math.floor((insertedCount / registrosComImportacao.length) * 20);
+        setProcessProgress(progresso);
       }
 
-      setProcessProgress(95);
+      setProcessProgress(96);
+      setProcessStatus("Verificando contagem...");
+
+      // Verify count after insertion
+      const { count: realCount } = await supabase
+        .from("extrato_asaas")
+        .select("*", { count: "exact", head: true })
+        .eq("importacao_id", importacao.id);
+
+      if (realCount !== novosRegistros.length) {
+        console.warn(`Esperado ${novosRegistros.length}, inserido ${realCount}`);
+      }
+
+      setProcessProgress(98);
       setProcessStatus("Finalizando...");
 
       await supabase
         .from("importacoes_extrato")
-        .update({ status: "concluido" })
+        .update({ 
+          status: "concluido",
+          registros_novos: realCount || novosRegistros.length
+        })
         .eq("id", importacao.id);
 
       setProcessProgress(100);
@@ -622,7 +677,7 @@ export default function ExtratoAsaas() {
 
       // Show result modal
       setImportResult({
-        novos: novosRegistros.length,
+        novos: realCount || novosRegistros.length,
         duplicados: duplicados,
         duplicadosIds: duplicadosIds,
         importacaoId: importacao.id,
