@@ -47,7 +47,7 @@ import { TransactionSummaryGrid } from "@/components/extrato/TransactionSummaryG
 import { ActiveFiltersBar } from "@/components/extrato/ActiveFiltersBar";
 import { LookerCards } from "@/components/extrato/LookerCards";
 import { PeriodSummaryGrid } from "@/components/extrato/PeriodSummaryGrid";
-import { formatarTipoTransacao, formatCurrency as formatCurrencyUtil } from "@/lib/extratoUtils";
+import { formatarTipoTransacao, formatCurrency as formatCurrencyUtil, formatDateBR, datePickerToString } from "@/lib/extratoUtils";
 
 interface ImportacaoExtrato {
   id: string;
@@ -165,12 +165,18 @@ export default function ExtratoAsaasDetalhe() {
   const transacoesFiltradas = useMemo(() => {
     let filtered = [...transacoes];
 
-    // Filter by date range
+    // Filter by date range - comparar strings YYYY-MM-DD diretamente
     if (dataInicio) {
-      filtered = filtered.filter(t => new Date(t.data + "T12:00:00") >= dataInicio);
+      const inicioStr = datePickerToString(dataInicio);
+      if (inicioStr) {
+        filtered = filtered.filter(t => t.data >= inicioStr);
+      }
     }
     if (dataFim) {
-      filtered = filtered.filter(t => new Date(t.data + "T12:00:00") <= dataFim);
+      const fimStr = datePickerToString(dataFim);
+      if (fimStr) {
+        filtered = filtered.filter(t => t.data <= fimStr);
+      }
     }
 
     // Filter by tipos
@@ -193,13 +199,14 @@ export default function ExtratoAsaasDetalhe() {
       );
     }
 
-    // Sort
+    // Sort - usar strings diretamente para datas (formato YYYY-MM-DD permite comparação lexicográfica)
     filtered.sort((a, b) => {
       let aVal: any, bVal: any;
       switch (sortField) {
         case "data":
-          aVal = new Date(a.data);
-          bVal = new Date(b.data);
+          // Comparar strings YYYY-MM-DD diretamente (funciona pois o formato é ordenável)
+          aVal = a.data;
+          bVal = b.data;
           break;
         case "tipo_transacao":
           aVal = a.tipo_transacao;
@@ -277,7 +284,7 @@ export default function ExtratoAsaasDetalhe() {
       .sort((a, b) => a.date.localeCompare(b.date))
       .map(d => ({
         ...d,
-        dateFormatted: format(new Date(d.date + "T12:00:00"), "dd/MM"),
+        dateFormatted: formatDateBR(d.date).substring(0, 5), // DD/MM
       }));
   }, [transacoesFiltradas]);
 
@@ -317,8 +324,9 @@ export default function ExtratoAsaasDetalhe() {
     }).format(value);
   };
 
+  // Usar formatDateBR do utils - sem conversão de timezone
   const formatDate = (dateStr: string) => {
-    return format(new Date(dateStr + "T12:00:00"), "dd/MM/yyyy", { locale: ptBR });
+    return formatDateBR(dateStr);
   };
 
   const SortIcon = ({ field }: { field: SortField }) => {
@@ -379,7 +387,7 @@ export default function ExtratoAsaasDetalhe() {
             variant="outline"
             onClick={() => {
               const exportData = transacoesFiltradas.map(t => ({
-                "Data": format(new Date(t.data + "T12:00:00"), "dd/MM/yyyy"),
+                "Data": formatDateBR(t.data),
                 "Tipo Transação": t.tipo_transacao,
                 "Descrição": t.descricao,
                 "Valor": t.valor,
