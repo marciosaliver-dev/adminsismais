@@ -106,6 +106,62 @@ export type Database = {
         }
         Relationships: []
       }
+      extrato_asaas: {
+        Row: {
+          created_at: string
+          data: string
+          descricao: string
+          fatura_cobranca: string | null
+          fatura_parcelamento: string | null
+          id: string
+          importacao_id: string
+          nota_fiscal: string | null
+          saldo: number
+          tipo_lancamento: string
+          tipo_transacao: string
+          transacao_id: string
+          valor: number
+        }
+        Insert: {
+          created_at?: string
+          data: string
+          descricao: string
+          fatura_cobranca?: string | null
+          fatura_parcelamento?: string | null
+          id?: string
+          importacao_id: string
+          nota_fiscal?: string | null
+          saldo?: number
+          tipo_lancamento: string
+          tipo_transacao: string
+          transacao_id: string
+          valor?: number
+        }
+        Update: {
+          created_at?: string
+          data?: string
+          descricao?: string
+          fatura_cobranca?: string | null
+          fatura_parcelamento?: string | null
+          id?: string
+          importacao_id?: string
+          nota_fiscal?: string | null
+          saldo?: number
+          tipo_lancamento?: string
+          tipo_transacao?: string
+          transacao_id?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "extrato_asaas_importacao_id_fkey"
+            columns: ["importacao_id"]
+            isOneToOne: false
+            referencedRelation: "importacoes_extrato"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       faixa_comissao: {
         Row: {
           ativo: boolean
@@ -178,6 +234,54 @@ export type Database = {
           total_mrr?: number
           total_vendas?: number
           updated_at?: string
+        }
+        Relationships: []
+      }
+      importacoes_extrato: {
+        Row: {
+          arquivo_nome: string
+          created_at: string
+          id: string
+          observacao: string | null
+          periodo_fim: string
+          periodo_inicio: string
+          registros_duplicados: number
+          registros_novos: number
+          saldo_final: number
+          status: string
+          total_creditos: number
+          total_debitos: number
+          total_registros: number
+        }
+        Insert: {
+          arquivo_nome: string
+          created_at?: string
+          id?: string
+          observacao?: string | null
+          periodo_fim: string
+          periodo_inicio: string
+          registros_duplicados?: number
+          registros_novos?: number
+          saldo_final?: number
+          status?: string
+          total_creditos?: number
+          total_debitos?: number
+          total_registros?: number
+        }
+        Update: {
+          arquivo_nome?: string
+          created_at?: string
+          id?: string
+          observacao?: string | null
+          periodo_fim?: string
+          periodo_inicio?: string
+          registros_duplicados?: number
+          registros_novos?: number
+          saldo_final?: number
+          status?: string
+          total_creditos?: number
+          total_debitos?: number
+          total_registros?: number
         }
         Relationships: []
       }
