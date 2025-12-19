@@ -39,22 +39,6 @@ interface NavSection {
 
 const navSections: NavSection[] = [
   {
-    title: "Principal",
-    items: [
-      { title: "Dashboard", icon: LayoutDashboard, href: "/" },
-      { title: "Análise de Cohorts", icon: TrendingUp, href: "/cohorts" },
-    ],
-  },
-  {
-    title: "Financeiro",
-    items: [
-      { title: "Lançamentos", icon: Wallet, href: "/financeiro" },
-      { title: "Conciliação", icon: Receipt, href: "/conciliacao" },
-      { title: "Orçamentos", icon: Building2, href: "/orcamentos" },
-      { title: "📄 Extrato Asaas", icon: FileSpreadsheet, href: "/extrato-asaas" },
-    ],
-  },
-  {
     title: "💰 Comissões",
     items: [
       { title: "Novo Fechamento", icon: Calculator, href: "/comissoes" },
@@ -64,21 +48,17 @@ const navSections: NavSection[] = [
     ],
   },
   {
-    title: "Despesas",
+    title: "Financeiro",
     items: [
-      { title: "Minhas Despesas", icon: Receipt, href: "/despesas" },
-      { title: "Aprovar", icon: Users, href: "/despesas/aprovar", badge: "3" },
-      { title: "Cartões", icon: CreditCard, href: "/despesas/cartoes" },
+      { title: "📄 Extrato Asaas", icon: FileSpreadsheet, href: "/extrato-asaas" },
     ],
   },
 ];
 
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const [expandedSections, setExpandedSections] = useState<string[]>([
-    "Principal",
+    "💰 Comissões",
     "Financeiro",
-    "Comissões",
-    "Despesas",
   ]);
 
   const toggleSection = (title: string) => {
@@ -164,19 +144,6 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
               )}
             </div>
           ))}
-
-          {/* Settings at bottom */}
-          <div className="pt-6 border-t border-sidebar-border">
-            <NavLink
-              to="/configuracoes"
-              className="flex items-center gap-3 px-3 py-2 rounded-lg text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors"
-              activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
-              onClick={onClose}
-            >
-              <Settings className="w-5 h-5" />
-              <span>Configurações</span>
-            </NavLink>
-          </div>
         </nav>
       </aside>
     </>
