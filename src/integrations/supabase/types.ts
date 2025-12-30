@@ -237,6 +237,44 @@ export type Database = {
         }
         Relationships: []
       }
+      funcionalidades: {
+        Row: {
+          ativo: boolean | null
+          codigo: string
+          created_at: string
+          descricao: string | null
+          id: string
+          modulo_id: string
+          nome: string
+        }
+        Insert: {
+          ativo?: boolean | null
+          codigo: string
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          modulo_id: string
+          nome: string
+        }
+        Update: {
+          ativo?: boolean | null
+          codigo?: string
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          modulo_id?: string
+          nome?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "funcionalidades_modulo_id_fkey"
+            columns: ["modulo_id"]
+            isOneToOne: false
+            referencedRelation: "modulos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       importacoes_extrato: {
         Row: {
           arquivo_nome: string
@@ -333,6 +371,71 @@ export type Database = {
         }
         Relationships: []
       }
+      modulos: {
+        Row: {
+          ativo: boolean | null
+          created_at: string
+          descricao: string | null
+          icone: string | null
+          id: string
+          nome: string
+          ordem: number | null
+          rota: string
+        }
+        Insert: {
+          ativo?: boolean | null
+          created_at?: string
+          descricao?: string | null
+          icone?: string | null
+          id?: string
+          nome: string
+          ordem?: number | null
+          rota: string
+        }
+        Update: {
+          ativo?: boolean | null
+          created_at?: string
+          descricao?: string | null
+          icone?: string | null
+          id?: string
+          nome?: string
+          ordem?: number | null
+          rota?: string
+        }
+        Relationships: []
+      }
+      permissoes_usuario: {
+        Row: {
+          created_at: string
+          funcionalidade_id: string
+          id: string
+          permitido: boolean | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          funcionalidade_id: string
+          id?: string
+          permitido?: boolean | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          funcionalidade_id?: string
+          id?: string
+          permitido?: boolean | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "permissoes_usuario_funcionalidade_id_fkey"
+            columns: ["funcionalidade_id"]
+            isOneToOne: false
+            referencedRelation: "funcionalidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           aprovado: boolean | null
@@ -362,6 +465,27 @@ export type Database = {
           id?: string
           nome?: string
           updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
         }
         Relationships: []
@@ -445,10 +569,22 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      has_permission: {
+        Args: { _codigo: string; _user_id: string }
+        Returns: boolean
+      }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      is_admin: { Args: { _user_id: string }; Returns: boolean }
       is_user_approved: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -575,6 +711,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "user"],
+    },
   },
 } as const

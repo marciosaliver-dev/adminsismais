@@ -2,23 +2,21 @@ import { useState } from "react";
 import { NavLink } from "@/components/NavLink";
 import { cn } from "@/lib/utils";
 import {
-  LayoutDashboard,
-  Users,
   TrendingUp,
-  Wallet,
-  Receipt,
-  CreditCard,
-  Building2,
   Settings,
   ChevronDown,
   ChevronRight,
-  Menu,
   X,
   Calculator,
   History,
+  Receipt,
   FileSpreadsheet,
+  Shield,
+  Users,
+  Lock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { usePermissions } from "@/hooks/usePermissions";
 
 interface SidebarProps {
   isOpen: boolean;
@@ -30,41 +28,69 @@ interface NavItem {
   icon: React.ElementType;
   href: string;
   badge?: string;
+  permission?: string;
+  requireAdmin?: boolean;
 }
 
 interface NavSection {
   title: string;
   items: NavItem[];
+  permission?: string;
+  requireAdmin?: boolean;
 }
 
 const navSections: NavSection[] = [
   {
     title: "💰 Comissões",
     items: [
-      { title: "Novo Fechamento", icon: Calculator, href: "/comissoes" },
-      { title: "📋 Histórico", icon: History, href: "/comissoes/historico" },
-      { title: "📊 Relatório Vendas", icon: Receipt, href: "/comissoes/relatorio-vendas" },
-      { title: "⚙️ Configurações", icon: Settings, href: "/comissoes/configuracoes" },
+      { title: "Novo Fechamento", icon: Calculator, href: "/comissoes", permission: "comissoes.criar" },
+      { title: "📋 Histórico", icon: History, href: "/comissoes/historico", permission: "comissoes.visualizar" },
+      { title: "📊 Relatório Vendas", icon: Receipt, href: "/comissoes/relatorio-vendas", permission: "comissoes.visualizar" },
+      { title: "⚙️ Configurações", icon: Settings, href: "/comissoes/configuracoes", permission: "comissoes.configurar" },
     ],
   },
   {
     title: "Financeiro",
     items: [
-      { title: "📄 Extrato Asaas", icon: FileSpreadsheet, href: "/extrato-asaas" },
+      { title: "📄 Extrato Asaas", icon: FileSpreadsheet, href: "/extrato-asaas", permission: "extrato.visualizar" },
+    ],
+  },
+  {
+    title: "🔒 Administração",
+    requireAdmin: true,
+    items: [
+      { title: "Gerenciar Usuários", icon: Users, href: "/admin/usuarios", requireAdmin: true },
+      { title: "Permissões", icon: Lock, href: "/admin/permissoes", requireAdmin: true },
     ],
   },
 ];
 
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
+  const { hasPermission, isAdmin, loading } = usePermissions();
   const [expandedSections, setExpandedSections] = useState<string[]>([
     "💰 Comissões",
     "Financeiro",
+    "🔒 Administração",
   ]);
 
   const toggleSection = (title: string) => {
     setExpandedSections((prev) =>
       prev.includes(title) ? prev.filter((t) => t !== title) : [...prev, title]
     );
+  };
+
+  const canViewItem = (item: NavItem): boolean => {
+    if (loading) return false;
+    if (item.requireAdmin) return isAdmin;
+    if (item.permission) return hasPermission(item.permission);
+    return true;
+  };
+
+  const canViewSection = (section: NavSection): boolean => {
+    if (loading) return false;
+    if (section.requireAdmin) return isAdmin;
+    // Mostrar seção se pelo menos um item for visível
+    return section.items.some(canViewItem);
   };
 
   return (
@@ -107,43 +133,53 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
         {/* Navigation */}
         <nav className="p-4 space-y-6 overflow-y-auto h-[calc(100vh-5rem)]">
-          {navSections.map((section) => (
-            <div key={section.title}>
-              <button
-                onClick={() => toggleSection(section.title)}
-                className="flex items-center justify-between w-full text-xs font-semibold text-sidebar-foreground/70 uppercase tracking-wider mb-3 hover:text-sidebar-foreground transition-colors"
-              >
-                <span>{section.title}</span>
-                {expandedSections.includes(section.title) ? (
-                  <ChevronDown className="w-4 h-4" />
-                ) : (
-                  <ChevronRight className="w-4 h-4" />
-                )}
-              </button>
+          {navSections.map((section) => {
+            if (!canViewSection(section)) return null;
 
-              {expandedSections.includes(section.title) && (
-                <div className="space-y-1">
-                  {section.items.map((item) => (
-                    <NavLink
-                      key={item.href}
-                      to={item.href}
-                      className="flex items-center gap-3 px-3 py-2 rounded-lg text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors"
-                      activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
-                      onClick={onClose}
-                    >
-                      <item.icon className="w-5 h-5 flex-shrink-0" />
-                      <span className="flex-1">{item.title}</span>
-                      {item.badge && (
-                        <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-primary text-primary-foreground">
-                          {item.badge}
-                        </span>
-                      )}
-                    </NavLink>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
+            const visibleItems = section.items.filter(canViewItem);
+            if (visibleItems.length === 0) return null;
+
+            return (
+              <div key={section.title}>
+                <button
+                  onClick={() => toggleSection(section.title)}
+                  className="flex items-center justify-between w-full text-xs font-semibold text-sidebar-foreground/70 uppercase tracking-wider mb-3 hover:text-sidebar-foreground transition-colors"
+                >
+                  <span className="flex items-center gap-2">
+                    {section.requireAdmin && <Shield className="w-3 h-3" />}
+                    {section.title}
+                  </span>
+                  {expandedSections.includes(section.title) ? (
+                    <ChevronDown className="w-4 h-4" />
+                  ) : (
+                    <ChevronRight className="w-4 h-4" />
+                  )}
+                </button>
+
+                {expandedSections.includes(section.title) && (
+                  <div className="space-y-1">
+                    {visibleItems.map((item) => (
+                      <NavLink
+                        key={item.href}
+                        to={item.href}
+                        className="flex items-center gap-3 px-3 py-2 rounded-lg text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors"
+                        activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
+                        onClick={onClose}
+                      >
+                        <item.icon className="w-5 h-5 flex-shrink-0" />
+                        <span className="flex-1">{item.title}</span>
+                        {item.badge && (
+                          <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-primary text-primary-foreground">
+                            {item.badge}
+                          </span>
+                        )}
+                      </NavLink>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </nav>
       </aside>
     </>
