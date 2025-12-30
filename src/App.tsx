@@ -13,6 +13,8 @@ import HistoricoComissoes from "./pages/HistoricoComissoes";
 import RelatorioVendas from "./pages/RelatorioVendas";
 import ExtratoAsaas from "./pages/ExtratoAsaas";
 import ExtratoAsaasDetalhe from "./pages/ExtratoAsaasDetalhe";
+import GerenciarUsuarios from "./pages/admin/GerenciarUsuarios";
+import GerenciarPermissoes from "./pages/admin/GerenciarPermissoes";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
@@ -101,6 +103,28 @@ const App = () => (
                 <ProtectedRoute>
                   <Layout>
                     <ExtratoAsaasDetalhe />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            
+            {/* Protected routes - Admin */}
+            <Route
+              path="/admin/usuarios"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <GerenciarUsuarios />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/permissoes"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <GerenciarPermissoes />
                   </Layout>
                 </ProtectedRoute>
               }
