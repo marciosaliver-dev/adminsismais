@@ -161,13 +161,21 @@ Deno.serve(async (req) => {
       }
 
       if (venda.conta_comissao) {
-        dados.mrr_comissao += venda.valor_mrr;
-        dados.total_adesao += venda.valor_adesao || 0;
-        
-        // Verificar se é venda anual
         const intervalo = venda.intervalo?.toLowerCase().trim() || "";
-        if (intervalo === "anual") {
-          dados.mrr_anual += venda.valor_mrr;
+        
+        // Venda Única: não conta para MRR, comissão é calculada sobre valor_assinatura
+        if (intervalo === "venda única") {
+          // Para venda única, usamos valor_adesao como valor do serviço
+          dados.total_adesao += venda.valor_adesao || 0;
+        } else {
+          // Vendas recorrentes: conta MRR normalmente
+          dados.mrr_comissao += venda.valor_mrr;
+          dados.total_adesao += venda.valor_adesao || 0;
+          
+          // Verificar se é venda anual
+          if (intervalo === "anual") {
+            dados.mrr_anual += venda.valor_mrr;
+          }
         }
       }
     }

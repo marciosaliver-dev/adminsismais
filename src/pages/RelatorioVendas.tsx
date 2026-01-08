@@ -101,9 +101,10 @@ const TIPOS_VENDA = [
   "Afiliado",
   "Migração",
   "Troca de plataforma",
+  "Venda Única",
 ];
 
-const INTERVALOS = ["Mensal", "Anual", "Semestral"];
+const INTERVALOS = ["Mensal", "Anual", "Semestral", "Venda Única"];
 
 export default function RelatorioVendas() {
   const queryClient = useQueryClient();
