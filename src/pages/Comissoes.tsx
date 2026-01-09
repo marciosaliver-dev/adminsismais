@@ -328,14 +328,31 @@ export default function Comissoes() {
       // Map columns and create vendas
       const vendas: TablesInsert<"venda_importada">[] = [];
       let totalMrr = 0;
+      let totalVendasRecorrentes = 0;
+      
+      // Helper to check if a sale is recurring (not single sale or service)
+      const isVendaRecorrente = (tipoVenda: string | null, intervalo: string | null): boolean => {
+        const tipo = tipoVenda?.toLowerCase() || "";
+        const interv = intervalo?.toLowerCase() || "";
+        const isVendaUnica = tipo.includes("única") || tipo.includes("unica") || 
+                             interv.includes("única") || interv.includes("unica") ||
+                             tipo === "venda única" || interv === "venda única";
+        const isServico = tipo.includes("serviço") || tipo.includes("servico");
+        return !isVendaUnica && !isServico;
+      };
 
       for (const row of rows) {
         const tipoVenda = row["Tipo de Venda"] || null;
+        const intervalo = row["Tipo de intervalo"] || null;
         const flags = getVendaFlags(tipoVenda);
         const valorMrr = parseBrazilianNumber(row["Valor MRR"] || "0");
 
         if (flags.conta_meta) {
           totalMrr += valorMrr;
+          // Quantidade de vendas para meta: apenas vendas recorrentes
+          if (isVendaRecorrente(tipoVenda, intervalo)) {
+            totalVendasRecorrentes += 1;
+          }
         }
 
         vendas.push({
@@ -365,7 +382,7 @@ export default function Comissoes() {
         .from("fechamento_comissao")
         .insert([{
           mes_referencia: mesReferencia,
-          total_vendas: vendas.length,
+          total_vendas: totalVendasRecorrentes,
           total_mrr: totalMrr,
           status: "rascunho",
           arquivo_nome: selectedFile.name,

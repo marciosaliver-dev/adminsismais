@@ -11,10 +11,22 @@ interface VendaImportada {
   valor_mrr: number;
   valor_adesao: number;
   intervalo: string | null;
+  tipo_venda: string | null;
   conta_comissao: boolean;
   conta_faixa: boolean;
   conta_meta: boolean;
 }
+
+// Helper to check if a sale is recurring (not single sale or service)
+const isVendaRecorrente = (venda: VendaImportada): boolean => {
+  const tipoVenda = venda.tipo_venda?.toLowerCase() || "";
+  const intervalo = venda.intervalo?.toLowerCase() || "";
+  const isVendaUnica = tipoVenda.includes("única") || tipoVenda.includes("unica") || 
+                       intervalo.includes("única") || intervalo.includes("unica") ||
+                       tipoVenda === "venda única" || intervalo === "venda única";
+  const isServico = tipoVenda.includes("serviço") || tipoVenda.includes("servico");
+  return !isVendaUnica && !isServico;
+};
 
 interface FaixaComissao {
   id: string;
@@ -154,7 +166,11 @@ Deno.serve(async (req) => {
       }
 
       const dados = vendedoresMap.get(vendedor)!;
-      dados.qtd_vendas += 1;
+      
+      // Quantidade de vendas: apenas vendas recorrentes (não serviços e não vendas únicas)
+      if (isVendaRecorrente(venda)) {
+        dados.qtd_vendas += 1;
+      }
 
       if (venda.conta_faixa) {
         dados.mrr_total += venda.valor_mrr;
@@ -213,7 +229,10 @@ Deno.serve(async (req) => {
     for (const venda of vendas) {
       if (venda.conta_meta) {
         totalMrrEmpresa += venda.valor_mrr;
-        totalQtdEmpresa += 1;
+        // Quantidade de vendas para meta: apenas vendas recorrentes
+        if (isVendaRecorrente(venda)) {
+          totalQtdEmpresa += 1;
+        }
       }
     }
 
@@ -298,10 +317,13 @@ Deno.serve(async (req) => {
     console.log(`[calcular-comissoes] Inseridas ${comissoesParaInserir.length} comissões`);
 
     // Atualizar fechamento
+    // total_vendas: apenas vendas recorrentes (não serviços e não vendas únicas)
+    const totalVendasRecorrentes = vendas.filter(v => isVendaRecorrente(v)).length;
+    
     const { error: updateError } = await supabase
       .from("fechamento_comissao")
       .update({
-        total_vendas: vendas.length,
+        total_vendas: totalVendasRecorrentes,
         total_mrr: totalMrrEmpresa,
         meta_batida: metaBatida,
       })
