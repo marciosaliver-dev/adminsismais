@@ -378,28 +378,33 @@ export default function Assinaturas() {
 
       if (importError) throw importError;
 
-      // Upsert contracts
-      let novos = 0;
-      let atualizados = 0;
+      // Get existing contracts to count new vs updated
+      const codigosAssinatura = contratos.map(c => c.codigo_assinatura);
+      const { data: existingContracts } = await supabase
+        .from("contratos_assinatura")
+        .select("codigo_assinatura")
+        .in("codigo_assinatura", codigosAssinatura);
+      
+      const existingCodes = new Set(existingContracts?.map(c => c.codigo_assinatura) || []);
+      const novos = contratos.filter(c => !existingCodes.has(c.codigo_assinatura)).length;
+      const atualizados = contratos.length - novos;
 
-      for (const contrato of contratos) {
-        const { data: existing } = await supabase
+      // Batch upsert contracts (in chunks of 500 to avoid payload limits)
+      const BATCH_SIZE = 500;
+      const contratosComImportacao = contratos.map(c => ({ ...c, importacao_id: importacao.id }));
+      
+      for (let i = 0; i < contratosComImportacao.length; i += BATCH_SIZE) {
+        const batch = contratosComImportacao.slice(i, i + BATCH_SIZE);
+        const { error } = await supabase
           .from("contratos_assinatura")
-          .select("id")
-          .eq("codigo_assinatura", contrato.codigo_assinatura)
-          .single();
-
-        if (existing) {
-          const { error } = await supabase
-            .from("contratos_assinatura")
-            .update({ ...contrato, importacao_id: importacao.id })
-            .eq("id", existing.id);
-          if (!error) atualizados++;
-        } else {
-          const { error } = await supabase
-            .from("contratos_assinatura")
-            .insert({ ...contrato, importacao_id: importacao.id });
-          if (!error) novos++;
+          .upsert(batch, { 
+            onConflict: 'codigo_assinatura',
+            ignoreDuplicates: false 
+          });
+        
+        if (error) {
+          console.error('Batch upsert error:', error);
+          throw new Error(`Erro ao importar lote ${Math.floor(i / BATCH_SIZE) + 1}: ${error.message}`);
         }
       }
 
