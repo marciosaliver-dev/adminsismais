@@ -478,9 +478,10 @@ export default function FechamentoEquipe() {
       const bonusMetaLiberado = percentualMeta >= 100;
 
       // Valores de bônus - Bônus de Meta dividido entre colaboradores definidos na meta ou todos os ativos
+      // IMPORTANTE: Bônus é calculado com base no MRR Base Comissão (não MRR Total)
       const colaboradoresBonusMeta = dadosCalculo.colaboradoresBonusMeta || todosColaboradoresAtivos;
       const totalColaboradoresParaBonusMeta = colaboradoresBonusMeta.length;
-      const valorBonusMetaTotal = bonusMetaLiberado ? mrrMes * (percentualBonusMeta / 100) : 0;
+      const valorBonusMetaTotal = bonusMetaLiberado ? mrrBaseComissao * (percentualBonusMeta / 100) : 0;
       const valorBonusMetaIndividual = totalColaboradoresParaBonusMeta > 0 
         ? valorBonusMetaTotal / totalColaboradoresParaBonusMeta 
         : 0;
@@ -593,6 +594,8 @@ export default function FechamentoEquipe() {
           metasAtingidas,
           totalBonusMetas,
           totalAReceber,
+          mrrBaseComissao,
+          percentualBonusMeta,
         });
 
         await supabase.from("fechamento_colaborador").insert({
@@ -1360,6 +1363,8 @@ function gerarDemonstrativoHTML(dados: {
   metasAtingidas: any[];
   totalBonusMetas: number;
   totalAReceber: number;
+  mrrBaseComissao: number;
+  percentualBonusMeta: number;
 }) {
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -1389,6 +1394,9 @@ function gerarDemonstrativoHTML(dados: {
 
       <div style="margin-bottom: 20px;">
         <h3 style="border-bottom: 2px solid #333; padding-bottom: 5px;">💰 BÔNUS DE EQUIPE</h3>
+        <div style="margin-bottom: 10px; padding: 8px; background: #e3f2fd; border-radius: 4px;">
+          <p style="margin: 0; font-size: 12px; color: #1565c0;"><strong>MRR Base Comissão:</strong> ${formatCurrency(dados.mrrBaseComissao)}</p>
+        </div>
         <table style="width: 100%; border-collapse: collapse;">
           <tr>
             <td style="padding: 5px 0;">Bônus Churn (3% do salário)</td>
@@ -1399,7 +1407,7 @@ function gerarDemonstrativoHTML(dados: {
             <td style="text-align: right;">${formatCurrency(dados.bonusRetencao)}</td>
           </tr>
           <tr>
-            <td style="padding: 5px 0;">Bônus Meta (rateado)</td>
+            <td style="padding: 5px 0;">Bônus Meta (${dados.percentualBonusMeta}% MRR Base - rateado)</td>
             <td style="text-align: right;">${formatCurrency(dados.bonusMetaEquipe)}</td>
           </tr>
           <tr style="font-weight: bold; border-top: 1px solid #ccc;">
