@@ -523,9 +523,15 @@ export default function Assinaturas() {
           retencaoMeses.push(calcularRetencaoMes(data.contratos, m));
         }
         
+        // Formatar mês corretamente sem timezone issues
+        // mes é no formato YYYY-MM
+        const [ano, mesNum] = mes.split('-').map(Number);
+        const mesesNomes = ['jan.', 'fev.', 'mar.', 'abr.', 'mai.', 'jun.', 'jul.', 'ago.', 'set.', 'out.', 'nov.', 'dez.'];
+        const mesFormatado = `${mesesNomes[mesNum - 1]} de ${String(ano).slice(-2)}`;
+        
         return {
           mes,
-          mesFormatado: new Date(mes + '-01').toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' }),
+          mesFormatado,
           total: data.total,
           ativos: data.ativos,
           cancelados: data.cancelados,
