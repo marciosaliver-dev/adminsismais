@@ -682,13 +682,33 @@ export default function Assinaturas() {
       return status;
     };
 
+    // Função para detectar ciclo pelo nome do produto Eduzz
+    const detectarCicloPorNome = (nomeProduto: string | null): number | null => {
+      if (!nomeProduto) return null;
+      const nome = nomeProduto.toUpperCase();
+      
+      if (nome.includes('ANUAL') || nome.includes('YEARLY') || nome.includes('YEAR')) return 365;
+      if (nome.includes('SEMESTRAL') || nome.includes('6 MESES')) return 180;
+      if (nome.includes('TRIMESTRAL') || nome.includes('3 MESES')) return 90;
+      if (nome.includes('BIMESTRAL') || nome.includes('2 MESES')) return 60;
+      if (nome.includes('MENSAL') || nome.includes('MONTHLY') || nome.includes('MES')) return 30;
+      if (nome.includes('SEMANAL') || nome.includes('WEEKLY')) return 7;
+      
+      return null;
+    };
+
     // Função para calcular ciclo em dias baseado nas datas da Eduzz
     const calcularCicloDiasEduzz = (
       dataInicio: string | null,
       ultimoPagamento: string | null,
       proximoVencimento: string | null,
-      cobrancasPagas: number
+      cobrancasPagas: number,
+      nomeProduto: string | null
     ): number => {
+      // PRIMEIRO: Tentar detectar pelo nome do produto (mais confiável)
+      const cicloPorNome = detectarCicloPorNome(nomeProduto);
+      if (cicloPorNome) return cicloPorNome;
+      
       // Se temos próximo vencimento e último pagamento, calcular diferença
       if (proximoVencimento && ultimoPagamento) {
         const prox = new Date(proximoVencimento);
@@ -764,73 +784,76 @@ export default function Assinaturas() {
       })).filter((c: { codigo_assinatura: string }) => c.codigo_assinatura);
     }
     
-    // EDUZZ - Tratamento específico
+    // EDUZZ - Tratamento específico com campos corretos do arquivo
     if (plataforma === "eduzz") {
       return jsonData.map((row: Record<string, unknown>) => {
-        // Campos da Eduzz
-        const cobrancasPagas = parseInt(String(row['Cobranças pagas'] || row['cobrancas_pagas'] || 0)) || 0;
+        // Campos corretos do arquivo Eduzz (analisado)
+        const cobrancasPagas = parseInt(String(row['Cobranças pagas'] || 0)) || 0;
         const valorCobranca = parseValue(row['Valor da cobrança'] as string);
         const totalPago = parseValue(row['Total pago'] as string);
+        const nomeProduto = (row['Nome produto'] || '') as string;
         
-        // Datas importantes
+        // Datas - formato: DD/MM/YYYY HH:MM:SS
         const dataInicio = parseDate(row['Início em'] as string);
         const ultimoPagamento = parseDate(row['Último pagamento'] as string);
         const proximoVencimento = parseDate(row['Próx. Vencimento'] as string);
         const dataCancelamento = parseDate(row['Cancelamento em'] as string);
         
-        // Determinar status
+        // Determinar status baseado no campo Status ou data cancelamento
         let status = 'Ativa';
-        if (dataCancelamento) {
+        const statusOriginal = (row['Status'] || '') as string;
+        if (dataCancelamento || statusOriginal.toLowerCase().includes('cancel')) {
           status = 'Cancelada';
-        } else if (row['Status']) {
-          status = normalizeStatus(row['Status'] as string);
+        } else if (statusOriginal.toLowerCase().includes('atras')) {
+          status = 'Atrasada';
+        } else if (statusOriginal.toLowerCase().includes('dia') || statusOriginal.toLowerCase().includes('ativ')) {
+          status = 'Ativa';
         }
         
-        // Calcular ciclo em dias baseado nas datas
+        // Calcular ciclo em dias (prioriza detecção pelo nome do produto)
         const cicloDias = calcularCicloDiasEduzz(
           dataInicio,
           ultimoPagamento,
           proximoVencimento,
-          cobrancasPagas
+          cobrancasPagas,
+          nomeProduto
         );
         
-        // Calcular MRR
+        // Calcular MRR = (Valor da cobrança / ciclo) * 30
         const mrr = calcularMRREduzz(valorCobranca, cicloDias);
         
+        // LTV = Total pago (já é o valor histórico acumulado)
+        const ltv = totalPago;
+        
         return {
-          codigo_assinatura: String(
-            row['ID da assinatura'] || 
-            row['Código'] || 
-            row['codigo'] || 
-            `eduzz_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-          ),
+          codigo_assinatura: String(row['Contrato'] || `eduzz_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`),
           plataforma: 'eduzz',
-          nome_produto: (row['Produto'] || row['Nome do produto']) as string || null,
-          nome_assinatura: (row['Plano'] || row['Nome do plano']) as string || null,
-          nome_oferta: (row['Oferta'] || row['Nome da oferta']) as string || null,
-          nome_contato: (row['Nome'] || row['Cliente'] || row['Nome do cliente']) as string || null,
-          doc_contato: (row['CPF'] || row['CNPJ'] || row['Documento']) as string || null,
-          email_contato: (row['Email'] || row['E-mail']) as string || null,
-          telefone_contato: (row['Telefone'] || row['Celular']) as string || null,
+          nome_produto: nomeProduto || null,
+          nome_assinatura: nomeProduto || null, // Usar nome produto como nome assinatura
+          nome_oferta: null,
+          nome_contato: (row['Cliente / Razão-Social'] || row['Cliente / Razao-Social']) as string || null,
+          doc_contato: String(row['Cliente / Documento'] || '').replace(/[^\d]/g, '') || null,
+          email_contato: (row['Cliente / E-mail'] || row['Cliente / Email']) as string || null,
+          telefone_contato: (row['Cliente / Fones'] || row['Cliente / Telefone']) as string || null,
           valor_assinatura: valorCobranca,
-          valor_liquido: totalPago,
+          valor_liquido: ltv, // LTV como valor líquido acumulado
           ciclo_dias: cicloDias,
           data_inicio: dataInicio,
-          data_status: ultimoPagamento, // Usar último pagamento como data de status
+          data_status: ultimoPagamento, // Último pagamento como data de status
           data_cancelamento: dataCancelamento,
           data_proximo_ciclo: proximoVencimento,
           data_fim_ciclo: null,
           status: status,
-          motivo_cancelamento: (row['Motivo cancelamento'] || row['Motivo']) as string || null,
+          motivo_cancelamento: null,
           cancelado_por: null,
-          forma_pagamento: (row['Forma de pagamento'] || row['Pagamento']) as string || null,
+          forma_pagamento: (row['Forma de pagamento']) as string || null,
           quantidade_cobrancas: cobrancasPagas,
           parcelamento: 1,
-          cupom: (row['Cupom'] || row['Código promocional']) as string || null,
+          cupom: null,
           mrr: mrr, // MRR calculado
         };
       })
-      // IMPORTANTE: Filtrar registros com cobranças pagas = 0
+      // IMPORTANTE: Filtrar registros com cobranças pagas = 0 (não devem entrar nos relatórios)
       .filter((c: { codigo_assinatura: string; quantidade_cobrancas: number }) => 
         c.codigo_assinatura && c.quantidade_cobrancas > 0
       );
