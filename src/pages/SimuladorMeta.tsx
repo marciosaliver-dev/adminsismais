@@ -68,6 +68,8 @@ interface SimuladorOutputs {
   ltv: number;
   cac: number;
   ltvCacRatio: number;
+  clientesNecessarios: number;
+  taxaCrescimentoClientes: number;
 }
 
 const defaultInputs: SimuladorInputs = {
@@ -225,6 +227,16 @@ export default function SimuladorMeta() {
     const receitaMensal = novasVendas * inputs.ticketMedio / mesesAteData;
     const paybackMeses = receitaMensal > 0 ? Math.ceil(custoTotal / receitaMensal) : 0;
 
+    // Clientes necessários para atingir a meta
+    const clientesNecessarios = inputs.ticketMedio > 0 
+      ? Math.ceil(inputs.mrrMeta / inputs.ticketMedio)
+      : 0;
+
+    // Taxa de crescimento de clientes necessária
+    const taxaCrescimentoClientes = inputs.clientesAtivos > 0 
+      ? ((clientesNecessarios - inputs.clientesAtivos) / inputs.clientesAtivos) * 100
+      : clientesNecessarios > 0 ? 100 : 0;
+
     return {
       receitaNecessaria,
       novasVendas,
@@ -242,8 +254,20 @@ export default function SimuladorMeta() {
       ltv,
       cac,
       ltvCacRatio,
+      clientesNecessarios,
+      taxaCrescimentoClientes,
     };
   }, [inputs]);
+
+  // Efeito para calcular MRR automaticamente baseado em clientes ativos e ticket médio
+  useEffect(() => {
+    if (inputs.clientesAtivos > 0 && inputs.ticketMedio > 0) {
+      const mrrCalculado = inputs.clientesAtivos * inputs.ticketMedio;
+      if (mrrCalculado !== inputs.mrrAtual) {
+        setInputs(prev => ({ ...prev, mrrAtual: mrrCalculado }));
+      }
+    }
+  }, [inputs.clientesAtivos, inputs.ticketMedio]);
 
   const updateInput = (field: keyof SimuladorInputs, value: number | Date | undefined) => {
     setInputs(prev => ({ ...prev, [field]: value }));
@@ -731,7 +755,7 @@ export default function SimuladorMeta() {
             </Card>
 
             {/* Payback */}
-            <Card className="sm:col-span-2">
+            <Card>
               <CardContent className="pt-6">
                 <div className="flex items-start justify-between">
                   <div>
@@ -753,6 +777,35 @@ export default function SimuladorMeta() {
                     <Clock className={cn(
                       "w-6 h-6",
                       outputs.paybackMeses <= 6 ? "text-green-600" : outputs.paybackMeses <= 12 ? "text-amber-600" : "text-red-600"
+                    )} />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Taxa de Crescimento de Clientes */}
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Crescimento de Clientes</p>
+                    <p className={cn(
+                      "text-3xl font-bold",
+                      outputs.taxaCrescimentoClientes <= 50 ? "text-green-600" : outputs.taxaCrescimentoClientes <= 100 ? "text-amber-600" : "text-red-600"
+                    )}>
+                      {outputs.taxaCrescimentoClientes > 0 ? "+" : ""}{formatPercent(outputs.taxaCrescimentoClientes)}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      De {formatNumber(inputs.clientesAtivos)} para {formatNumber(outputs.clientesNecessarios)} clientes
+                    </p>
+                  </div>
+                  <div className={cn(
+                    "p-3 rounded-lg",
+                    outputs.taxaCrescimentoClientes <= 50 ? "bg-green-500/10" : outputs.taxaCrescimentoClientes <= 100 ? "bg-amber-500/10" : "bg-red-500/10"
+                  )}>
+                    <Users className={cn(
+                      "w-6 h-6",
+                      outputs.taxaCrescimentoClientes <= 50 ? "text-green-600" : outputs.taxaCrescimentoClientes <= 100 ? "text-amber-600" : "text-red-600"
                     )} />
                   </div>
                 </div>
