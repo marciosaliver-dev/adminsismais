@@ -889,17 +889,44 @@ export default function ExtratoEduzz() {
                             {getStatusBadge(imp.status)}
                           </TableCell>
                           <TableCell className="text-center">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="text-destructive hover:text-destructive"
-                              onClick={() => {
-                                setImportacaoToDelete(imp);
-                                setDeleteConfirmOpen(true);
-                              }}
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
+                            <div className="flex items-center justify-center gap-1">
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => {
+                                      // Filter by the import's period and switch to Visão Geral tab
+                                      const inicioDate = new Date(imp.periodo_inicio + "T12:00:00");
+                                      const fimDate = new Date(imp.periodo_fim + "T12:00:00");
+                                      setMesInicio(format(inicioDate, "yyyy-MM"));
+                                      setMesFim(format(fimDate, "yyyy-MM"));
+                                      setPeriodoPreset("personalizado");
+                                      setActiveTab("visao-geral");
+                                    }}
+                                  >
+                                    <Search className="w-4 h-4" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Ver transações deste período</TooltipContent>
+                              </Tooltip>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="text-destructive hover:text-destructive"
+                                    onClick={() => {
+                                      setImportacaoToDelete(imp);
+                                      setDeleteConfirmOpen(true);
+                                    }}
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Excluir importação</TooltipContent>
+                              </Tooltip>
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))}
