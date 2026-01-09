@@ -448,21 +448,33 @@ export default function RelatorioVendas() {
     const qtdColaboradores = (metaMensalAtual as any)?.num_colaboradores ?? parseFloat(configuracoes.find((c) => c.chave === "num_colaboradores")?.valor || "12");
     const multiplicadorAnual = (metaMensalAtual as any)?.multiplicador_anual ?? parseFloat(configuracoes.find((c) => c.chave === "multiplicador_anual")?.valor || "2");
 
+    // Helper to check if sale is recurring
+    const isVendaRecorrentePdf = (v: VendaImportada) => {
+      const tipoVenda = v.tipo_venda?.toLowerCase() || "";
+      const intervalo = v.intervalo?.toLowerCase() || "";
+      const isVendaUnica = tipoVenda.includes("única") || tipoVenda.includes("unica") || 
+                           intervalo.includes("única") || intervalo.includes("unica") ||
+                           tipoVenda === "venda única" || intervalo === "venda única";
+      const isServico = tipoVenda.includes("serviço") || tipoVenda.includes("servico");
+      return !isVendaUnica && !isServico;
+    };
+
     // Calculate totals for summary
     const totalMrrBruto = vendasVend.reduce((acc, v) => acc + v.valor_mrr, 0);
     const totalMrrComissao = vendasVend.filter((v) => v.conta_comissao).reduce((acc, v) => acc + v.valor_mrr, 0);
     const totalAssinatura = vendasVend.reduce((acc, v) => acc + v.valor_assinatura, 0);
     const totalAdesao = vendasVend.reduce((acc, v) => acc + v.valor_adesao, 0);
-    const totalVendas = vendasVend.length;
+    // Qtd Vendas: apenas vendas recorrentes
+    const totalVendas = vendasVend.filter(v => isVendaRecorrentePdf(v)).length;
     
     // Only MRR from annual sales (not total value)
     const vendasAnuais = vendasVend.filter((v) => v.intervalo?.toLowerCase() === "anual" && v.conta_comissao);
     const mrrVendasAnuais = vendasAnuais.reduce((acc, v) => acc + v.valor_mrr, 0);
     const ticketMedio = totalVendas > 0 ? totalMrrBruto / totalVendas : 0;
 
-    // Global totals
+    // Global totals - apenas vendas recorrentes para quantidade
     const totalMrrGeral = vendas.reduce((acc, v) => acc + v.valor_mrr, 0);
-    const totalVendasGeral = vendas.length;
+    const totalVendasGeral = vendas.filter(v => isVendaRecorrentePdf(v)).length;
     const totalMrrLiquidoGeral = vendas.filter((v) => v.conta_comissao).reduce((acc, v) => acc + v.valor_mrr, 0);
     const participacao = totalMrrBruto > 0 && totalMrrGeral > 0 ? (totalMrrBruto / totalMrrGeral) * 100 : 0;
 
@@ -496,7 +508,7 @@ export default function RelatorioVendas() {
       body: [
         ["Meta Qtd Vendas", metaQtd.toString(), "Meta MRR", formatCurrency(metaMrr)],
         ["Total Vendas Equipe", totalVendasGeral.toString(), "MRR Total Equipe", formatCurrency(totalMrrGeral)],
-        ["MRR Base Bônus", formatCurrency(totalMrrLiquidoGeral), "Colaboradores", qtdColaboradores.toString()],
+        ["MRR Base Comissão", formatCurrency(totalMrrLiquidoGeral), "Colaboradores", qtdColaboradores.toString()],
       ],
       theme: "grid",
       styles: { fontSize: 8, cellPadding: 2, halign: "center" },
