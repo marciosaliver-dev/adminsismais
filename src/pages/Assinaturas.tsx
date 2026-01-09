@@ -242,7 +242,7 @@ export default function Assinaturas() {
     const workbook = XLSX.read(data, { type: "array", cellDates: true });
     const sheetName = workbook.SheetNames[0];
     const worksheet = workbook.Sheets[sheetName];
-    const jsonData = XLSX.utils.sheet_to_json(worksheet, { raw: false });
+    const jsonData = XLSX.utils.sheet_to_json(worksheet, { raw: true });
 
     const parseDate = (dateStr: string | number | Date | null | undefined): string | null => {
       if (!dateStr) return null;
@@ -250,6 +250,7 @@ export default function Assinaturas() {
         return dateStr.toISOString().split('T')[0];
       }
       if (typeof dateStr === 'number') {
+        // Excel serial date
         const excelDate = new Date((dateStr - 25569) * 86400 * 1000);
         return excelDate.toISOString().split('T')[0];
       }
@@ -266,9 +267,28 @@ export default function Assinaturas() {
     };
 
     const parseValue = (val: string | number | null | undefined): number => {
-      if (!val) return 0;
-      if (typeof val === 'number') return val;
-      const cleaned = String(val).replace(/[^\d,.-]/g, '').replace(/\./g, '').replace(',', '.');
+      if (val === null || val === undefined || val === '') return 0;
+      
+      // If it's already a number from Excel, return as-is
+      if (typeof val === 'number') {
+        return val;
+      }
+      
+      const strVal = String(val).trim();
+      
+      // Check if it's Brazilian format: "1.234,56" or just "69,90"
+      // Brazilian: dot as thousand separator, comma as decimal
+      if (strVal.includes(',')) {
+        // Remove thousand separators (dots) and convert decimal comma to dot
+        const cleaned = strVal
+          .replace(/[^\d,.-]/g, '') // Remove non-numeric except , . -
+          .replace(/\./g, '')       // Remove dots (thousand separators)
+          .replace(',', '.');       // Convert comma to dot (decimal)
+        return parseFloat(cleaned) || 0;
+      }
+      
+      // US/International format or plain number
+      const cleaned = strVal.replace(/[^\d.-]/g, '');
       return parseFloat(cleaned) || 0;
     };
 
