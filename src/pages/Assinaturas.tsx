@@ -1097,11 +1097,30 @@ export default function Assinaturas() {
                     <p className="text-muted-foreground text-center py-8">Nenhum dado disponível</p>
                   ) : (
                     <ResponsiveContainer width="100%" height={300}>
-                      <BarChart data={mrrPorProduto} layout="vertical">
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis type="number" tickFormatter={(v) => formatCurrency(v)} />
-                        <YAxis dataKey="nome" type="category" width={150} tick={{ fontSize: 11 }} />
-                        <Tooltip formatter={(v: number) => formatCurrency(v)} />
+                      <BarChart data={mrrPorProduto} layout="vertical" margin={{ left: 10, right: 30 }}>
+                        <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={true} className="stroke-muted/50" />
+                        <XAxis 
+                          type="number" 
+                          tickFormatter={(v) => formatCurrency(v)} 
+                          axisLine={{ stroke: 'hsl(var(--border))' }}
+                          tickLine={{ stroke: 'hsl(var(--border))' }}
+                        />
+                        <YAxis 
+                          dataKey="nome" 
+                          type="category" 
+                          width={150} 
+                          tick={{ fontSize: 11 }} 
+                          axisLine={{ stroke: 'hsl(var(--border))' }}
+                          tickLine={{ stroke: 'hsl(var(--border))' }}
+                        />
+                        <Tooltip 
+                          formatter={(v: number) => formatCurrency(v)} 
+                          contentStyle={{ 
+                            backgroundColor: 'hsl(var(--background))', 
+                            border: '1px solid hsl(var(--border))',
+                            borderRadius: '8px'
+                          }}
+                        />
                         <Bar dataKey="mrr" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
                       </BarChart>
                     </ResponsiveContainer>
