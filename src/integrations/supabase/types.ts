@@ -657,6 +657,7 @@ export type Database = {
           assinaturas_inicio_mes: number | null
           bonus_meta_empresa: number
           bonus_meta_equipe: number
+          colaboradores_bonus_meta: string[] | null
           comissao_venda_unica: number
           created_at: string
           id: string
@@ -677,6 +678,7 @@ export type Database = {
           assinaturas_inicio_mes?: number | null
           bonus_meta_empresa?: number
           bonus_meta_equipe?: number
+          colaboradores_bonus_meta?: string[] | null
           comissao_venda_unica?: number
           created_at?: string
           id?: string
@@ -697,6 +699,7 @@ export type Database = {
           assinaturas_inicio_mes?: number | null
           bonus_meta_empresa?: number
           bonus_meta_equipe?: number
+          colaboradores_bonus_meta?: string[] | null
           comissao_venda_unica?: number
           created_at?: string
           id?: string

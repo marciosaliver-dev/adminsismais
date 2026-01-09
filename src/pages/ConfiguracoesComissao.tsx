@@ -33,7 +33,10 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Pencil, Trash2, Calendar, Target, Users, TrendingUp, Settings2, ChevronRight, Copy } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Plus, Pencil, Trash2, Calendar, Target, Users, TrendingUp, Settings2, ChevronRight, Copy, UserCheck } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import type { Tables } from "@/integrations/supabase/types";
 import { format } from "date-fns";
@@ -58,8 +61,17 @@ interface MetaMensal {
   limite_cancelamentos: number;
   percentual_bonus_churn: number;
   percentual_bonus_retencao: number;
+  colaboradores_bonus_meta: string[] | null;
   created_at: string;
   updated_at: string;
+}
+
+interface Colaborador {
+  id: string;
+  nome: string;
+  cargo: string | null;
+  ativo: boolean;
+  eh_vendedor_direto: boolean | null;
 }
 
 const formatCurrency = (value: number) => {
@@ -121,6 +133,8 @@ export default function ConfiguracoesComissao() {
     limite_cancelamentos: 50,
     percentual_bonus_churn: 3,
     percentual_bonus_retencao: 3,
+    colaboradores_bonus_meta: [] as string[],
+    todos_colaboradores_participam: true,
   });
 
   // Fetch faixas
@@ -146,6 +160,20 @@ export default function ConfiguracoesComissao() {
         .order("mes_referencia", { ascending: false });
       if (error) throw error;
       return data as MetaMensal[];
+    },
+  });
+
+  // Fetch colaboradores ativos
+  const { data: colaboradoresAtivos = [] } = useQuery({
+    queryKey: ["colaboradores-ativos-config"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("colaboradores")
+        .select("id, nome, cargo, ativo, eh_vendedor_direto")
+        .eq("ativo", true)
+        .order("nome");
+      if (error) throw error;
+      return data as Colaborador[];
     },
   });
 
@@ -251,6 +279,7 @@ export default function ConfiguracoesComissao() {
         limite_cancelamentos: metaForm.limite_cancelamentos,
         percentual_bonus_churn: metaForm.percentual_bonus_churn,
         percentual_bonus_retencao: metaForm.percentual_bonus_retencao,
+        colaboradores_bonus_meta: metaForm.todos_colaboradores_participam ? null : metaForm.colaboradores_bonus_meta,
       };
       if (editingMeta) {
         const { error } = await supabase
@@ -333,6 +362,8 @@ export default function ConfiguracoesComissao() {
       limite_cancelamentos: 50,
       percentual_bonus_churn: 3,
       percentual_bonus_retencao: 3,
+      colaboradores_bonus_meta: [],
+      todos_colaboradores_participam: true,
     });
     setEditingMeta(null);
     setMetaFormStep(1);
@@ -357,6 +388,7 @@ export default function ConfiguracoesComissao() {
 
   const openEditMetaDialog = (meta: MetaMensal) => {
     setEditingMeta(meta);
+    const hasCustomParticipants = meta.colaboradores_bonus_meta && meta.colaboradores_bonus_meta.length > 0;
     setMetaForm({
       mes_referencia: meta.mes_referencia,
       meta_mrr: meta.meta_mrr,
@@ -373,6 +405,8 @@ export default function ConfiguracoesComissao() {
       limite_cancelamentos: meta.limite_cancelamentos || 50,
       percentual_bonus_churn: meta.percentual_bonus_churn || 3,
       percentual_bonus_retencao: meta.percentual_bonus_retencao || 3,
+      colaboradores_bonus_meta: meta.colaboradores_bonus_meta || [],
+      todos_colaboradores_participam: !hasCustomParticipants,
     });
     setMetaFormStep(1);
     setIsMetaDialogOpen(true);
@@ -390,6 +424,7 @@ export default function ConfiguracoesComissao() {
     const nextYear = month === 12 ? year + 1 : year;
     const nextMesReferencia = `${nextYear}-${String(nextMonth).padStart(2, '0')}`;
 
+    const hasCustomParticipants = meta.colaboradores_bonus_meta && meta.colaboradores_bonus_meta.length > 0;
     setMetaForm({
       mes_referencia: nextMesReferencia,
       meta_mrr: meta.meta_mrr,
@@ -406,6 +441,8 @@ export default function ConfiguracoesComissao() {
       limite_cancelamentos: meta.limite_cancelamentos || 50,
       percentual_bonus_churn: meta.percentual_bonus_churn || 3,
       percentual_bonus_retencao: meta.percentual_bonus_retencao || 3,
+      colaboradores_bonus_meta: meta.colaboradores_bonus_meta || [],
+      todos_colaboradores_participam: !hasCustomParticipants,
     });
     setEditingMeta(null);
     setMetaFormStep(1);
@@ -1094,6 +1131,121 @@ export default function ConfiguracoesComissao() {
                     />
                     <p className="text-xs text-muted-foreground">% sobre MRR se retenção atingida</p>
                   </div>
+                </div>
+
+                {/* Seleção de Colaboradores para Bônus de Meta */}
+                <div className="space-y-4 pt-4 border-t">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label className="flex items-center gap-2">
+                        <UserCheck className="w-4 h-4 text-primary" />
+                        Participantes do Bônus de Meta
+                      </Label>
+                      <p className="text-xs text-muted-foreground">
+                        Define quem recebe o bônus quando a meta é atingida
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Label htmlFor="todos_participam" className="text-sm text-muted-foreground">
+                        Todos os colaboradores ativos
+                      </Label>
+                      <Switch
+                        id="todos_participam"
+                        checked={metaForm.todos_colaboradores_participam}
+                        onCheckedChange={(checked) => {
+                          setMetaForm({ 
+                            ...metaForm, 
+                            todos_colaboradores_participam: checked,
+                            colaboradores_bonus_meta: checked ? [] : metaForm.colaboradores_bonus_meta
+                          });
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  {!metaForm.todos_colaboradores_participam && (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm text-muted-foreground">
+                          Selecione os colaboradores que participarão:
+                        </p>
+                        <Badge variant="secondary">
+                          {metaForm.colaboradores_bonus_meta.length} selecionados
+                        </Badge>
+                      </div>
+                      <ScrollArea className="h-[200px] rounded-md border p-3">
+                        <div className="space-y-2">
+                          {colaboradoresAtivos.map((colab) => (
+                            <div
+                              key={colab.id}
+                              className="flex items-center space-x-3 p-2 rounded-md hover:bg-muted/50"
+                            >
+                              <Checkbox
+                                id={`colab-${colab.id}`}
+                                checked={metaForm.colaboradores_bonus_meta.includes(colab.id)}
+                                onCheckedChange={(checked) => {
+                                  if (checked) {
+                                    setMetaForm({
+                                      ...metaForm,
+                                      colaboradores_bonus_meta: [...metaForm.colaboradores_bonus_meta, colab.id]
+                                    });
+                                  } else {
+                                    setMetaForm({
+                                      ...metaForm,
+                                      colaboradores_bonus_meta: metaForm.colaboradores_bonus_meta.filter(id => id !== colab.id)
+                                    });
+                                  }
+                                }}
+                              />
+                              <div className="flex-1 flex items-center gap-2">
+                                <Label
+                                  htmlFor={`colab-${colab.id}`}
+                                  className="text-sm font-medium cursor-pointer flex-1"
+                                >
+                                  {colab.nome}
+                                </Label>
+                                {colab.cargo && (
+                                  <span className="text-xs text-muted-foreground">{colab.cargo}</span>
+                                )}
+                                {colab.eh_vendedor_direto && (
+                                  <Badge variant="outline" className="text-xs py-0">Vendedor</Badge>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                          {colaboradoresAtivos.length === 0 && (
+                            <p className="text-sm text-muted-foreground text-center py-4">
+                              Nenhum colaborador ativo encontrado
+                            </p>
+                          )}
+                        </div>
+                      </ScrollArea>
+                      <div className="flex gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setMetaForm({
+                            ...metaForm,
+                            colaboradores_bonus_meta: colaboradoresAtivos.map(c => c.id)
+                          })}
+                        >
+                          Selecionar Todos
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setMetaForm({
+                            ...metaForm,
+                            colaboradores_bonus_meta: []
+                          })}
+                        >
+                          Limpar Seleção
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}

@@ -295,9 +295,20 @@ export default function FechamentoEquipe() {
         qtdVendasRecorrentes = count || 0;
       }
 
+      // Determinar quem participa do bônus de meta
+      // Se meta tem colaboradores_bonus_meta definidos, usar essa lista
+      // Caso contrário, usar todos os colaboradores ativos
+      let colaboradoresBonusMeta = todosColaboradoresAtivos || [];
+      if (meta?.colaboradores_bonus_meta && meta.colaboradores_bonus_meta.length > 0) {
+        colaboradoresBonusMeta = (todosColaboradoresAtivos || []).filter(c => 
+          meta.colaboradores_bonus_meta.includes(c.id)
+        );
+      }
+
       return {
         colaboradores: colaboradores as Colaborador[] || [],
         todosColaboradoresAtivos: todosColaboradoresAtivos as Colaborador[] || [],
+        colaboradoresBonusMeta,
         meta,
         fechamentoComissao,
         vendasServicos: vendasServicos || [],
@@ -466,8 +477,9 @@ export default function FechamentoEquipe() {
       const bonusRetencaoLiberado = taxaCancelamentos < limiteCancelamentos;
       const bonusMetaLiberado = percentualMeta >= 100;
 
-      // Valores de bônus - Bônus de Meta dividido entre TODOS os colaboradores ativos (incluindo vendedores)
-      const totalColaboradoresParaBonusMeta = todosColaboradoresAtivos.length;
+      // Valores de bônus - Bônus de Meta dividido entre colaboradores definidos na meta ou todos os ativos
+      const colaboradoresBonusMeta = dadosCalculo.colaboradoresBonusMeta || todosColaboradoresAtivos;
+      const totalColaboradoresParaBonusMeta = colaboradoresBonusMeta.length;
       const valorBonusMetaTotal = bonusMetaLiberado ? mrrMes * (percentualBonusMeta / 100) : 0;
       const valorBonusMetaIndividual = totalColaboradoresParaBonusMeta > 0 
         ? valorBonusMetaTotal / totalColaboradoresParaBonusMeta 
@@ -855,6 +867,11 @@ export default function FechamentoEquipe() {
                       <XCircle className="h-5 w-5 text-red-600" />
                     )}
                     <span className="font-medium">Bônus Meta</span>
+                    {/* Indicador visual de participantes */}
+                    <Badge variant="secondary" className="ml-auto text-xs">
+                      <Users className="h-3 w-3 mr-1" />
+                      {fechamento.total_colaboradores_participantes} participantes
+                    </Badge>
                   </div>
                   <p className="text-sm">
                     Meta {formatPercent(fechamento.percentual_meta)} ({fechamento.vendas_mes}/{fechamento.meta_vendas})
@@ -864,6 +881,28 @@ export default function FechamentoEquipe() {
                       ? `${fechamento.percentual_bonus_meta}% MRR ÷ ${fechamento.total_colaboradores_participantes} = ${formatCurrency(fechamento.valor_bonus_meta_individual)}` 
                       : "NÃO LIBERADO"}
                   </p>
+                  {/* Lista de participantes */}
+                  {dadosCalculo?.colaboradoresBonusMeta && dadosCalculo.colaboradoresBonusMeta.length > 0 && (
+                    <div className="mt-2 pt-2 border-t border-dashed">
+                      <p className="text-xs text-muted-foreground mb-1">
+                        {dadosCalculo.meta?.colaboradores_bonus_meta?.length 
+                          ? "Colaboradores selecionados:" 
+                          : "Todos colaboradores ativos:"}
+                      </p>
+                      <div className="flex flex-wrap gap-1">
+                        {dadosCalculo.colaboradoresBonusMeta.slice(0, 5).map((colab) => (
+                          <Badge key={colab.id} variant="outline" className="text-xs py-0">
+                            {colab.nome.split(' ')[0]}
+                          </Badge>
+                        ))}
+                        {dadosCalculo.colaboradoresBonusMeta.length > 5 && (
+                          <Badge variant="outline" className="text-xs py-0">
+                            +{dadosCalculo.colaboradoresBonusMeta.length - 5} mais
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </CardContent>
