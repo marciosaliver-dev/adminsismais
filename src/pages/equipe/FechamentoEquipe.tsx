@@ -1155,14 +1155,14 @@ export default function FechamentoEquipe() {
             <div className="space-y-2">
               <Label>Colaborador (opcional)</Label>
               <Select
-                value={novoAjuste.colaborador_id}
-                onValueChange={(value) => setNovoAjuste({ ...novoAjuste, colaborador_id: value })}
+                value={novoAjuste.colaborador_id || "_geral_"}
+                onValueChange={(value) => setNovoAjuste({ ...novoAjuste, colaborador_id: value === "_geral_" ? "" : value })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione ou deixe em branco para geral" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Geral (todos)</SelectItem>
+                  <SelectItem value="_geral_">Geral (todos)</SelectItem>
                   {todosColaboradores.map((c) => (
                     <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>
                   ))}
