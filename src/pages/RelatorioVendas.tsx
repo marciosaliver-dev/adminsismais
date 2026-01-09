@@ -287,9 +287,20 @@ export default function RelatorioVendas() {
   const ltvMedio = metaMensalAtual?.ltv_medio || 12;
 
   // Calculate totals for filtered data
+  // Qtd Vendas: não considera vendas de serviços e vendas únicas
+  const isVendaRecorrente = (v: VendaImportada) => {
+    const tipoVenda = v.tipo_venda?.toLowerCase() || "";
+    const intervalo = v.intervalo?.toLowerCase() || "";
+    const isVendaUnica = tipoVenda.includes("única") || tipoVenda.includes("unica") || 
+                         intervalo.includes("única") || intervalo.includes("unica") ||
+                         tipoVenda === "venda única" || intervalo === "venda única";
+    const isServico = tipoVenda.includes("serviço") || tipoVenda.includes("servico");
+    return !isVendaUnica && !isServico;
+  };
+
   const totaisFiltrados = vendasFiltradas.reduce(
     (acc, v) => ({
-      qtd: acc.qtd + 1,
+      qtd: acc.qtd + (isVendaRecorrente(v) ? 1 : 0),
       mrr: acc.mrr + v.valor_mrr,
       mrrComissao: acc.mrrComissao + (v.conta_comissao ? v.valor_mrr : 0),
       adesao: acc.adesao + v.valor_adesao,
