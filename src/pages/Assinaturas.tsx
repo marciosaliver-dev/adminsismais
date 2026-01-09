@@ -934,6 +934,7 @@ export default function Assinaturas() {
           <TabsList>
             <TabsTrigger value="contratos">Contratos</TabsTrigger>
             <TabsTrigger value="analise">Análise & Cohort</TabsTrigger>
+            <TabsTrigger value="graficos">Gráficos</TabsTrigger>
             <TabsTrigger value="importacoes">Histórico de Importações</TabsTrigger>
           </TabsList>
 
@@ -1083,7 +1084,7 @@ export default function Assinaturas() {
           </TabsContent>
 
           <TabsContent value="analise" className="space-y-6">
-            {/* MRR by Product */}
+            {/* MRR por Produto e Intervalo - TABELAS */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <Card className="bg-white shadow-sm">
                 <CardHeader>
@@ -1096,34 +1097,34 @@ export default function Assinaturas() {
                   {mrrPorProduto.length === 0 ? (
                     <p className="text-muted-foreground text-center py-8">Nenhum dado disponível</p>
                   ) : (
-                    <ResponsiveContainer width="100%" height={300}>
-                      <BarChart data={mrrPorProduto} layout="vertical" margin={{ left: 10, right: 30 }}>
-                        <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={true} className="stroke-muted/50" />
-                        <XAxis 
-                          type="number" 
-                          tickFormatter={(v) => formatCurrency(v)} 
-                          axisLine={{ stroke: 'hsl(var(--border))' }}
-                          tickLine={{ stroke: 'hsl(var(--border))' }}
-                        />
-                        <YAxis 
-                          dataKey="nome" 
-                          type="category" 
-                          width={150} 
-                          tick={{ fontSize: 11 }} 
-                          axisLine={{ stroke: 'hsl(var(--border))' }}
-                          tickLine={{ stroke: 'hsl(var(--border))' }}
-                        />
-                        <Tooltip 
-                          formatter={(v: number) => formatCurrency(v)} 
-                          contentStyle={{ 
-                            backgroundColor: 'hsl(var(--background))', 
-                            border: '1px solid hsl(var(--border))',
-                            borderRadius: '8px'
-                          }}
-                        />
-                        <Bar dataKey="mrr" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
-                      </BarChart>
-                    </ResponsiveContainer>
+                    <ScrollArea className="h-[350px]">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-[50px]">#</TableHead>
+                            <TableHead>Produto</TableHead>
+                            <TableHead className="text-right">MRR</TableHead>
+                            <TableHead className="text-right">%</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {mrrPorProduto.map((item, index) => {
+                            const totalMRR = mrrPorProduto.reduce((sum, p) => sum + p.mrr, 0);
+                            const percent = totalMRR > 0 ? ((item.mrr / totalMRR) * 100).toFixed(1) : '0';
+                            return (
+                              <TableRow key={item.nome}>
+                                <TableCell className="font-medium text-muted-foreground">{index + 1}</TableCell>
+                                <TableCell className="max-w-[200px] truncate" title={item.nome}>{item.nome}</TableCell>
+                                <TableCell className="text-right font-medium">{formatCurrency(item.mrr)}</TableCell>
+                                <TableCell className="text-right">
+                                  <Badge variant="outline">{percent}%</Badge>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </ScrollArea>
                   )}
                 </CardContent>
               </Card>
@@ -1139,41 +1140,44 @@ export default function Assinaturas() {
                   {mrrPorIntervalo.length === 0 ? (
                     <p className="text-muted-foreground text-center py-8">Nenhum dado disponível</p>
                   ) : (
-                    <div className="flex flex-col gap-4">
-                      <ResponsiveContainer width="100%" height={200}>
-                        <RechartsPie>
-                          <Pie
-                            data={mrrPorIntervalo}
-                            dataKey="mrr"
-                            nameKey="nome"
-                            cx="50%"
-                            cy="50%"
-                            outerRadius={80}
-                            label={({ nome, percent }) => `${nome} (${(percent * 100).toFixed(0)}%)`}
-                          >
-                            {mrrPorIntervalo.map((_, index) => (
-                              <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
-                            ))}
-                          </Pie>
-                          <Tooltip formatter={(v: number) => formatCurrency(v)} />
-                        </RechartsPie>
-                      </ResponsiveContainer>
-                      <div className="space-y-2">
-                        {mrrPorIntervalo.map((item, index) => (
-                          <div key={item.nome} className="flex items-center justify-between text-sm">
-                            <div className="flex items-center gap-2">
-                              <div 
-                                className="w-3 h-3 rounded-full" 
-                                style={{ backgroundColor: CHART_COLORS[index % CHART_COLORS.length] }}
-                              />
-                              <span>{item.nome}</span>
-                              <Badge variant="outline" className="text-xs">{item.contratos} contratos</Badge>
-                            </div>
-                            <span className="font-medium">{formatCurrency(item.mrr)}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
+                    <ScrollArea className="h-[350px]">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Intervalo</TableHead>
+                            <TableHead className="text-right">Contratos</TableHead>
+                            <TableHead className="text-right">MRR</TableHead>
+                            <TableHead className="text-right">%</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {mrrPorIntervalo.map((item, index) => {
+                            const totalMRR = mrrPorIntervalo.reduce((sum, p) => sum + p.mrr, 0);
+                            const percent = totalMRR > 0 ? ((item.mrr / totalMRR) * 100).toFixed(1) : '0';
+                            return (
+                              <TableRow key={item.nome}>
+                                <TableCell>
+                                  <div className="flex items-center gap-2">
+                                    <div 
+                                      className="w-3 h-3 rounded-full" 
+                                      style={{ backgroundColor: CHART_COLORS[index % CHART_COLORS.length] }}
+                                    />
+                                    {item.nome}
+                                  </div>
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  <Badge variant="outline">{item.contratos}</Badge>
+                                </TableCell>
+                                <TableCell className="text-right font-medium">{formatCurrency(item.mrr)}</TableCell>
+                                <TableCell className="text-right">
+                                  <Badge variant="secondary">{percent}%</Badge>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </ScrollArea>
                   )}
                 </CardContent>
               </Card>
@@ -1512,6 +1516,147 @@ export default function Assinaturas() {
                     <strong className="text-secondary">Foco:</strong> Clientes cancelados têm LTV curto. Onboarding nos primeiros 3 meses é crítico para retenção.
                   </div>
                 </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Nova aba de Gráficos */}
+          <TabsContent value="graficos" className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Gráfico MRR por Produto */}
+              <Card className="bg-white shadow-sm">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <BarChart3 className="w-5 h-5" />
+                    MRR por Produto (Top 10)
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {mrrPorProduto.length === 0 ? (
+                    <p className="text-muted-foreground text-center py-8">Nenhum dado disponível</p>
+                  ) : (
+                    <ResponsiveContainer width="100%" height={350}>
+                      <BarChart data={mrrPorProduto} layout="vertical" margin={{ left: 10, right: 30 }}>
+                        <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={true} className="stroke-muted/50" />
+                        <XAxis 
+                          type="number" 
+                          tickFormatter={(v) => formatCurrency(v)} 
+                          axisLine={{ stroke: 'hsl(var(--border))' }}
+                          tickLine={{ stroke: 'hsl(var(--border))' }}
+                        />
+                        <YAxis 
+                          dataKey="nome" 
+                          type="category" 
+                          width={150} 
+                          tick={{ fontSize: 11 }} 
+                          axisLine={{ stroke: 'hsl(var(--border))' }}
+                          tickLine={{ stroke: 'hsl(var(--border))' }}
+                        />
+                        <Tooltip 
+                          formatter={(v: number) => formatCurrency(v)} 
+                          contentStyle={{ 
+                            backgroundColor: 'hsl(var(--background))', 
+                            border: '1px solid hsl(var(--border))',
+                            borderRadius: '8px'
+                          }}
+                        />
+                        <Bar dataKey="mrr" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Gráfico MRR por Intervalo */}
+              <Card className="bg-white shadow-sm">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <PieChart className="w-5 h-5" />
+                    MRR por Intervalo de Cobrança
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {mrrPorIntervalo.length === 0 ? (
+                    <p className="text-muted-foreground text-center py-8">Nenhum dado disponível</p>
+                  ) : (
+                    <div className="flex flex-col gap-4">
+                      <ResponsiveContainer width="100%" height={250}>
+                        <RechartsPie>
+                          <Pie
+                            data={mrrPorIntervalo}
+                            dataKey="mrr"
+                            nameKey="nome"
+                            cx="50%"
+                            cy="50%"
+                            outerRadius={90}
+                            label={({ nome, percent }) => `${nome} (${(percent * 100).toFixed(0)}%)`}
+                          >
+                            {mrrPorIntervalo.map((_, index) => (
+                              <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                            ))}
+                          </Pie>
+                          <Tooltip formatter={(v: number) => formatCurrency(v)} />
+                        </RechartsPie>
+                      </ResponsiveContainer>
+                      <div className="grid grid-cols-2 gap-2">
+                        {mrrPorIntervalo.map((item, index) => (
+                          <div key={item.nome} className="flex items-center justify-between text-sm p-2 bg-muted/30 rounded">
+                            <div className="flex items-center gap-2">
+                              <div 
+                                className="w-3 h-3 rounded-full" 
+                                style={{ backgroundColor: CHART_COLORS[index % CHART_COLORS.length] }}
+                              />
+                              <span>{item.nome}</span>
+                            </div>
+                            <span className="font-medium">{formatCurrency(item.mrr)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Timeline de Aquisição - Gráfico */}
+            <Card className="bg-white shadow-sm">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <TrendingUp className="w-5 h-5" />
+                  Timeline de Aquisição (por Ano)
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {timelineData.length === 0 ? (
+                  <p className="text-muted-foreground text-center py-8">Nenhum dado disponível</p>
+                ) : (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={timelineData} margin={{ left: 10, right: 30 }}>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted/50" />
+                      <XAxis 
+                        dataKey="ano" 
+                        axisLine={{ stroke: 'hsl(var(--border))' }}
+                        tickLine={{ stroke: 'hsl(var(--border))' }}
+                      />
+                      <YAxis 
+                        axisLine={{ stroke: 'hsl(var(--border))' }}
+                        tickLine={{ stroke: 'hsl(var(--border))' }}
+                      />
+                      <Tooltip 
+                        contentStyle={{ 
+                          backgroundColor: 'hsl(var(--background))', 
+                          border: '1px solid hsl(var(--border))',
+                          borderRadius: '8px'
+                        }}
+                      />
+                      <Legend />
+                      <Bar dataKey="total" name="Total" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="ativos" name="Ativos" fill="hsl(142, 71%, 45%)" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="cancelados" name="Cancelados" fill="hsl(var(--destructive))" radius={[4, 4, 0, 0]} />
+                      <Line type="monotone" dataKey="churnAcumulado" name="Churn Acumulado" stroke="hsl(38, 92%, 50%)" strokeWidth={2} dot />
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
