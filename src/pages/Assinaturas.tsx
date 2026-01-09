@@ -165,21 +165,29 @@ const getStatusBadge = (status: string) => {
   }
 };
 
-// Calculate LTV based on ciclo_dias and quantidade_cobrancas
-// For annual (365 days) with 1 charge = 12 months
-// For monthly (30 days) with N charges = N months
+// Calculate LTV = Receita Total gerada pelo cliente
+// LTV = valor_assinatura * quantidade_cobrancas
 const calculateLTV = (contrato: ContratoAssinatura): number => {
-  if (!contrato.mrr || contrato.mrr <= 0) return 0;
+  const valor = contrato.valor_assinatura || 0;
+  const qtdCobrancas = contrato.quantidade_cobrancas || 0;
   
+  if (valor <= 0 || qtdCobrancas <= 0) return 0;
+  
+  // LTV é a receita total que o cliente gerou
+  return valor * qtdCobrancas;
+};
+
+// Calcula LTV em meses
+const calculateLTVMeses = (contrato: ContratoAssinatura): number => {
   const qtdCobrancas = contrato.quantidade_cobrancas || 0;
   if (qtdCobrancas <= 0) return 0;
   
-  // Calculate months based on cycle and quantity of charges
   const ciclo = contrato.ciclo_dias || 30;
-  const mesesPorCiclo = ciclo / 30; // 365 days = ~12 months, 30 days = 1 month
-  const totalMeses = qtdCobrancas * mesesPorCiclo;
+  // Para anual (365 dias) com 1 cobrança = 12 meses
+  // Para mensal (30 dias) com N cobranças = N meses
+  const mesesPorCiclo = ciclo / 30;
   
-  return contrato.mrr * totalMeses;
+  return qtdCobrancas * mesesPorCiclo;
 };
 
 const CHART_COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'];
@@ -290,8 +298,11 @@ export default function Assinaturas() {
   // Calculate metrics
   const metrics = useMemo(() => {
     const ativos = contratosValidos.filter(c => c.status.toLowerCase() === "ativa" || c.status.toLowerCase() === "active");
+    const atrasados = contratosValidos.filter(c => c.status.toLowerCase() === "atrasada" || c.status.toLowerCase() === "overdue");
     const totalMRR = ativos.reduce((sum, c) => sum + (c.mrr || 0), 0);
+    const mrrAtrasados = atrasados.reduce((sum, c) => sum + (c.mrr || 0), 0);
     const totalLTV = contratosValidos.reduce((sum, c) => sum + calculateLTV(c), 0);
+    const totalLTVMeses = contratosValidos.reduce((sum, c) => sum + calculateLTVMeses(c), 0);
     const cancelados = contratosValidos.filter(c => c.status.toLowerCase() === "cancelada");
     const churn = contratosValidos.length > 0 
       ? (cancelados.length / contratosValidos.length) * 100
@@ -300,8 +311,12 @@ export default function Assinaturas() {
     return {
       totalContratos: contratosValidos.length,
       contratosAtivos: ativos.length,
+      contratosAtrasados: atrasados.length,
+      mrrAtrasados,
       totalMRR,
       totalLTV,
+      ltvMedioMeses: contratosValidos.length > 0 ? totalLTVMeses / contratosValidos.length : 0,
+      ltvMedioValor: contratosValidos.length > 0 ? totalLTV / contratosValidos.length : 0,
       ticketMedio: ativos.length > 0 ? totalMRR / ativos.length : 0,
       churnRate: churn,
       clientesUnicos,
@@ -345,7 +360,7 @@ export default function Assinaturas() {
       .sort((a, b) => b.mrr - a.mrr);
   }, [contratosValidos]);
 
-  // Cohort Analysis (by month of signup)
+  // Cohort Analysis (by month of signup) - Matriz completa com retenção por mês
   const cohortData = useMemo(() => {
     const cohortMap = new Map<string, { 
       total: number; 
@@ -353,15 +368,21 @@ export default function Assinaturas() {
       cancelados: number;
       mrr: number;
       ltv: number;
+      ltvMeses: number;
+      contratos: ContratoAssinatura[];
     }>();
     
     contratosValidos.forEach(c => {
       if (!c.data_inicio) return;
       const mes = c.data_inicio.substring(0, 7); // YYYY-MM
-      const current = cohortMap.get(mes) || { total: 0, ativos: 0, cancelados: 0, mrr: 0, ltv: 0 };
+      const current = cohortMap.get(mes) || { 
+        total: 0, ativos: 0, cancelados: 0, mrr: 0, ltv: 0, ltvMeses: 0, contratos: [] 
+      };
       
       current.total++;
       current.ltv += calculateLTV(c);
+      current.ltvMeses += calculateLTVMeses(c);
+      current.contratos.push(c);
       
       if (c.status.toLowerCase() === "ativa" || c.status.toLowerCase() === "active") {
         current.ativos++;
@@ -373,18 +394,56 @@ export default function Assinaturas() {
       cohortMap.set(mes, current);
     });
     
+    // Calcular matriz de retenção (M0 a M12)
+    const calcularRetencaoMes = (contratos: ContratoAssinatura[], mesIndex: number): number => {
+      if (contratos.length === 0) return 0;
+      
+      const hoje = new Date();
+      const retidos = contratos.filter(c => {
+        const inicio = new Date(c.data_inicio!);
+        const mesesDesdeInicio = Math.floor((hoje.getTime() - inicio.getTime()) / (30 * 24 * 60 * 60 * 1000));
+        
+        // Se ainda não atingiu esse mês, não considerar
+        if (mesesDesdeInicio < mesIndex) return false;
+        
+        // Se está ativo OU foi cancelado após esse mês
+        if (c.status.toLowerCase() === "ativa" || c.status.toLowerCase() === "active") return true;
+        
+        if (c.data_cancelamento) {
+          const cancelamento = new Date(c.data_cancelamento);
+          const mesesAteCancelamento = Math.floor((cancelamento.getTime() - inicio.getTime()) / (30 * 24 * 60 * 60 * 1000));
+          return mesesAteCancelamento > mesIndex;
+        }
+        
+        return false;
+      });
+      
+      return Math.round((retidos.length / contratos.length) * 100);
+    };
+    
     return Array.from(cohortMap.entries())
-      .map(([mes, data]) => ({
-        mes,
-        mesFormatado: new Date(mes + '-01').toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' }),
-        total: data.total,
-        ativos: data.ativos,
-        cancelados: data.cancelados,
-        retencao: data.total > 0 ? ((data.ativos / data.total) * 100).toFixed(1) : 0,
-        mrr: data.mrr,
-        ltv: data.ltv,
-        ltvMedio: data.total > 0 ? data.ltv / data.total : 0,
-      }))
+      .map(([mes, data]) => {
+        // Matriz de retenção M0 a M12
+        const retencaoMeses: number[] = [];
+        for (let m = 0; m <= 12; m++) {
+          retencaoMeses.push(calcularRetencaoMes(data.contratos, m));
+        }
+        
+        return {
+          mes,
+          mesFormatado: new Date(mes + '-01').toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' }),
+          total: data.total,
+          ativos: data.ativos,
+          cancelados: data.cancelados,
+          churn: data.total > 0 ? ((data.cancelados / data.total) * 100).toFixed(1) : '0',
+          retencao: data.total > 0 ? ((data.ativos / data.total) * 100).toFixed(1) : '0',
+          mrr: data.mrr,
+          ltv: data.ltv,
+          ltvMedio: data.total > 0 ? data.ltv / data.total : 0,
+          ltvMeses: data.total > 0 ? data.ltvMeses / data.total : 0,
+          retencaoMeses, // Array M0-M12
+        };
+      })
       .sort((a, b) => a.mes.localeCompare(b.mes));
   }, [contratosValidos]);
 
@@ -657,86 +716,78 @@ export default function Assinaturas() {
         </div>
 
         {/* Metrics Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
-          <Card className="bg-white shadow-sm">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2 mb-1">
-                <FileSpreadsheet className="w-4 h-4 text-primary" />
-                <span className="text-xs text-muted-foreground">Total Contratos</span>
-              </div>
-              <p className="text-2xl font-bold">{metrics.totalContratos}</p>
+        <div className="grid grid-cols-2 md:grid-cols-5 lg:grid-cols-10 gap-3">
+          <Card className="bg-blue-50 border-blue-200">
+            <CardContent className="p-3">
+              <div className="text-xs text-blue-600">Total</div>
+              <p className="text-xl font-bold text-blue-700">{metrics.totalContratos}</p>
             </CardContent>
           </Card>
           
-          <Card className="bg-white shadow-sm">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2 mb-1">
-                <CheckCircle className="w-4 h-4 text-emerald-500" />
-                <span className="text-xs text-muted-foreground">Ativos</span>
-              </div>
-              <p className="text-2xl font-bold text-emerald-600">{metrics.contratosAtivos}</p>
+          <Card className="bg-emerald-50 border-emerald-200">
+            <CardContent className="p-3">
+              <div className="text-xs text-emerald-600">Ativos</div>
+              <p className="text-xl font-bold text-emerald-700">{metrics.contratosAtivos}</p>
             </CardContent>
           </Card>
           
-          <Card className="bg-white shadow-sm border-l-4 border-l-primary">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2 mb-1">
-                <TrendingUp className="w-4 h-4 text-primary" />
-                <span className="text-xs text-muted-foreground">MRR Total</span>
+          <Card className="bg-amber-50 border-amber-200 border-2 border-l-4 border-l-amber-500">
+            <CardContent className="p-3">
+              <div className="text-xs text-amber-600 flex items-center gap-1">
+                <AlertCircle className="w-3 h-3" />
+                Atrasados
               </div>
-              <p className="text-xl font-bold text-primary">{formatCurrency(metrics.totalMRR)}</p>
+              <p className="text-xl font-bold text-amber-700">{metrics.contratosAtrasados}</p>
+              <p className="text-xs text-amber-600">{formatCurrency(metrics.mrrAtrasados)} MRR</p>
             </CardContent>
           </Card>
           
-          <Card className="bg-white shadow-sm">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2 mb-1">
-                <DollarSign className="w-4 h-4 text-amber-500" />
-                <span className="text-xs text-muted-foreground">Ticket Médio</span>
-              </div>
-              <p className="text-xl font-bold">{formatCurrency(metrics.ticketMedio)}</p>
+          <Card className="bg-red-50 border-red-200">
+            <CardContent className="p-3">
+              <div className="text-xs text-red-600">Churn</div>
+              <p className="text-xl font-bold text-red-700">{metrics.churnRate.toFixed(1)}%</p>
             </CardContent>
           </Card>
           
-          <Card className="bg-white shadow-sm">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2 mb-1">
-                <Clock className="w-4 h-4 text-blue-500" />
-                <span className="text-xs text-muted-foreground">LTV Total</span>
-              </div>
-              <p className="text-xl font-bold">{formatCurrency(metrics.totalLTV)}</p>
+          <Card className="bg-teal-50 border-teal-200">
+            <CardContent className="p-3">
+              <div className="text-xs text-teal-600">MRR Total</div>
+              <p className="text-lg font-bold text-teal-700">{formatCurrency(metrics.totalMRR)}</p>
             </CardContent>
           </Card>
           
-          <Card className="bg-white shadow-sm">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2 mb-1">
-                <AlertCircle className="w-4 h-4 text-destructive" />
-                <span className="text-xs text-muted-foreground">Churn Rate</span>
-              </div>
-              <p className={`text-xl font-bold ${metrics.churnRate > 5 ? 'text-destructive' : 'text-foreground'}`}>
-                {metrics.churnRate.toFixed(1)}%
-              </p>
+          <Card className="bg-purple-50 border-purple-200">
+            <CardContent className="p-3">
+              <div className="text-xs text-purple-600">LTV Médio (R$)</div>
+              <p className="text-lg font-bold text-purple-700">{formatCurrency(metrics.ltvMedioValor)}</p>
+            </CardContent>
+          </Card>
+          
+          <Card className="bg-indigo-50 border-indigo-200">
+            <CardContent className="p-3">
+              <div className="text-xs text-indigo-600">LTV (Meses)</div>
+              <p className="text-xl font-bold text-indigo-700">{metrics.ltvMedioMeses.toFixed(1)}</p>
+            </CardContent>
+          </Card>
+          
+          <Card className="bg-cyan-50 border-cyan-200">
+            <CardContent className="p-3">
+              <div className="text-xs text-cyan-600">Ticket Médio</div>
+              <p className="text-lg font-bold text-cyan-700">{formatCurrency(metrics.ticketMedio)}</p>
             </CardContent>
           </Card>
 
-          <Card className="bg-white shadow-sm">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2 mb-1">
-                <Users className="w-4 h-4 text-violet-500" />
-                <span className="text-xs text-muted-foreground">Clientes Únicos</span>
-              </div>
-              <p className="text-2xl font-bold text-violet-600">{metrics.clientesUnicos}</p>
+          <Card className="bg-violet-50 border-violet-200">
+            <CardContent className="p-3">
+              <div className="text-xs text-violet-600">Clientes Únicos</div>
+              <p className="text-xl font-bold text-violet-700">{metrics.clientesUnicos}</p>
             </CardContent>
           </Card>
 
-          <Card className="bg-white shadow-sm">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2 mb-1">
-                <Users className="w-4 h-4 text-emerald-500" />
-                <span className="text-xs text-muted-foreground">Clientes Ativos</span>
-              </div>
-              <p className="text-2xl font-bold text-emerald-600">{metrics.clientesAtivosUnicos}</p>
+          <Card className="bg-green-50 border-green-200">
+            <CardContent className="p-3">
+              <div className="text-xs text-green-600">Clientes Ativos</div>
+              <p className="text-xl font-bold text-green-700">{metrics.clientesAtivosUnicos}</p>
             </CardContent>
           </Card>
         </div>
@@ -938,77 +989,145 @@ export default function Assinaturas() {
               </Card>
             </div>
 
-            {/* Cohort Analysis */}
+            {/* Cohort Analysis - Matriz de Retenção */}
             <Card className="bg-white shadow-sm">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <BarChart3 className="w-5 h-5" />
-                  Análise de Cohort (por mês de início)
-                </CardTitle>
+              <CardHeader className="pb-2">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-2">
+                  <CardTitle className="flex items-center gap-2">
+                    <BarChart3 className="w-5 h-5" />
+                    🔢 Matriz de Retenção ({cohortData.length} Cohorts)
+                  </CardTitle>
+                  <div className="flex flex-wrap gap-1 text-xs">
+                    <span className="px-2 py-1 rounded bg-emerald-500 text-white font-semibold">≥70%</span>
+                    <span className="px-2 py-1 rounded bg-lime-500 text-white font-semibold">50-69%</span>
+                    <span className="px-2 py-1 rounded bg-yellow-400 text-black font-semibold">30-49%</span>
+                    <span className="px-2 py-1 rounded bg-orange-500 text-white font-semibold">15-29%</span>
+                    <span className="px-2 py-1 rounded bg-red-500 text-white font-semibold">1-14%</span>
+                    <span className="px-2 py-1 rounded bg-gray-300 text-gray-600 font-semibold">0%</span>
+                  </div>
+                </div>
               </CardHeader>
               <CardContent>
                 {cohortData.length === 0 ? (
                   <p className="text-muted-foreground text-center py-8">Nenhum dado disponível</p>
                 ) : (
                   <>
-                    <div className="mb-6">
-                      <ResponsiveContainer width="100%" height={250}>
-                        <LineChart data={cohortData}>
-                          <CartesianGrid strokeDasharray="3 3" />
-                          <XAxis dataKey="mesFormatado" />
-                          <YAxis yAxisId="left" />
-                          <YAxis yAxisId="right" orientation="right" tickFormatter={(v) => `${v}%`} />
-                          <Tooltip 
-                            formatter={(value: number, name: string) => {
-                              if (name === 'retencao') return [`${value}%`, 'Retenção'];
-                              if (name === 'mrr') return [formatCurrency(value), 'MRR Ativo'];
-                              return [value, name];
-                            }}
-                          />
-                          <Legend />
-                          <Line yAxisId="left" type="monotone" dataKey="total" name="Total Contratos" stroke="#8b5cf6" strokeWidth={2} />
-                          <Line yAxisId="left" type="monotone" dataKey="ativos" name="Ativos" stroke="#10b981" strokeWidth={2} />
-                          <Line yAxisId="right" type="monotone" dataKey="retencao" name="Retenção %" stroke="#f59e0b" strokeWidth={2} />
-                        </LineChart>
-                      </ResponsiveContainer>
-                    </div>
-                    <ScrollArea className="h-[400px]">
-                      <Table>
-                        <TableHeader className="sticky top-0 bg-muted/50">
-                          <TableRow>
-                            <TableHead>Mês Cohort</TableHead>
-                            <TableHead className="text-center">Total</TableHead>
-                            <TableHead className="text-center">Ativos</TableHead>
-                            <TableHead className="text-center">Cancelados</TableHead>
-                            <TableHead className="text-center">Retenção</TableHead>
-                            <TableHead className="text-right">MRR Ativo</TableHead>
-                            <TableHead className="text-right">LTV Total</TableHead>
-                            <TableHead className="text-right">LTV Médio</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {cohortData.map((cohort) => (
-                            <TableRow key={cohort.mes}>
-                              <TableCell className="font-medium">{cohort.mesFormatado}</TableCell>
-                              <TableCell className="text-center">{cohort.total}</TableCell>
-                              <TableCell className="text-center text-emerald-600">{cohort.ativos}</TableCell>
-                              <TableCell className="text-center text-destructive">{cohort.cancelados}</TableCell>
-                              <TableCell className="text-center">
-                                <Badge 
-                                  variant={Number(cohort.retencao) >= 80 ? 'default' : Number(cohort.retencao) >= 50 ? 'secondary' : 'destructive'}
-                                  className={Number(cohort.retencao) >= 80 ? 'bg-emerald-500' : ''}
-                                >
-                                  {cohort.retencao}%
-                                </Badge>
-                              </TableCell>
-                              <TableCell className="text-right text-primary font-medium">{formatCurrency(cohort.mrr)}</TableCell>
-                              <TableCell className="text-right">{formatCurrency(cohort.ltv)}</TableCell>
-                              <TableCell className="text-right">{formatCurrency(cohort.ltvMedio)}</TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
+                    <ScrollArea className="h-[500px]">
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-xs border-collapse">
+                          <thead className="bg-gray-800 text-white sticky top-0">
+                            <tr>
+                              <th className="p-2 text-left sticky left-0 bg-gray-800 z-10">Cohort</th>
+                              <th className="p-1 text-center">N</th>
+                              <th className="p-1 text-center">Atv</th>
+                              <th className="p-1 text-center">Churn</th>
+                              <th className="p-1 text-center">LTV R$</th>
+                              <th className="p-1 text-center">LTV Meses</th>
+                              <th className="p-1 text-center">M0</th>
+                              <th className="p-1 text-center">M1</th>
+                              <th className="p-1 text-center">M2</th>
+                              <th className="p-1 text-center">M3</th>
+                              <th className="p-1 text-center">M4</th>
+                              <th className="p-1 text-center">M5</th>
+                              <th className="p-1 text-center">M6</th>
+                              <th className="p-1 text-center">M7</th>
+                              <th className="p-1 text-center">M8</th>
+                              <th className="p-1 text-center">M9</th>
+                              <th className="p-1 text-center">M10</th>
+                              <th className="p-1 text-center">M11</th>
+                              <th className="p-1 text-center">M12</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {cohortData.map((cohort, idx) => {
+                              const getRetentionClass = (value: number) => {
+                                if (value >= 70) return 'bg-emerald-500 text-white';
+                                if (value >= 50) return 'bg-lime-500 text-white';
+                                if (value >= 30) return 'bg-yellow-400 text-black';
+                                if (value >= 15) return 'bg-orange-500 text-white';
+                                if (value >= 1) return 'bg-red-500 text-white';
+                                return 'bg-gray-300 text-gray-600';
+                              };
+
+                              const churnNum = parseFloat(cohort.churn);
+                              const churnClass = churnNum > 70 ? 'bg-red-100 text-red-700' : 
+                                                 churnNum > 50 ? 'bg-yellow-100 text-yellow-700' : 
+                                                 'bg-green-100 text-green-700';
+                              
+                              return (
+                                <tr key={cohort.mes} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                                  <td className={`p-1 sticky left-0 font-medium border-r ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+                                    <span className="inline-block w-2 h-2 rounded-full mr-1" 
+                                      style={{ backgroundColor: cohort.mes.startsWith('2025') ? '#22c55e' : 
+                                               cohort.mes.startsWith('2024') ? '#3b82f6' : 
+                                               cohort.mes.startsWith('2023') ? '#f97316' : '#6b7280' }} 
+                                    />
+                                    {cohort.mesFormatado}
+                                  </td>
+                                  <td className="p-1 text-center">{cohort.total}</td>
+                                  <td className="p-1 text-center">
+                                    <span className={`px-1 rounded ${cohort.ativos > 0 ? 'bg-green-100 text-green-700' : 'bg-gray-100'}`}>
+                                      {cohort.ativos}
+                                    </span>
+                                  </td>
+                                  <td className="p-1 text-center">
+                                    <span className={`px-1 rounded text-xs ${churnClass}`}>
+                                      {cohort.churn}%
+                                    </span>
+                                  </td>
+                                  <td className="p-1 text-center font-medium">{formatCurrency(cohort.ltvMedio)}</td>
+                                  <td className="p-1 text-center">{cohort.ltvMeses.toFixed(1)}</td>
+                                  {cohort.retencaoMeses.map((ret, mIdx) => (
+                                    <td key={mIdx} className="p-0.5">
+                                      <div className={`min-w-[42px] text-center p-0.5 rounded text-[10px] font-semibold ${getRetentionClass(ret)}`}>
+                                        {ret}%
+                                      </div>
+                                    </td>
+                                  ))}
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
                     </ScrollArea>
+                    
+                    {/* LTV Cards */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
+                      <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-4 text-white">
+                        <div className="text-sm opacity-80">LTV Médio (Valor)</div>
+                        <div className="text-2xl font-bold">{formatCurrency(metrics.ltvMedioValor)}</div>
+                        <div className="text-xs opacity-70">Receita / Total Clientes</div>
+                      </div>
+                      <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl p-4 text-white">
+                        <div className="text-sm opacity-80">LTV Médio (Meses)</div>
+                        <div className="text-2xl font-bold">{metrics.ltvMedioMeses.toFixed(1)}</div>
+                        <div className="text-xs opacity-70">Tempo médio de vida</div>
+                      </div>
+                      <div className="bg-gradient-to-br from-teal-500 to-teal-600 rounded-xl p-4 text-white">
+                        <div className="text-sm opacity-80">Ticket Mensal</div>
+                        <div className="text-2xl font-bold">{formatCurrency(metrics.ticketMedio)}</div>
+                        <div className="text-xs opacity-70">Valor médio assinatura</div>
+                      </div>
+                      <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl p-4 text-white">
+                        <div className="text-sm opacity-80">LTV Potencial (12m)</div>
+                        <div className="text-2xl font-bold">{formatCurrency(metrics.ticketMedio * 12)}</div>
+                        <div className="text-xs opacity-70">Se LTV = 12 meses</div>
+                      </div>
+                    </div>
+
+                    {/* Insights */}
+                    <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                      <h4 className="font-bold text-amber-800 mb-2">💡 Insights de LTV</h4>
+                      <div className="grid md:grid-cols-2 gap-4 text-sm text-amber-900">
+                        <div>
+                          <strong>Oportunidade:</strong> Se aumentar LTV de {metrics.ltvMedioMeses.toFixed(1)} para 12 meses, o valor sobe de {formatCurrency(metrics.ltvMedioValor)} para {formatCurrency(metrics.ticketMedio * 12)} (+{((metrics.ticketMedio * 12 / Math.max(metrics.ltvMedioValor, 1) - 1) * 100).toFixed(0)}%)
+                        </div>
+                        <div>
+                          <strong>Foco:</strong> Clientes cancelados têm LTV curto. Onboarding nos primeiros 3 meses é crítico para retenção.
+                        </div>
+                      </div>
+                    </div>
                   </>
                 )}
               </CardContent>
