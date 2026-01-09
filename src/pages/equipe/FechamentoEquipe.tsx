@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -231,10 +231,10 @@ export default function FechamentoEquipe() {
         .eq("ativo", true)
         .eq("participa_fechamento_equipe", true);
 
-      // Buscar meta do mês
+      // Buscar meta do mês (com parâmetros de fechamento)
       const { data: meta } = await supabase
         .from("meta_mensal")
-        .select("meta_quantidade, meta_mrr")
+        .select("*")
         .eq("mes_referencia", format(mesReferenciaDate, "yyyy-MM-dd"))
         .maybeSingle();
 
@@ -299,21 +299,20 @@ export default function FechamentoEquipe() {
     },
   });
 
-  // Atualizar configBase quando fechamento mudar
-  useState(() => {
-    if (fechamento) {
-      setConfigBase({
-        assinaturasInicioMes: fechamento.assinaturas_inicio_mes || 0,
-        cancelamentosMes: fechamento.cancelamentos_mes || 0,
-        limiteChurn: fechamento.limite_churn || 5,
-        limiteCancelamentos: fechamento.limite_cancelamentos || 50,
-        percentualBonusChurn: fechamento.percentual_bonus_churn || 3,
-        percentualBonusRetencao: fechamento.percentual_bonus_retencao || 3,
-        percentualBonusMeta: fechamento.percentual_bonus_meta || 10,
-        metaVendas: fechamento.meta_vendas || 0,
-      });
-    }
-  });
+  // Atualizar configBase quando fechamento ou meta mudar
+  useEffect(() => {
+    const meta = dadosCalculo?.meta;
+    setConfigBase({
+      assinaturasInicioMes: fechamento?.assinaturas_inicio_mes || meta?.assinaturas_inicio_mes || 0,
+      cancelamentosMes: fechamento?.cancelamentos_mes || 0,
+      limiteChurn: fechamento?.limite_churn || meta?.limite_churn || 5,
+      limiteCancelamentos: fechamento?.limite_cancelamentos || meta?.limite_cancelamentos || 50,
+      percentualBonusChurn: fechamento?.percentual_bonus_churn || meta?.percentual_bonus_churn || 3,
+      percentualBonusRetencao: fechamento?.percentual_bonus_retencao || meta?.percentual_bonus_retencao || 3,
+      percentualBonusMeta: fechamento?.percentual_bonus_meta || meta?.bonus_meta_equipe || 10,
+      metaVendas: fechamento?.meta_vendas || meta?.meta_quantidade || 0,
+    });
+  }, [fechamento, dadosCalculo?.meta]);
 
   // Mutation para salvar configuração
   const salvarConfigMutation = useMutation({
@@ -417,21 +416,21 @@ export default function FechamentoEquipe() {
       const vendasServicos = dadosCalculo.vendasServicos;
       const metasIndividuais = dadosCalculo.metasIndividuais;
 
-      // Usar configuração manual ou dados do sistema
-      const assinaturasInicioMes = configBase.assinaturasInicioMes || fechamento?.assinaturas_inicio_mes || 0;
+      // Prioridade: 1) configBase (modal local), 2) meta_mensal, 3) fechamento existente, 4) padrão
+      const assinaturasInicioMes = configBase.assinaturasInicioMes || meta?.assinaturas_inicio_mes || fechamento?.assinaturas_inicio_mes || 0;
       const cancelamentosMes = configBase.cancelamentosMes || fechamento?.cancelamentos_mes || 0;
       const vendasMes = dadosCalculo.qtdVendasRecorrentes || 0;
       const mrrMes = fechamentoComissao?.total_mrr || 0;
       const mrrBaseComissao = dadosCalculo.mrrBaseComissao || 0;
       const totalComissoesVendedores = dadosCalculo.totalComissoesVendedores || 0;
-      const metaVendas = configBase.metaVendas || meta?.meta_quantidade || 0;
+      const metaVendas = configBase.metaVendas || meta?.meta_quantidade || fechamento?.meta_vendas || 0;
 
-      // Usar limites configurados
-      const limiteChurn = configBase.limiteChurn || 5;
-      const limiteCancelamentos = configBase.limiteCancelamentos || 50;
-      const percentualBonusChurn = configBase.percentualBonusChurn || 3;
-      const percentualBonusRetencao = configBase.percentualBonusRetencao || 3;
-      const percentualBonusMeta = configBase.percentualBonusMeta || 10;
+      // Usar limites da meta_mensal ou configuração manual
+      const limiteChurn = configBase.limiteChurn || meta?.limite_churn || 5;
+      const limiteCancelamentos = configBase.limiteCancelamentos || meta?.limite_cancelamentos || 50;
+      const percentualBonusChurn = configBase.percentualBonusChurn || meta?.percentual_bonus_churn || 3;
+      const percentualBonusRetencao = configBase.percentualBonusRetencao || meta?.percentual_bonus_retencao || 3;
+      const percentualBonusMeta = configBase.percentualBonusMeta || meta?.bonus_meta_equipe || 10;
 
       // Cálculos
       const churnRate = assinaturasInicioMes > 0 
@@ -1027,11 +1026,24 @@ export default function FechamentoEquipe() {
 
       {/* Modal Configuração */}
       <Dialog open={configModal} onOpenChange={setConfigModal}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Configurar Parâmetros do Fechamento</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
+            {dadosCalculo?.meta && (
+              <div className="bg-primary/10 border border-primary/20 p-3 rounded-lg">
+                <p className="text-sm">
+                  <strong>💡 Parâmetros carregados da Meta Mensal</strong>
+                  <br />
+                  <span className="text-muted-foreground">
+                    Estes valores foram definidos em Configurações &gt; Metas Mensais. 
+                    Você pode sobrescrevê-los aqui para este fechamento específico.
+                  </span>
+                </p>
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Clientes no Início do Mês</Label>

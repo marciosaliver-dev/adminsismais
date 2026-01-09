@@ -52,6 +52,12 @@ interface MetaMensal {
   multiplicador_anual: number;
   comissao_venda_unica: number;
   ltv_medio: number;
+  // Parâmetros de fechamento de equipe
+  assinaturas_inicio_mes: number;
+  limite_churn: number;
+  limite_cancelamentos: number;
+  percentual_bonus_churn: number;
+  percentual_bonus_retencao: number;
   created_at: string;
   updated_at: string;
 }
@@ -106,6 +112,12 @@ export default function ConfiguracoesComissao() {
     multiplicador_anual: 2,
     comissao_venda_unica: 10,
     ltv_medio: 6,
+    // Parâmetros de fechamento de equipe
+    assinaturas_inicio_mes: 0,
+    limite_churn: 5,
+    limite_cancelamentos: 50,
+    percentual_bonus_churn: 3,
+    percentual_bonus_retencao: 3,
   });
 
   // Fetch faixas
@@ -232,6 +244,12 @@ export default function ConfiguracoesComissao() {
         multiplicador_anual: metaForm.multiplicador_anual,
         comissao_venda_unica: metaForm.comissao_venda_unica,
         ltv_medio: metaForm.ltv_medio,
+        // Parâmetros de fechamento de equipe
+        assinaturas_inicio_mes: metaForm.assinaturas_inicio_mes,
+        limite_churn: metaForm.limite_churn,
+        limite_cancelamentos: metaForm.limite_cancelamentos,
+        percentual_bonus_churn: metaForm.percentual_bonus_churn,
+        percentual_bonus_retencao: metaForm.percentual_bonus_retencao,
       };
       if (editingMeta) {
         const { error } = await supabase
@@ -309,6 +327,11 @@ export default function ConfiguracoesComissao() {
       multiplicador_anual: 2,
       comissao_venda_unica: 10,
       ltv_medio: 6,
+      assinaturas_inicio_mes: 0,
+      limite_churn: 5,
+      limite_cancelamentos: 50,
+      percentual_bonus_churn: 3,
+      percentual_bonus_retencao: 3,
     });
     setEditingMeta(null);
   };
@@ -343,6 +366,11 @@ export default function ConfiguracoesComissao() {
       multiplicador_anual: meta.multiplicador_anual,
       comissao_venda_unica: meta.comissao_venda_unica,
       ltv_medio: meta.ltv_medio || 6,
+      assinaturas_inicio_mes: meta.assinaturas_inicio_mes || 0,
+      limite_churn: meta.limite_churn || 5,
+      limite_cancelamentos: meta.limite_cancelamentos || 50,
+      percentual_bonus_churn: meta.percentual_bonus_churn || 3,
+      percentual_bonus_retencao: meta.percentual_bonus_retencao || 3,
     });
     setIsMetaDialogOpen(true);
   };
@@ -805,6 +833,88 @@ export default function ConfiguracoesComissao() {
                     placeholder="Ex: 6"
                   />
                   <p className="text-xs text-muted-foreground">Para cálculo de Faturamento Total</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Seção: Parâmetros de Fechamento de Equipe */}
+            <div className="border-t pt-4">
+              <h4 className="text-sm font-medium mb-4">📊 Parâmetros de Fechamento de Equipe</h4>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="assinaturas_inicio_mes_form">Clientes no Início do Mês</Label>
+                  <Input
+                    id="assinaturas_inicio_mes_form"
+                    type="number"
+                    min="0"
+                    value={metaForm.assinaturas_inicio_mes}
+                    onChange={(e) =>
+                      setMetaForm({ ...metaForm, assinaturas_inicio_mes: Number(e.target.value) })
+                    }
+                    placeholder="Ex: 2000"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="limite_churn_form">Limite Churn (%)</Label>
+                  <Input
+                    id="limite_churn_form"
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    max="100"
+                    value={metaForm.limite_churn}
+                    onChange={(e) =>
+                      setMetaForm({ ...metaForm, limite_churn: Number(e.target.value) })
+                    }
+                    placeholder="Ex: 5"
+                  />
+                  <p className="text-xs text-muted-foreground">Bônus liberado se churn &lt; este limite</p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="limite_cancelamentos_form">Limite Cancelamentos (%)</Label>
+                  <Input
+                    id="limite_cancelamentos_form"
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    max="100"
+                    value={metaForm.limite_cancelamentos}
+                    onChange={(e) =>
+                      setMetaForm({ ...metaForm, limite_cancelamentos: Number(e.target.value) })
+                    }
+                    placeholder="Ex: 50"
+                  />
+                  <p className="text-xs text-muted-foreground">Cancelamentos &lt; % das vendas</p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="percentual_bonus_churn_form">% Bônus Churn</Label>
+                  <Input
+                    id="percentual_bonus_churn_form"
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    max="100"
+                    value={metaForm.percentual_bonus_churn}
+                    onChange={(e) =>
+                      setMetaForm({ ...metaForm, percentual_bonus_churn: Number(e.target.value) })
+                    }
+                    placeholder="Ex: 3"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="percentual_bonus_retencao_form">% Bônus Retenção</Label>
+                  <Input
+                    id="percentual_bonus_retencao_form"
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    max="100"
+                    value={metaForm.percentual_bonus_retencao}
+                    onChange={(e) =>
+                      setMetaForm({ ...metaForm, percentual_bonus_retencao: Number(e.target.value) })
+                    }
+                    placeholder="Ex: 3"
+                  />
                 </div>
               </div>
             </div>

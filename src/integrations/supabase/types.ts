@@ -654,11 +654,14 @@ export type Database = {
       }
       meta_mensal: {
         Row: {
+          assinaturas_inicio_mes: number | null
           bonus_meta_empresa: number
           bonus_meta_equipe: number
           comissao_venda_unica: number
           created_at: string
           id: string
+          limite_cancelamentos: number | null
+          limite_churn: number | null
           ltv_medio: number
           mes_referencia: string
           meta_mrr: number
@@ -666,14 +669,19 @@ export type Database = {
           multiplicador_anual: number
           num_colaboradores: number
           observacao: string | null
+          percentual_bonus_churn: number | null
+          percentual_bonus_retencao: number | null
           updated_at: string
         }
         Insert: {
+          assinaturas_inicio_mes?: number | null
           bonus_meta_empresa?: number
           bonus_meta_equipe?: number
           comissao_venda_unica?: number
           created_at?: string
           id?: string
+          limite_cancelamentos?: number | null
+          limite_churn?: number | null
           ltv_medio?: number
           mes_referencia: string
           meta_mrr?: number
@@ -681,14 +689,19 @@ export type Database = {
           multiplicador_anual?: number
           num_colaboradores?: number
           observacao?: string | null
+          percentual_bonus_churn?: number | null
+          percentual_bonus_retencao?: number | null
           updated_at?: string
         }
         Update: {
+          assinaturas_inicio_mes?: number | null
           bonus_meta_empresa?: number
           bonus_meta_equipe?: number
           comissao_venda_unica?: number
           created_at?: string
           id?: string
+          limite_cancelamentos?: number | null
+          limite_churn?: number | null
           ltv_medio?: number
           mes_referencia?: string
           meta_mrr?: number
@@ -696,6 +709,8 @@ export type Database = {
           multiplicador_anual?: number
           num_colaboradores?: number
           observacao?: string | null
+          percentual_bonus_churn?: number | null
+          percentual_bonus_retencao?: number | null
           updated_at?: string
         }
         Relationships: []
