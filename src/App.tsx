@@ -14,6 +14,7 @@ import RelatorioVendas from "./pages/RelatorioVendas";
 import ExtratoAsaas from "./pages/ExtratoAsaas";
 import ExtratoAsaasDetalhe from "./pages/ExtratoAsaasDetalhe";
 import ExtratoEduzz from "./pages/ExtratoEduzz";
+import ExtratoEduzzDetalhe from "./pages/ExtratoEduzzDetalhe";
 import GerenciarUsuarios from "./pages/admin/GerenciarUsuarios";
 import GerenciarPermissoes from "./pages/admin/GerenciarPermissoes";
 import Colaboradores from "./pages/equipe/Colaboradores";
@@ -131,6 +132,16 @@ const App = () => (
                 <ProtectedRoute>
                   <Layout>
                     <ExtratoEduzz />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/extrato-eduzz/:id"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <ExtratoEduzzDetalhe />
                   </Layout>
                 </ProtectedRoute>
               }
