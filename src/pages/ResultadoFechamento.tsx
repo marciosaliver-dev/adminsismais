@@ -1038,6 +1038,7 @@ export default function ResultadoFechamento() {
                   <TableHead>Vendedor</TableHead>
                   <TableHead className="text-center">Vendas</TableHead>
                   <TableHead className="text-right">MRR Faixa</TableHead>
+                  <TableHead className="text-center">% Part.</TableHead>
                   <TableHead className="text-center">Faixa</TableHead>
                   <TableHead className="text-center">%</TableHead>
                   <TableHead className="text-right">Comissão</TableHead>
@@ -1054,6 +1055,11 @@ export default function ResultadoFechamento() {
                     .reduce((acc, a) => acc + (a.tipo === "credito" ? a.valor : -a.valor), 0);
                   const totalComAjuste = comissao.total_receber + ajustesVendedor;
                   
+                  // Calcular % de participação no MRR Total
+                  const participacaoPercent = totals.mrrTotal > 0 
+                    ? (comissao.mrr_total / totals.mrrTotal) * 100 
+                    : 0;
+                  
                   return (
                     <TableRow
                       key={comissao.id}
@@ -1063,6 +1069,14 @@ export default function ResultadoFechamento() {
                       <TableCell className="font-medium">{comissao.vendedor}</TableCell>
                       <TableCell className="text-center">{comissao.qtd_vendas}</TableCell>
                       <TableCell className="text-right">{formatCurrency(comissao.mrr_total)}</TableCell>
+                      <TableCell className="text-center">
+                        <Badge 
+                          variant="outline" 
+                          className="bg-primary/10 text-primary border-primary/30 font-semibold"
+                        >
+                          {participacaoPercent.toFixed(2)}%
+                        </Badge>
+                      </TableCell>
                       <TableCell className="text-center">
                         <Badge
                           variant="outline"
@@ -1105,6 +1119,7 @@ export default function ResultadoFechamento() {
                   <TableCell>TOTAL</TableCell>
                   <TableCell className="text-center">{totals.vendas}</TableCell>
                   <TableCell className="text-right">{formatCurrency(totals.mrrTotal)}</TableCell>
+                  <TableCell className="text-center">100%</TableCell>
                   <TableCell></TableCell>
                   <TableCell></TableCell>
                   <TableCell className="text-right">{formatCurrency(totals.comissao)}</TableCell>
