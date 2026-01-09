@@ -64,7 +64,7 @@ interface ColaboradorForm {
   data_admissao: string;
 }
 
-const DEPARTAMENTOS = ["Suporte", "CS", "Admin", "Comercial", "Financeiro", "TI"];
+const DEPARTAMENTOS = ["Comercial e Marketing", "Suporte e CS", "Desenvolvimento", "Administrativo"];
 
 const initialFormState: ColaboradorForm = {
   nome: "",
