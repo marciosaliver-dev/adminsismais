@@ -470,6 +470,7 @@ export default function ExtratoEduzz() {
       }
 
       const registrosParaInserir: EduzzRow[] = [];
+      const faturaIdsNoArquivo = new Set<string>();
       const faturaIds: string[] = [];
       let totalVendas = 0;
       let minDate = "9999-99-99";
@@ -483,6 +484,10 @@ export default function ExtratoEduzz() {
         const [dataStr, descricao, tipoTransacao, fatura, valorStr] = parts;
         
         if (!fatura || !dataStr) continue;
+
+        // Skip duplicates within the same file
+        if (faturaIdsNoArquivo.has(fatura)) continue;
+        faturaIdsNoArquivo.add(fatura);
 
         if (i % 50 === 0) {
           setProcessProgress(10 + Math.floor((i / totalRows) * 40));
@@ -569,9 +574,10 @@ export default function ExtratoEduzz() {
 
         const { error: insertError } = await supabase
           .from("extrato_eduzz")
-          .insert(lote);
+          .upsert(lote, { onConflict: 'fatura_id', ignoreDuplicates: true });
 
         if (insertError) {
+          console.error("Erro ao inserir lote:", insertError);
           await supabase
             .from("importacoes_extrato_eduzz")
             .update({ status: "erro", observacao: `Erro no lote ${loteAtual}: ${insertError.message}` })
