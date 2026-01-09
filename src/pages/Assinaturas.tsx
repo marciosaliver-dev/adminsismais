@@ -1081,8 +1081,8 @@ export default function Assinaturas() {
           </Button>
         </div>
 
-        {/* Metrics Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-5 lg:grid-cols-10 gap-3">
+        {/* Metrics Cards - 2 rows of 5 */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
           <Card className="bg-blue-50 border-blue-200">
             <CardContent className="p-3">
               <div className="text-xs text-blue-600">Total</div>
