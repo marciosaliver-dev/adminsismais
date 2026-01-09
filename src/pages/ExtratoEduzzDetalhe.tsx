@@ -230,12 +230,16 @@ export default function ExtratoEduzzDetalhe() {
 
   // Calculate metrics from filtered data
   const metrics = useMemo(() => {
-    const totalVendas = transacoesFiltradas.reduce((sum, t) => sum + t.valor, 0);
+    const totalCreditos = transacoesFiltradas.reduce((sum, t) => t.valor > 0 ? sum + t.valor : sum, 0);
+    const totalDebitos = transacoesFiltradas.reduce((sum, t) => t.valor < 0 ? sum + t.valor : sum, 0);
+    const totalVendas = totalCreditos + totalDebitos;
     const totalTransacoes = transacoesFiltradas.length;
     const ticketMedio = totalTransacoes > 0 ? totalVendas / totalTransacoes : 0;
     
     return {
       totalVendas,
+      totalCreditos,
+      totalDebitos,
       totalTransacoes,
       ticketMedio,
     };
@@ -586,7 +590,7 @@ export default function ExtratoEduzzDetalhe() {
                         </TableCell>
                         <TableCell>{r.tipo}</TableCell>
                         <TableCell className="text-center">{r.qtd}</TableCell>
-                        <TableCell className="text-right font-medium text-emerald-600">
+                        <TableCell className={`text-right font-medium ${r.valor < 0 ? 'text-destructive' : 'text-emerald-600'}`}>
                           {formatCurrency(r.valor)}
                         </TableCell>
                       </TableRow>
@@ -620,11 +624,33 @@ export default function ExtratoEduzzDetalhe() {
             <Card className="bg-white shadow-sm">
               <CardContent className="p-6">
                 <div className="flex items-center gap-3 mb-2">
-                  <DollarSign className="w-5 h-5 text-emerald-500" />
-                  <span className="text-sm text-muted-foreground">Valor Total</span>
+                  <TrendingUp className="w-5 h-5 text-emerald-500" />
+                  <span className="text-sm text-muted-foreground">Total Créditos</span>
                 </div>
                 <p className="text-3xl font-bold text-emerald-600">
-                  {formatCurrency(transacoesFiltradas.reduce((sum, t) => sum + t.valor, 0))}
+                  {formatCurrency(metrics.totalCreditos)}
+                </p>
+              </CardContent>
+            </Card>
+            <Card className="bg-white shadow-sm border-l-4 border-l-destructive">
+              <CardContent className="p-6">
+                <div className="flex items-center gap-3 mb-2">
+                  <DollarSign className="w-5 h-5 text-destructive" />
+                  <span className="text-sm text-muted-foreground">Total Débitos</span>
+                </div>
+                <p className="text-3xl font-bold text-destructive">
+                  {formatCurrency(metrics.totalDebitos)}
+                </p>
+              </CardContent>
+            </Card>
+            <Card className="bg-white shadow-sm">
+              <CardContent className="p-6">
+                <div className="flex items-center gap-3 mb-2">
+                  <DollarSign className="w-5 h-5 text-primary" />
+                  <span className="text-sm text-muted-foreground">Saldo Total</span>
+                </div>
+                <p className={`text-3xl font-bold ${metrics.totalVendas < 0 ? 'text-destructive' : 'text-emerald-600'}`}>
+                  {formatCurrency(metrics.totalVendas)}
                 </p>
               </CardContent>
             </Card>
