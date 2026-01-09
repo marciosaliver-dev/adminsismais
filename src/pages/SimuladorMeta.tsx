@@ -102,6 +102,7 @@ export default function SimuladorMeta() {
   const [isLoadingData, setIsLoadingData] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
+  const [mrrManual, setMrrManual] = useState(false); // Flag para MRR manual
 
   // Buscar dados reais para carregar
   const { data: dadosReais, refetch: refetchDados } = useQuery({
@@ -260,21 +261,39 @@ export default function SimuladorMeta() {
   }, [inputs]);
 
   // Efeito para calcular MRR automaticamente baseado em clientes ativos e ticket médio
+  // Só calcula se não estiver em modo manual
   useEffect(() => {
-    if (inputs.clientesAtivos > 0 && inputs.ticketMedio > 0) {
+    if (!mrrManual && inputs.clientesAtivos > 0 && inputs.ticketMedio > 0) {
       const mrrCalculado = inputs.clientesAtivos * inputs.ticketMedio;
       if (mrrCalculado !== inputs.mrrAtual) {
         setInputs(prev => ({ ...prev, mrrAtual: mrrCalculado }));
       }
     }
-  }, [inputs.clientesAtivos, inputs.ticketMedio]);
+  }, [inputs.clientesAtivos, inputs.ticketMedio, mrrManual]);
 
   const updateInput = (field: keyof SimuladorInputs, value: number | Date | undefined) => {
     setInputs(prev => ({ ...prev, [field]: value }));
   };
 
+  const handleMrrChange = (value: number) => {
+    setMrrManual(true); // Ativa modo manual quando usuário edita MRR diretamente
+    setInputs(prev => ({ ...prev, mrrAtual: value }));
+  };
+
+  const enableAutoMrr = () => {
+    setMrrManual(false);
+    // Recalcular imediatamente
+    if (inputs.clientesAtivos > 0 && inputs.ticketMedio > 0) {
+      setInputs(prev => ({
+        ...prev,
+        mrrAtual: inputs.clientesAtivos * inputs.ticketMedio,
+      }));
+    }
+  };
+
   const resetar = () => {
     setInputs(defaultInputs);
+    setMrrManual(false);
     setAiAnalysis(null);
     toast({ title: "Valores resetados", description: "Todos os campos voltaram aos valores padrão." });
   };
@@ -373,13 +392,29 @@ export default function SimuladorMeta() {
             <CardContent className="space-y-4">
               <div className="grid gap-4 sm:grid-cols-3">
                 <div className="space-y-2">
-                  <Label>MRR Atual (R$)</Label>
+                  <div className="flex items-center justify-between">
+                    <Label>MRR Atual (R$)</Label>
+                    {mrrManual ? (
+                      <button
+                        onClick={enableAutoMrr}
+                        className="text-xs text-primary hover:underline"
+                      >
+                        Ativar auto
+                      </button>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">Auto</span>
+                    )}
+                  </div>
                   <Input
                     type="number"
                     value={inputs.mrrAtual}
-                    onChange={e => updateInput("mrrAtual", Number(e.target.value))}
+                    onChange={e => handleMrrChange(Number(e.target.value))}
                     min={0}
+                    className={cn(mrrManual && "border-amber-500")}
                   />
+                  {mrrManual && (
+                    <p className="text-xs text-amber-600">Modo manual ativo</p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label>MRR Meta (R$)</Label>
