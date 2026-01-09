@@ -32,8 +32,13 @@ import {
   Sparkles,
   Brain,
   BarChart3,
+  Info,
+  ArrowUpRight,
+  Zap,
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface SimuladorInputs {
   mrrAtual: number;
@@ -70,7 +75,37 @@ interface SimuladorOutputs {
   ltvCacRatio: number;
   clientesNecessarios: number;
   taxaCrescimentoClientes: number;
+  // Novos cálculos
+  taxaCrescimentoMrr: number;
+  crescimentoMensalMrr: number;
+  faturamentoAnualProjetado: number;
+  arProjetado: number;
 }
+
+// Benchmarks SaaS B2B Brasil
+const BENCHMARKS = {
+  churnMensal: { excelente: 2, bom: 3, medio: 5, ruim: 8 },
+  taxaConversao: { excelente: 7, bom: 5, medio: 2.5, ruim: 1 },
+  ltvCacRatio: { excelente: 5, bom: 3, medio: 2, ruim: 1 },
+  paybackMeses: { excelente: 4, bom: 6, medio: 12, ruim: 18 },
+  ticketMedio: { baixo: 100, medio: 300, alto: 800, enterprise: 2000 },
+  crescimentoMensal: { acelerado: 15, rapido: 10, saudavel: 5, lento: 2 },
+  custoPorLead: { barato: 5, medio: 15, caro: 40, muitoCaro: 80 },
+};
+
+const getBenchmarkStatus = (value: number, benchmark: { excelente?: number; bom: number; medio: number; ruim: number }, higherIsBetter = true) => {
+  if (higherIsBetter) {
+    if (benchmark.excelente && value >= benchmark.excelente) return { status: "excelente", color: "text-emerald-600", bg: "bg-emerald-100 dark:bg-emerald-900/30" };
+    if (value >= benchmark.bom) return { status: "bom", color: "text-green-600", bg: "bg-green-100 dark:bg-green-900/30" };
+    if (value >= benchmark.medio) return { status: "médio", color: "text-amber-600", bg: "bg-amber-100 dark:bg-amber-900/30" };
+    return { status: "ruim", color: "text-red-600", bg: "bg-red-100 dark:bg-red-900/30" };
+  } else {
+    if (benchmark.excelente && value <= benchmark.excelente) return { status: "excelente", color: "text-emerald-600", bg: "bg-emerald-100 dark:bg-emerald-900/30" };
+    if (value <= benchmark.bom) return { status: "bom", color: "text-green-600", bg: "bg-green-100 dark:bg-green-900/30" };
+    if (value <= benchmark.medio) return { status: "médio", color: "text-amber-600", bg: "bg-amber-100 dark:bg-amber-900/30" };
+    return { status: "ruim", color: "text-red-600", bg: "bg-red-100 dark:bg-red-900/30" };
+  }
+};
 
 const defaultInputs: SimuladorInputs = {
   mrrAtual: 0,
@@ -238,6 +273,34 @@ export default function SimuladorMeta() {
       ? ((clientesNecessarios - inputs.clientesAtivos) / inputs.clientesAtivos) * 100
       : clientesNecessarios > 0 ? 100 : 0;
 
+    // Taxa de crescimento MRR total
+    const taxaCrescimentoMrr = inputs.mrrAtual > 0 
+      ? ((inputs.mrrMeta - inputs.mrrAtual) / inputs.mrrAtual) * 100
+      : inputs.mrrMeta > 0 ? 100 : 0;
+
+    // Taxa de crescimento mensal composto (CAGR mensal)
+    const crescimentoMensalMrr = inputs.mrrAtual > 0 && mesesAteData > 0
+      ? (Math.pow(inputs.mrrMeta / inputs.mrrAtual, 1 / mesesAteData) - 1) * 100
+      : 0;
+
+    // Faturamento Anual Projetado (AR) considerando crescimento mensal e LTV
+    // Projeção: soma do MRR de 12 meses com crescimento composto
+    const vendasPorMes = mesesAteData > 0 ? Math.ceil(novasVendas / mesesAteData) : 0;
+    let faturamentoAnualProjetado = 0;
+    let mrrProjetado = inputs.mrrMeta;
+    for (let i = 0; i < 12; i++) {
+      faturamentoAnualProjetado += mrrProjetado;
+      // Aplica churn e crescimento líquido
+      const clientesMes = mrrProjetado / Math.max(inputs.ticketMedio, 1);
+      const novosClientesMes = vendasPorMes;
+      const churnClientesMes = clientesMes * (inputs.churnMensal / 100);
+      const clientesFinais = clientesMes + novosClientesMes - churnClientesMes;
+      mrrProjetado = clientesFinais * inputs.ticketMedio;
+    }
+
+    // AR projetado com base no LTV (receita total esperada dos clientes adquiridos)
+    const arProjetado = novasVendas * inputs.ticketMedio * inputs.ltvMeses;
+
     return {
       receitaNecessaria,
       novasVendas,
@@ -257,6 +320,10 @@ export default function SimuladorMeta() {
       ltvCacRatio,
       clientesNecessarios,
       taxaCrescimentoClientes,
+      taxaCrescimentoMrr,
+      crescimentoMensalMrr,
+      faturamentoAnualProjetado,
+      arProjetado,
     };
   }, [inputs]);
 
@@ -470,6 +537,7 @@ export default function SimuladorMeta() {
                 <DollarSign className="w-5 h-5 text-emerald-500" />
                 2. Métricas Base
               </CardTitle>
+              <CardDescription>Benchmarks SaaS B2B Brasil em cada campo</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -484,16 +552,60 @@ export default function SimuladorMeta() {
                   <p className="text-xs text-muted-foreground">Base atual de clientes</p>
                 </div>
                 <div className="space-y-2">
-                  <Label>Ticket Médio (R$)</Label>
+                  <div className="flex items-center gap-2">
+                    <Label>Ticket Médio (R$)</Label>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger>
+                          <Info className="w-3.5 h-3.5 text-muted-foreground" />
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs">
+                          <p className="font-semibold mb-1">Benchmark SaaS B2B Brasil:</p>
+                          <ul className="text-xs space-y-1">
+                            <li>• SMB: R$ 100-300/mês</li>
+                            <li>• Mid-Market: R$ 300-800/mês</li>
+                            <li>• Enterprise: R$ 2.000+/mês</li>
+                          </ul>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
                   <Input
                     type="number"
                     value={inputs.ticketMedio}
                     onChange={e => updateInput("ticketMedio", Number(e.target.value))}
                     min={1}
                   />
+                  <div className={cn(
+                    "text-xs px-2 py-0.5 rounded inline-block",
+                    inputs.ticketMedio >= 800 ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" :
+                    inputs.ticketMedio >= 300 ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" :
+                    inputs.ticketMedio >= 100 ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" :
+                    "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                  )}>
+                    {inputs.ticketMedio >= 2000 ? "Enterprise" : inputs.ticketMedio >= 800 ? "Mid-High" : inputs.ticketMedio >= 300 ? "Mid-Market" : inputs.ticketMedio >= 100 ? "SMB" : "Muito baixo"}
+                  </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>LTV (meses)</Label>
+                  <div className="flex items-center gap-2">
+                    <Label>LTV (meses)</Label>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger>
+                          <Info className="w-3.5 h-3.5 text-muted-foreground" />
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs">
+                          <p className="font-semibold mb-1">Benchmark SaaS B2B Brasil:</p>
+                          <ul className="text-xs space-y-1">
+                            <li>• Excelente: 24+ meses</li>
+                            <li>• Bom: 12-24 meses</li>
+                            <li>• Médio: 6-12 meses</li>
+                            <li>• Ruim: {"<"}6 meses</li>
+                          </ul>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
                   <Input
                     type="number"
                     value={inputs.ltvMeses}
@@ -501,10 +613,36 @@ export default function SimuladorMeta() {
                     min={1}
                     max={60}
                   />
-                  <p className="text-xs text-muted-foreground">Tempo médio de vida do cliente</p>
+                  <div className={cn(
+                    "text-xs px-2 py-0.5 rounded inline-block",
+                    inputs.ltvMeses >= 24 ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30" :
+                    inputs.ltvMeses >= 12 ? "bg-green-100 text-green-700 dark:bg-green-900/30" :
+                    inputs.ltvMeses >= 6 ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30" :
+                    "bg-red-100 text-red-700 dark:bg-red-900/30"
+                  )}>
+                    {inputs.ltvMeses >= 24 ? "Excelente" : inputs.ltvMeses >= 12 ? "Bom" : inputs.ltvMeses >= 6 ? "Médio" : "Baixo"}
+                  </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>Churn Mensal (%)</Label>
+                  <div className="flex items-center gap-2">
+                    <Label>Churn Mensal (%)</Label>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger>
+                          <Info className="w-3.5 h-3.5 text-muted-foreground" />
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs">
+                          <p className="font-semibold mb-1">Benchmark SaaS B2B Brasil:</p>
+                          <ul className="text-xs space-y-1">
+                            <li>• Excelente: {"<"}2%</li>
+                            <li>• Bom: 2-3%</li>
+                            <li>• Médio: 3-5%</li>
+                            <li>• Ruim: {">"}8%</li>
+                          </ul>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
                   <Input
                     type="number"
                     value={inputs.churnMensal}
@@ -513,6 +651,14 @@ export default function SimuladorMeta() {
                     max={100}
                     step={0.1}
                   />
+                  {(() => {
+                    const status = getBenchmarkStatus(inputs.churnMensal, BENCHMARKS.churnMensal, false);
+                    return (
+                      <div className={cn("text-xs px-2 py-0.5 rounded inline-block", status.bg, status.color)}>
+                        {status.status.charAt(0).toUpperCase() + status.status.slice(1)}
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
             </CardContent>
@@ -525,11 +671,30 @@ export default function SimuladorMeta() {
                 <Megaphone className="w-5 h-5 text-amber-500" />
                 3. Marketing & Vendas
               </CardTitle>
+              <CardDescription>Métricas de aquisição e conversão</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="grid gap-4 sm:grid-cols-3">
                 <div className="space-y-2">
-                  <Label>Taxa Conversão (%)</Label>
+                  <div className="flex items-center gap-2">
+                    <Label>Taxa Conversão (%)</Label>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger>
+                          <Info className="w-3.5 h-3.5 text-muted-foreground" />
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs">
+                          <p className="font-semibold mb-1">Benchmark SaaS B2B Brasil:</p>
+                          <ul className="text-xs space-y-1">
+                            <li>• Excelente: {">"}7%</li>
+                            <li>• Bom: 5-7%</li>
+                            <li>• Médio: 2-5%</li>
+                            <li>• Ruim: {"<"}1%</li>
+                          </ul>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
                   <Input
                     type="number"
                     value={inputs.taxaConversao}
@@ -538,9 +703,35 @@ export default function SimuladorMeta() {
                     max={100}
                     step={0.1}
                   />
+                  {(() => {
+                    const status = getBenchmarkStatus(inputs.taxaConversao, BENCHMARKS.taxaConversao, true);
+                    return (
+                      <div className={cn("text-xs px-2 py-0.5 rounded inline-block", status.bg, status.color)}>
+                        {status.status.charAt(0).toUpperCase() + status.status.slice(1)}
+                      </div>
+                    );
+                  })()}
                 </div>
                 <div className="space-y-2">
-                  <Label>Custo por Lead (R$)</Label>
+                  <div className="flex items-center gap-2">
+                    <Label>Custo por Lead (R$)</Label>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger>
+                          <Info className="w-3.5 h-3.5 text-muted-foreground" />
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs">
+                          <p className="font-semibold mb-1">Benchmark SaaS B2B Brasil:</p>
+                          <ul className="text-xs space-y-1">
+                            <li>• Barato: R$ 5-15</li>
+                            <li>• Médio: R$ 15-40</li>
+                            <li>• Caro: R$ 40-80</li>
+                            <li>• Muito caro: {">"}R$ 80</li>
+                          </ul>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
                   <Input
                     type="number"
                     value={inputs.custoPorLead}
@@ -548,6 +739,15 @@ export default function SimuladorMeta() {
                     min={0}
                     step={0.5}
                   />
+                  <div className={cn(
+                    "text-xs px-2 py-0.5 rounded inline-block",
+                    inputs.custoPorLead <= 15 ? "bg-green-100 text-green-700 dark:bg-green-900/30" :
+                    inputs.custoPorLead <= 40 ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30" :
+                    inputs.custoPorLead <= 80 ? "bg-orange-100 text-orange-700 dark:bg-orange-900/30" :
+                    "bg-red-100 text-red-700 dark:bg-red-900/30"
+                  )}>
+                    {inputs.custoPorLead <= 15 ? "Barato" : inputs.custoPorLead <= 40 ? "Médio" : inputs.custoPorLead <= 80 ? "Caro" : "Muito caro"}
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label>Leads/Vendedor/Mês</Label>
@@ -557,6 +757,7 @@ export default function SimuladorMeta() {
                     onChange={e => updateInput("leadsVendedorMes", Number(e.target.value))}
                     min={1}
                   />
+                  <p className="text-xs text-muted-foreground">Capacidade de atendimento</p>
                 </div>
               </div>
             </CardContent>
@@ -848,6 +1049,70 @@ export default function SimuladorMeta() {
             </Card>
           </div>
 
+          {/* Cards de Crescimento MRR e Faturamento */}
+          <Card className="bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <ArrowUpRight className="w-5 h-5 text-primary" />
+                Projeção de Crescimento
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">Crescimento Total MRR</p>
+                  <p className={cn(
+                    "text-2xl font-bold",
+                    outputs.taxaCrescimentoMrr <= 100 ? "text-green-600" : outputs.taxaCrescimentoMrr <= 200 ? "text-amber-600" : "text-primary"
+                  )}>
+                    +{formatPercent(outputs.taxaCrescimentoMrr)}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {formatCurrency(inputs.mrrAtual)} → {formatCurrency(inputs.mrrMeta)}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">Crescimento Mensal (CAGR)</p>
+                  <p className={cn(
+                    "text-2xl font-bold",
+                    outputs.crescimentoMensalMrr >= 15 ? "text-emerald-600" :
+                    outputs.crescimentoMensalMrr >= 10 ? "text-green-600" :
+                    outputs.crescimentoMensalMrr >= 5 ? "text-amber-600" : "text-red-600"
+                  )}>
+                    +{formatPercent(outputs.crescimentoMensalMrr)}
+                  </p>
+                  <div className={cn(
+                    "text-xs px-2 py-0.5 rounded inline-block",
+                    outputs.crescimentoMensalMrr >= 15 ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30" :
+                    outputs.crescimentoMensalMrr >= 10 ? "bg-green-100 text-green-700 dark:bg-green-900/30" :
+                    outputs.crescimentoMensalMrr >= 5 ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30" :
+                    "bg-red-100 text-red-700 dark:bg-red-900/30"
+                  )}>
+                    {outputs.crescimentoMensalMrr >= 15 ? "Acelerado" : outputs.crescimentoMensalMrr >= 10 ? "Rápido" : outputs.crescimentoMensalMrr >= 5 ? "Saudável" : "Lento"}
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">Faturamento Anual Projetado</p>
+                  <p className="text-2xl font-bold text-primary">
+                    {formatCurrency(outputs.faturamentoAnualProjetado)}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    ARR após atingir meta
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">Receita Total (LTV base)</p>
+                  <p className="text-2xl font-bold text-emerald-600">
+                    {formatCurrency(outputs.arProjetado)}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {formatNumber(outputs.novasVendas)} vendas × LTV {inputs.ltvMeses}m
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Cards LTV/CAC */}
           <div className="grid gap-4 sm:grid-cols-3">
             <Card>
@@ -891,9 +1156,15 @@ export default function SimuladorMeta() {
                     )}>
                       {outputs.ltvCacRatio.toFixed(1)}x
                     </p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {outputs.ltvCacRatio >= 3 ? "Excelente!" : outputs.ltvCacRatio >= 2 ? "Saudável" : "Precisa melhorar"}
-                    </p>
+                    <div className={cn(
+                      "text-xs px-2 py-0.5 rounded inline-block mt-1",
+                      outputs.ltvCacRatio >= 5 ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30" :
+                      outputs.ltvCacRatio >= 3 ? "bg-green-100 text-green-700 dark:bg-green-900/30" :
+                      outputs.ltvCacRatio >= 2 ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30" :
+                      "bg-red-100 text-red-700 dark:bg-red-900/30"
+                    )}>
+                      {outputs.ltvCacRatio >= 5 ? "Excelente" : outputs.ltvCacRatio >= 3 ? "Bom" : outputs.ltvCacRatio >= 2 ? "Médio" : "Ruim"} (benchmark: ≥3x)
+                    </div>
                   </div>
                   <div className={cn(
                     "p-3 rounded-lg",
@@ -912,68 +1183,215 @@ export default function SimuladorMeta() {
           {/* Resumo */}
           <Card className="bg-muted/50">
             <CardHeader className="pb-2">
-              <CardTitle className="text-base">Resumo do Cenário</CardTitle>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Zap className="w-4 h-4 text-primary" />
+                Resumo do Cenário
+              </CardTitle>
             </CardHeader>
-            <CardContent className="text-sm space-y-2">
+            <CardContent className="text-sm space-y-3">
               <p>
                 Para crescer de <strong>{formatCurrency(inputs.mrrAtual)}</strong> para{" "}
                 <strong>{formatCurrency(inputs.mrrMeta)}</strong> em{" "}
                 <strong>{outputs.mesesAteData} meses</strong>:
               </p>
-              <ul className="list-disc list-inside space-y-1 text-muted-foreground">
-                <li>Você precisa de <strong className="text-foreground">{formatNumber(outputs.novasVendas)} novas vendas</strong> ({formatNumber(outputs.vendasPorMes)}/mês)</li>
-                <li>Gerando <strong className="text-foreground">{formatNumber(outputs.leadsNecessarios)} leads</strong> ({formatNumber(outputs.leadsPorMes)}/mês)</li>
-                <li>Investindo <strong className="text-foreground">{formatCurrency(outputs.investimentoMarketing)}</strong> em marketing</li>
-                <li>LTV/CAC de <strong className="text-foreground">{outputs.ltvCacRatio.toFixed(1)}x</strong> (benchmark: ≥3x)</li>
-                {outputs.vendedoresAdicionais > 0 && (
-                  <li>Contratando <strong className="text-foreground">{outputs.vendedoresAdicionais} vendedores</strong> adicionais</li>
-                )}
-              </ul>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <ShoppingCart className="w-4 h-4" />
+                  <span><strong className="text-foreground">{formatNumber(outputs.novasVendas)}</strong> vendas ({formatNumber(outputs.vendasPorMes)}/mês)</span>
+                </div>
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <TrendingUp className="w-4 h-4" />
+                  <span><strong className="text-foreground">{formatNumber(outputs.leadsNecessarios)}</strong> leads ({formatNumber(outputs.leadsPorMes)}/mês)</span>
+                </div>
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Megaphone className="w-4 h-4" />
+                  <span><strong className="text-foreground">{formatCurrency(outputs.investimentoMarketing)}</strong> em marketing</span>
+                </div>
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <ArrowUpRight className="w-4 h-4" />
+                  <span><strong className="text-foreground">+{formatPercent(outputs.crescimentoMensalMrr)}</strong>/mês de crescimento</span>
+                </div>
+              </div>
+              {outputs.vendedoresAdicionais > 0 && (
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <UserPlus className="w-4 h-4" />
+                  <span>Contratando <strong className="text-foreground">{outputs.vendedoresAdicionais}</strong> vendedores adicionais</span>
+                </div>
+              )}
             </CardContent>
           </Card>
 
-          {/* Análise com IA */}
-          <Card className="border-purple-200 dark:border-purple-800">
+          {/* Análise com IA - Melhorada */}
+          <Card className="border-purple-200 dark:border-purple-800 bg-gradient-to-br from-purple-50/50 to-background dark:from-purple-950/20">
             <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <Brain className="w-5 h-5 text-purple-500" />
-                  Análise com IA
-                </CardTitle>
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                <div>
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <Brain className="w-5 h-5 text-purple-500" />
+                    Análise Inteligente
+                  </CardTitle>
+                  <CardDescription className="mt-1">
+                    Insights estratégicos baseados em benchmarks SaaS B2B Brasil
+                  </CardDescription>
+                </div>
                 <Button 
                   onClick={analisarComIA} 
                   disabled={isAnalyzing}
-                  className="bg-purple-600 hover:bg-purple-700"
+                  size="lg"
+                  className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 shadow-lg"
                 >
                   {isAnalyzing ? (
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
                   ) : (
-                    <Sparkles className="w-4 h-4 mr-2" />
+                    <Sparkles className="w-5 h-5 mr-2" />
                   )}
-                  {isAnalyzing ? "Analisando..." : "Analisar Cenário"}
+                  {isAnalyzing ? "Analisando cenário..." : "Gerar Análise com IA"}
                 </Button>
               </div>
-              <CardDescription>
-                Obtenha insights estratégicos baseados em benchmarks de mercado SaaS
-              </CardDescription>
             </CardHeader>
-            {aiAnalysis && (
+            {!aiAnalysis && !isAnalyzing && (
               <CardContent>
-                <ScrollArea className="h-[400px] pr-4">
-                  <div className="prose prose-sm dark:prose-invert max-w-none">
-                    <div 
-                      className="space-y-4"
-                      dangerouslySetInnerHTML={{ 
-                        __html: aiAnalysis
-                          .replace(/^## /gm, '<h3 class="text-lg font-bold mt-6 mb-2">')
-                          .replace(/^### /gm, '<h4 class="text-base font-semibold mt-4 mb-2">')
-                          .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-                          .replace(/^- /gm, '• ')
-                          .replace(/\n/g, '<br/>')
-                      }}
-                    />
-                  </div>
-                </ScrollArea>
+                <div className="text-center py-8 text-muted-foreground">
+                  <Brain className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                  <p className="text-sm">
+                    Clique no botão acima para obter uma análise profunda do seu cenário<br/>
+                    com recomendações baseadas em benchmarks de mercado.
+                  </p>
+                </div>
+              </CardContent>
+            )}
+            {isAnalyzing && (
+              <CardContent>
+                <div className="text-center py-8">
+                  <Loader2 className="w-10 h-10 mx-auto mb-3 animate-spin text-purple-500" />
+                  <p className="text-sm text-muted-foreground">
+                    Analisando métricas e comparando com benchmarks SaaS B2B Brasil...
+                  </p>
+                </div>
+              </CardContent>
+            )}
+            {aiAnalysis && !isAnalyzing && (
+              <CardContent>
+                <Tabs defaultValue="analysis" className="w-full">
+                  <TabsList className="grid w-full grid-cols-2 mb-4">
+                    <TabsTrigger value="analysis">📊 Análise Completa</TabsTrigger>
+                    <TabsTrigger value="benchmarks">📈 Benchmarks</TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="analysis">
+                    <ScrollArea className="h-[450px] pr-4">
+                      <div className="prose prose-sm dark:prose-invert max-w-none">
+                        <div 
+                          className="space-y-3"
+                          dangerouslySetInnerHTML={{ 
+                            __html: aiAnalysis
+                              .replace(/^## 📊/gm, '<h3 class="text-lg font-bold mt-4 mb-2 flex items-center gap-2"><span class="text-xl">📊</span>')
+                              .replace(/^## ✅/gm, '<h3 class="text-lg font-bold mt-4 mb-2 text-green-600 dark:text-green-400 flex items-center gap-2"><span class="text-xl">✅</span>')
+                              .replace(/^## ⚠️/gm, '<h3 class="text-lg font-bold mt-4 mb-2 text-amber-600 dark:text-amber-400 flex items-center gap-2"><span class="text-xl">⚠️</span>')
+                              .replace(/^## 💡/gm, '<h3 class="text-lg font-bold mt-4 mb-2 text-blue-600 dark:text-blue-400 flex items-center gap-2"><span class="text-xl">💡</span>')
+                              .replace(/^## 🎯/gm, '<h3 class="text-lg font-bold mt-4 mb-2 text-purple-600 dark:text-purple-400 flex items-center gap-2"><span class="text-xl">🎯</span>')
+                              .replace(/^## 📈/gm, '<h3 class="text-lg font-bold mt-4 mb-2 text-primary flex items-center gap-2"><span class="text-xl">📈</span>')
+                              .replace(/^## /gm, '<h3 class="text-lg font-bold mt-4 mb-2">')
+                              .replace(/^### /gm, '<h4 class="text-base font-semibold mt-3 mb-1">')
+                              .replace(/\*\*([^*]+)\*\*/g, '<strong class="text-foreground">$1</strong>')
+                              .replace(/^(\d+)\. \*\*/gm, '<div class="pl-4 py-1 border-l-2 border-primary/30 my-2"><span class="font-semibold">$1.</span> <strong>')
+                              .replace(/^- /gm, '<div class="flex items-start gap-2 my-1"><span class="text-primary mt-1">•</span><span>')
+                              .replace(/\n\n/g, '</span></div><br/>')
+                              .replace(/\n/g, '</span></div><div class="flex items-start gap-2 my-1"><span>')
+                          }}
+                        />
+                      </div>
+                    </ScrollArea>
+                  </TabsContent>
+                  <TabsContent value="benchmarks">
+                    <div className="space-y-4">
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="p-4 rounded-lg bg-muted/50">
+                          <h4 className="font-semibold mb-2 flex items-center gap-2">
+                            <TrendingUp className="w-4 h-4 text-red-500" />
+                            Churn Mensal
+                          </h4>
+                          <div className="space-y-1 text-sm">
+                            <div className="flex justify-between"><span className="text-emerald-600">Excelente:</span> <span>{"<"}2%</span></div>
+                            <div className="flex justify-between"><span className="text-green-600">Bom:</span> <span>2-3%</span></div>
+                            <div className="flex justify-between"><span className="text-amber-600">Médio:</span> <span>3-5%</span></div>
+                            <div className="flex justify-between"><span className="text-red-600">Ruim:</span> <span>{">"}8%</span></div>
+                            <div className="mt-2 pt-2 border-t flex justify-between font-medium">
+                              <span>Seu valor:</span>
+                              <span className={cn(
+                                inputs.churnMensal <= 2 ? "text-emerald-600" :
+                                inputs.churnMensal <= 3 ? "text-green-600" :
+                                inputs.churnMensal <= 5 ? "text-amber-600" : "text-red-600"
+                              )}>{inputs.churnMensal}%</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="p-4 rounded-lg bg-muted/50">
+                          <h4 className="font-semibold mb-2 flex items-center gap-2">
+                            <Percent className="w-4 h-4 text-blue-500" />
+                            Taxa de Conversão
+                          </h4>
+                          <div className="space-y-1 text-sm">
+                            <div className="flex justify-between"><span className="text-emerald-600">Excelente:</span> <span>{">"}7%</span></div>
+                            <div className="flex justify-between"><span className="text-green-600">Bom:</span> <span>5-7%</span></div>
+                            <div className="flex justify-between"><span className="text-amber-600">Médio:</span> <span>2-5%</span></div>
+                            <div className="flex justify-between"><span className="text-red-600">Ruim:</span> <span>{"<"}1%</span></div>
+                            <div className="mt-2 pt-2 border-t flex justify-between font-medium">
+                              <span>Seu valor:</span>
+                              <span className={cn(
+                                inputs.taxaConversao >= 7 ? "text-emerald-600" :
+                                inputs.taxaConversao >= 5 ? "text-green-600" :
+                                inputs.taxaConversao >= 2 ? "text-amber-600" : "text-red-600"
+                              )}>{inputs.taxaConversao}%</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="p-4 rounded-lg bg-muted/50">
+                          <h4 className="font-semibold mb-2 flex items-center gap-2">
+                            <BarChart3 className="w-4 h-4 text-green-500" />
+                            LTV/CAC Ratio
+                          </h4>
+                          <div className="space-y-1 text-sm">
+                            <div className="flex justify-between"><span className="text-emerald-600">Excelente:</span> <span>{">"}5x</span></div>
+                            <div className="flex justify-between"><span className="text-green-600">Bom:</span> <span>3-5x</span></div>
+                            <div className="flex justify-between"><span className="text-amber-600">Médio:</span> <span>2-3x</span></div>
+                            <div className="flex justify-between"><span className="text-red-600">Ruim:</span> <span>{"<"}1x</span></div>
+                            <div className="mt-2 pt-2 border-t flex justify-between font-medium">
+                              <span>Seu valor:</span>
+                              <span className={cn(
+                                outputs.ltvCacRatio >= 5 ? "text-emerald-600" :
+                                outputs.ltvCacRatio >= 3 ? "text-green-600" :
+                                outputs.ltvCacRatio >= 2 ? "text-amber-600" : "text-red-600"
+                              )}>{outputs.ltvCacRatio.toFixed(1)}x</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="p-4 rounded-lg bg-muted/50">
+                          <h4 className="font-semibold mb-2 flex items-center gap-2">
+                            <Clock className="w-4 h-4 text-purple-500" />
+                            Payback (meses)
+                          </h4>
+                          <div className="space-y-1 text-sm">
+                            <div className="flex justify-between"><span className="text-emerald-600">Excelente:</span> <span>{"<"}4 meses</span></div>
+                            <div className="flex justify-between"><span className="text-green-600">Bom:</span> <span>4-6 meses</span></div>
+                            <div className="flex justify-between"><span className="text-amber-600">Médio:</span> <span>6-12 meses</span></div>
+                            <div className="flex justify-between"><span className="text-red-600">Ruim:</span> <span>{">"}18 meses</span></div>
+                            <div className="mt-2 pt-2 border-t flex justify-between font-medium">
+                              <span>Seu valor:</span>
+                              <span className={cn(
+                                outputs.paybackMeses <= 4 ? "text-emerald-600" :
+                                outputs.paybackMeses <= 6 ? "text-green-600" :
+                                outputs.paybackMeses <= 12 ? "text-amber-600" : "text-red-600"
+                              )}>{outputs.paybackMeses} meses</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <p className="text-xs text-muted-foreground text-center">
+                        * Benchmarks baseados em médias do mercado SaaS B2B Brasil 2024-2025
+                      </p>
+                    </div>
+                  </TabsContent>
+                </Tabs>
               </CardContent>
             )}
           </Card>
