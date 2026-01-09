@@ -190,7 +190,16 @@ const calculateLTVMeses = (contrato: ContratoAssinatura): number => {
   return qtdCobrancas * mesesPorCiclo;
 };
 
-const CHART_COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'];
+const CHART_COLORS = [
+  'hsl(180, 67%, 59%)',   // primary - turquoise
+  'hsl(205, 60%, 15%)',   // secondary - dark blue
+  'hsl(38, 92%, 50%)',    // warning - orange
+  'hsl(142, 71%, 45%)',   // success - green
+  'hsl(199, 89%, 48%)',   // info - blue
+  'hsl(0, 84%, 60%)',     // destructive - red
+  'hsl(51, 100%, 50%)',   // accent - yellow
+  'hsl(280, 60%, 50%)',   // purple
+];
 
 export default function Assinaturas() {
   const queryClient = useQueryClient();
@@ -204,6 +213,13 @@ export default function Assinaturas() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [plataformaFilter, setPlataformaFilter] = useState<string>("all");
   const [searchTerm, setSearchTerm] = useState("");
+  
+  // Cohort Filters
+  const [cohortDataInicio, setCohortDataInicio] = useState<string>("");
+  const [cohortDataFim, setCohortDataFim] = useState<string>("");
+  const [cohortSegmento, setCohortSegmento] = useState<string>("all");
+  const [cohortProduto, setCohortProduto] = useState<string>("all");
+  const [cohortPlataforma, setCohortPlataforma] = useState<string>("all");
 
   // Fetch ALL contratos using pagination to bypass 1000 limit
   const { data: contratos = [], isLoading: isLoadingContratos } = useQuery({
@@ -360,6 +376,54 @@ export default function Assinaturas() {
       .sort((a, b) => b.mrr - a.mrr);
   }, [contratosValidos]);
 
+  // Lista de produtos únicos para filtro
+  const produtosUnicos = useMemo(() => {
+    const produtos = new Set<string>();
+    contratosValidos.forEach(c => {
+      const produto = c.nome_produto || c.nome_assinatura;
+      if (produto) produtos.add(produto);
+    });
+    return Array.from(produtos).sort();
+  }, [contratosValidos]);
+
+  // Lista de plataformas únicas
+  const plataformasUnicas = useMemo(() => {
+    const plataformas = new Set<string>();
+    contratosValidos.forEach(c => {
+      if (c.plataforma) plataformas.add(c.plataforma);
+    });
+    return Array.from(plataformas).sort();
+  }, [contratosValidos]);
+
+  // Filtrar contratos para o Cohort
+  const contratosFiltradosCohort = useMemo(() => {
+    return contratosValidos.filter(c => {
+      // Filtro de data início
+      if (cohortDataInicio && c.data_inicio) {
+        if (c.data_inicio < cohortDataInicio) return false;
+      }
+      // Filtro de data fim
+      if (cohortDataFim && c.data_inicio) {
+        if (c.data_inicio > cohortDataFim) return false;
+      }
+      // Filtro de segmento (ciclo)
+      if (cohortSegmento !== "all") {
+        const cicloLabel = getCicloLabel(c.ciclo_dias);
+        if (cicloLabel !== cohortSegmento) return false;
+      }
+      // Filtro de produto
+      if (cohortProduto !== "all") {
+        const produto = c.nome_produto || c.nome_assinatura || '';
+        if (produto !== cohortProduto) return false;
+      }
+      // Filtro de plataforma
+      if (cohortPlataforma !== "all") {
+        if (c.plataforma !== cohortPlataforma) return false;
+      }
+      return true;
+    });
+  }, [contratosValidos, cohortDataInicio, cohortDataFim, cohortSegmento, cohortProduto, cohortPlataforma]);
+
   // Cohort Analysis (by month of signup) - Matriz completa com retenção por mês
   const cohortData = useMemo(() => {
     const cohortMap = new Map<string, { 
@@ -372,7 +436,7 @@ export default function Assinaturas() {
       contratos: ContratoAssinatura[];
     }>();
     
-    contratosValidos.forEach(c => {
+    contratosFiltradosCohort.forEach(c => {
       if (!c.data_inicio) return;
       const mes = c.data_inicio.substring(0, 7); // YYYY-MM
       const current = cohortMap.get(mes) || { 
@@ -445,7 +509,88 @@ export default function Assinaturas() {
         };
       })
       .sort((a, b) => a.mes.localeCompare(b.mes));
-  }, [contratosValidos]);
+  }, [contratosFiltradosCohort]);
+
+  // Métricas do Cohort filtrado
+  const cohortMetrics = useMemo(() => {
+    const total = contratosFiltradosCohort.length;
+    const ativos = contratosFiltradosCohort.filter(c => 
+      c.status.toLowerCase() === "ativa" || c.status.toLowerCase() === "active"
+    ).length;
+    const cancelados = contratosFiltradosCohort.filter(c => 
+      c.status.toLowerCase() === "cancelada"
+    ).length;
+    const totalLTV = contratosFiltradosCohort.reduce((sum, c) => sum + calculateLTV(c), 0);
+    const totalLTVMeses = contratosFiltradosCohort.reduce((sum, c) => sum + calculateLTVMeses(c), 0);
+    const mrrEstimado = contratosFiltradosCohort
+      .filter(c => c.status.toLowerCase() === "ativa" || c.status.toLowerCase() === "active")
+      .reduce((sum, c) => sum + (c.mrr || 0), 0);
+    
+    return {
+      total,
+      ativos,
+      cancelados,
+      churn: total > 0 ? ((cancelados / total) * 100).toFixed(1) : '0',
+      ltvMedio: total > 0 ? totalLTV / total : 0,
+      ltvMesesMedio: total > 0 ? totalLTVMeses / total : 0,
+      mrrEstimado,
+      receitaTotal: totalLTV,
+    };
+  }, [contratosFiltradosCohort]);
+
+  // Timeline de Aquisição (por ano com churn acumulado)
+  const timelineData = useMemo(() => {
+    const anoMap = new Map<string, { 
+      total: number; 
+      ativos: number; 
+      cancelados: number;
+      churnAcumulado: number;
+    }>();
+    
+    contratosFiltradosCohort.forEach(c => {
+      if (!c.data_inicio) return;
+      const ano = c.data_inicio.substring(0, 4);
+      const current = anoMap.get(ano) || { total: 0, ativos: 0, cancelados: 0, churnAcumulado: 0 };
+      
+      current.total++;
+      
+      if (c.status.toLowerCase() === "ativa" || c.status.toLowerCase() === "active") {
+        current.ativos++;
+      } else if (c.status.toLowerCase() === "cancelada") {
+        current.cancelados++;
+      }
+      
+      anoMap.set(ano, current);
+    });
+    
+    // Calcular churn acumulado
+    let churnAcumulado = 0;
+    return Array.from(anoMap.entries())
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([ano, data]) => {
+        churnAcumulado += data.cancelados;
+        return {
+          ano,
+          total: data.total,
+          ativos: data.ativos,
+          cancelados: data.cancelados,
+          churnAcumulado,
+          taxaChurn: data.total > 0 ? ((data.cancelados / data.total) * 100).toFixed(1) : '0',
+        };
+      });
+  }, [contratosFiltradosCohort]);
+
+  // Limpar filtros do cohort
+  const limparFiltrosCohort = () => {
+    setCohortDataInicio("");
+    setCohortDataFim("");
+    setCohortSegmento("all");
+    setCohortProduto("all");
+    setCohortPlataforma("all");
+  };
+
+  // Verificar se há filtros ativos
+  const temFiltrosAtivos = cohortDataInicio || cohortDataFim || cohortSegmento !== "all" || cohortProduto !== "all" || cohortPlataforma !== "all";
 
   // Parse Excel file based on platform
   const parseExcelFile = useCallback(async (file: File, plataforma: Plataforma) => {
@@ -990,39 +1135,164 @@ export default function Assinaturas() {
             </div>
 
             {/* Cohort Analysis - Matriz de Retenção */}
-            <Card className="bg-white shadow-sm">
-              <CardHeader className="pb-2">
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-2">
-                  <CardTitle className="flex items-center gap-2">
-                    <BarChart3 className="w-5 h-5" />
-                    🔢 Matriz de Retenção ({cohortData.length} Cohorts)
-                  </CardTitle>
-                  <div className="flex flex-wrap gap-1 text-xs">
-                    <span className="px-2 py-1 rounded bg-emerald-500 text-white font-semibold">≥70%</span>
-                    <span className="px-2 py-1 rounded bg-lime-500 text-white font-semibold">50-69%</span>
-                    <span className="px-2 py-1 rounded bg-yellow-400 text-black font-semibold">30-49%</span>
-                    <span className="px-2 py-1 rounded bg-orange-500 text-white font-semibold">15-29%</span>
-                    <span className="px-2 py-1 rounded bg-red-500 text-white font-semibold">1-14%</span>
-                    <span className="px-2 py-1 rounded bg-gray-300 text-gray-600 font-semibold">0%</span>
+            <Card className="border-primary/20">
+              <CardHeader className="pb-4 bg-secondary/5">
+                <div className="flex flex-col gap-4">
+                  {/* Header com título e totais */}
+                  <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                    <div>
+                      <CardTitle className="flex items-center gap-2 text-secondary">
+                        <BarChart3 className="w-5 h-5 text-primary" />
+                        <span className="text-2xl font-bold">{cohortMetrics.total.toLocaleString('pt-BR')}</span>
+                      </CardTitle>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {cohortData.length} cohorts • {temFiltrosAtivos ? "Filtros aplicados" : "Todos os dados"}
+                      </p>
+                    </div>
+                    
+                    {/* Resumo de métricas */}
+                    <div className="flex flex-wrap gap-4 text-sm">
+                      <div className="text-center px-3 py-2 bg-card rounded-lg border">
+                        <div className="text-muted-foreground">Total</div>
+                        <div className="font-bold text-secondary">{cohortMetrics.total.toLocaleString('pt-BR')}</div>
+                      </div>
+                      <div className="text-center px-3 py-2 bg-card rounded-lg border border-primary/30">
+                        <div className="text-muted-foreground">Ativos</div>
+                        <div className="font-bold text-primary">{cohortMetrics.ativos.toLocaleString('pt-BR')}</div>
+                      </div>
+                      <div className="text-center px-3 py-2 bg-card rounded-lg border border-destructive/30">
+                        <div className="text-muted-foreground">Cancelados</div>
+                        <div className="font-bold text-destructive">{cohortMetrics.cancelados.toLocaleString('pt-BR')}</div>
+                      </div>
+                      <div className="text-center px-3 py-2 bg-card rounded-lg border border-warning/30">
+                        <div className="text-muted-foreground">Churn</div>
+                        <div className="font-bold text-warning">{cohortMetrics.churn}%</div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Filtros */}
+                  <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+                    <div>
+                      <Label className="text-xs text-muted-foreground">De:</Label>
+                      <Input
+                        type="date"
+                        value={cohortDataInicio}
+                        onChange={(e) => setCohortDataInicio(e.target.value)}
+                        className="h-9"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Até:</Label>
+                      <Input
+                        type="date"
+                        value={cohortDataFim}
+                        onChange={(e) => setCohortDataFim(e.target.value)}
+                        className="h-9"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Segmento:</Label>
+                      <Select value={cohortSegmento} onValueChange={setCohortSegmento}>
+                        <SelectTrigger className="h-9">
+                          <SelectValue placeholder="Todos" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Todos</SelectItem>
+                          <SelectItem value="Mensal">Mensal</SelectItem>
+                          <SelectItem value="Trimestral">Trimestral</SelectItem>
+                          <SelectItem value="Semestral">Semestral</SelectItem>
+                          <SelectItem value="Anual">Anual</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Produto:</Label>
+                      <Select value={cohortProduto} onValueChange={setCohortProduto}>
+                        <SelectTrigger className="h-9">
+                          <SelectValue placeholder="Todos" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Todos</SelectItem>
+                          {produtosUnicos.slice(0, 20).map(p => (
+                            <SelectItem key={p} value={p}>{p.length > 30 ? p.slice(0, 30) + '...' : p}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Plataforma:</Label>
+                      <Select value={cohortPlataforma} onValueChange={setCohortPlataforma}>
+                        <SelectTrigger className="h-9">
+                          <SelectValue placeholder="Todas" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Todas</SelectItem>
+                          {plataformasUnicas.map(p => (
+                            <SelectItem key={p} value={p}>{p}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex items-end">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={limparFiltrosCohort}
+                        className="h-9 w-full"
+                        disabled={!temFiltrosAtivos}
+                      >
+                        <RefreshCw className="w-3 h-3 mr-1" />
+                        Limpar
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  {/* Cards de Métricas LTV */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div className="bg-gradient-to-br from-secondary to-secondary/80 rounded-lg p-3 text-secondary-foreground">
+                      <div className="text-xs opacity-80">LTV Valor</div>
+                      <div className="text-lg font-bold">{formatCurrency(cohortMetrics.ltvMedio)}</div>
+                    </div>
+                    <div className="bg-gradient-to-br from-primary to-primary/80 rounded-lg p-3 text-primary-foreground">
+                      <div className="text-xs opacity-80">LTV Meses</div>
+                      <div className="text-lg font-bold">{cohortMetrics.ltvMesesMedio.toFixed(1)}</div>
+                    </div>
+                    <div className="bg-gradient-to-br from-info to-info/80 rounded-lg p-3 text-info-foreground">
+                      <div className="text-xs opacity-80">MRR Est.</div>
+                      <div className="text-lg font-bold">{formatCurrency(cohortMetrics.mrrEstimado)}</div>
+                    </div>
+                    <div className="bg-gradient-to-br from-success to-success/80 rounded-lg p-3 text-success-foreground">
+                      <div className="text-xs opacity-80">Receita</div>
+                      <div className="text-lg font-bold">{formatCurrency(cohortMetrics.receitaTotal)}</div>
+                    </div>
                   </div>
                 </div>
               </CardHeader>
-              <CardContent>
+              <CardContent className="pt-4">
                 {cohortData.length === 0 ? (
                   <p className="text-muted-foreground text-center py-8">Nenhum dado disponível</p>
                 ) : (
                   <>
-                    <ScrollArea className="h-[500px]">
+                    {/* Legenda de cores */}
+                    <div className="flex flex-wrap gap-1 text-xs mb-4 justify-end">
+                      <span className="px-2 py-1 rounded bg-primary text-primary-foreground font-semibold">≥70%</span>
+                      <span className="px-2 py-1 rounded bg-primary/70 text-primary-foreground font-semibold">50-69%</span>
+                      <span className="px-2 py-1 rounded bg-warning text-warning-foreground font-semibold">30-49%</span>
+                      <span className="px-2 py-1 rounded bg-warning/70 text-warning-foreground font-semibold">15-29%</span>
+                      <span className="px-2 py-1 rounded bg-destructive text-destructive-foreground font-semibold">1-14%</span>
+                      <span className="px-2 py-1 rounded bg-muted text-muted-foreground font-semibold">0%</span>
+                    </div>
+                    
+                    <ScrollArea className="h-[400px]">
                       <div className="overflow-x-auto">
                         <table className="w-full text-xs border-collapse">
-                          <thead className="bg-gray-800 text-white sticky top-0">
+                          <thead className="bg-secondary text-secondary-foreground sticky top-0">
                             <tr>
-                              <th className="p-2 text-left sticky left-0 bg-gray-800 z-10">Cohort</th>
+                              <th className="p-2 text-left sticky left-0 bg-secondary z-10">Cohort</th>
                               <th className="p-1 text-center">N</th>
                               <th className="p-1 text-center">Atv</th>
                               <th className="p-1 text-center">Churn</th>
-                              <th className="p-1 text-center">LTV R$</th>
-                              <th className="p-1 text-center">LTV Meses</th>
                               <th className="p-1 text-center">M0</th>
                               <th className="p-1 text-center">M1</th>
                               <th className="p-1 text-center">M2</th>
@@ -1041,45 +1311,50 @@ export default function Assinaturas() {
                           <tbody>
                             {cohortData.map((cohort, idx) => {
                               const getRetentionClass = (value: number) => {
-                                if (value >= 70) return 'bg-emerald-500 text-white';
-                                if (value >= 50) return 'bg-lime-500 text-white';
-                                if (value >= 30) return 'bg-yellow-400 text-black';
-                                if (value >= 15) return 'bg-orange-500 text-white';
-                                if (value >= 1) return 'bg-red-500 text-white';
-                                return 'bg-gray-300 text-gray-600';
+                                if (value >= 70) return 'bg-primary text-primary-foreground';
+                                if (value >= 50) return 'bg-primary/70 text-primary-foreground';
+                                if (value >= 30) return 'bg-warning text-warning-foreground';
+                                if (value >= 15) return 'bg-warning/70 text-warning-foreground';
+                                if (value >= 1) return 'bg-destructive text-destructive-foreground';
+                                return 'bg-muted text-muted-foreground';
                               };
 
                               const churnNum = parseFloat(cohort.churn);
-                              const churnClass = churnNum > 70 ? 'bg-red-100 text-red-700' : 
-                                                 churnNum > 50 ? 'bg-yellow-100 text-yellow-700' : 
-                                                 'bg-green-100 text-green-700';
+                              const churnClass = churnNum > 70 ? 'bg-destructive/20 text-destructive' : 
+                                                 churnNum > 50 ? 'bg-warning/20 text-warning' : 
+                                                 'bg-success/20 text-success';
+                              
+                              // Cores por ano usando design system
+                              const getAnoColor = (mes: string) => {
+                                if (mes.startsWith('2025')) return 'hsl(var(--primary))';
+                                if (mes.startsWith('2024')) return 'hsl(var(--info))';
+                                if (mes.startsWith('2023')) return 'hsl(var(--warning))';
+                                return 'hsl(var(--muted-foreground))';
+                              };
                               
                               return (
-                                <tr key={cohort.mes} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                                  <td className={`p-1 sticky left-0 font-medium border-r ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
-                                    <span className="inline-block w-2 h-2 rounded-full mr-1" 
-                                      style={{ backgroundColor: cohort.mes.startsWith('2025') ? '#22c55e' : 
-                                               cohort.mes.startsWith('2024') ? '#3b82f6' : 
-                                               cohort.mes.startsWith('2023') ? '#f97316' : '#6b7280' }} 
+                                <tr key={cohort.mes} className={idx % 2 === 0 ? 'bg-card' : 'bg-muted/30'}>
+                                  <td className={`p-1 sticky left-0 font-medium border-r border-border ${idx % 2 === 0 ? 'bg-card' : 'bg-muted/30'}`}>
+                                    <span 
+                                      className="inline-block w-2 h-2 rounded-full mr-1" 
+                                      style={{ backgroundColor: getAnoColor(cohort.mes) }} 
                                     />
                                     {cohort.mesFormatado}
                                   </td>
-                                  <td className="p-1 text-center">{cohort.total}</td>
+                                  <td className="p-1 text-center font-medium">{cohort.total}</td>
                                   <td className="p-1 text-center">
-                                    <span className={`px-1 rounded ${cohort.ativos > 0 ? 'bg-green-100 text-green-700' : 'bg-gray-100'}`}>
+                                    <span className={`px-1 rounded ${cohort.ativos > 0 ? 'bg-success/20 text-success' : 'bg-muted'}`}>
                                       {cohort.ativos}
                                     </span>
                                   </td>
                                   <td className="p-1 text-center">
-                                    <span className={`px-1 rounded text-xs ${churnClass}`}>
+                                    <span className={`px-1 rounded text-xs font-medium ${churnClass}`}>
                                       {cohort.churn}%
                                     </span>
                                   </td>
-                                  <td className="p-1 text-center font-medium">{formatCurrency(cohort.ltvMedio)}</td>
-                                  <td className="p-1 text-center">{cohort.ltvMeses.toFixed(1)}</td>
                                   {cohort.retencaoMeses.map((ret, mIdx) => (
                                     <td key={mIdx} className="p-0.5">
-                                      <div className={`min-w-[42px] text-center p-0.5 rounded text-[10px] font-semibold ${getRetentionClass(ret)}`}>
+                                      <div className={`min-w-[36px] text-center p-0.5 rounded text-[10px] font-semibold ${getRetentionClass(ret)}`}>
                                         {ret}%
                                       </div>
                                     </td>
@@ -1091,45 +1366,107 @@ export default function Assinaturas() {
                         </table>
                       </div>
                     </ScrollArea>
-                    
-                    {/* LTV Cards */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
-                      <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-4 text-white">
-                        <div className="text-sm opacity-80">LTV Médio (Valor)</div>
-                        <div className="text-2xl font-bold">{formatCurrency(metrics.ltvMedioValor)}</div>
-                        <div className="text-xs opacity-70">Receita / Total Clientes</div>
-                      </div>
-                      <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl p-4 text-white">
-                        <div className="text-sm opacity-80">LTV Médio (Meses)</div>
-                        <div className="text-2xl font-bold">{metrics.ltvMedioMeses.toFixed(1)}</div>
-                        <div className="text-xs opacity-70">Tempo médio de vida</div>
-                      </div>
-                      <div className="bg-gradient-to-br from-teal-500 to-teal-600 rounded-xl p-4 text-white">
-                        <div className="text-sm opacity-80">Ticket Mensal</div>
-                        <div className="text-2xl font-bold">{formatCurrency(metrics.ticketMedio)}</div>
-                        <div className="text-xs opacity-70">Valor médio assinatura</div>
-                      </div>
-                      <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl p-4 text-white">
-                        <div className="text-sm opacity-80">LTV Potencial (12m)</div>
-                        <div className="text-2xl font-bold">{formatCurrency(metrics.ticketMedio * 12)}</div>
-                        <div className="text-xs opacity-70">Se LTV = 12 meses</div>
-                      </div>
-                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
 
-                    {/* Insights */}
-                    <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
-                      <h4 className="font-bold text-amber-800 mb-2">💡 Insights de LTV</h4>
-                      <div className="grid md:grid-cols-2 gap-4 text-sm text-amber-900">
-                        <div>
-                          <strong>Oportunidade:</strong> Se aumentar LTV de {metrics.ltvMedioMeses.toFixed(1)} para 12 meses, o valor sobe de {formatCurrency(metrics.ltvMedioValor)} para {formatCurrency(metrics.ticketMedio * 12)} (+{((metrics.ticketMedio * 12 / Math.max(metrics.ltvMedioValor, 1) - 1) * 100).toFixed(0)}%)
-                        </div>
-                        <div>
-                          <strong>Foco:</strong> Clientes cancelados têm LTV curto. Onboarding nos primeiros 3 meses é crítico para retenção.
-                        </div>
-                      </div>
+            {/* Timeline de Aquisição */}
+            <Card className="border-primary/20">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-secondary">
+                  <Calendar className="w-5 h-5 text-primary" />
+                  📈 Timeline de Aquisição
+                </CardTitle>
+                <p className="text-sm text-muted-foreground">Total de assinaturas por ano com churn acumulado</p>
+              </CardHeader>
+              <CardContent>
+                {timelineData.length === 0 ? (
+                  <p className="text-muted-foreground text-center py-8">Nenhum dado disponível</p>
+                ) : (
+                  <>
+                    <ResponsiveContainer width="100%" height={300}>
+                      <BarChart data={timelineData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                        <XAxis dataKey="ano" stroke="hsl(var(--muted-foreground))" />
+                        <YAxis stroke="hsl(var(--muted-foreground))" />
+                        <Tooltip 
+                          contentStyle={{ 
+                            backgroundColor: 'hsl(var(--card))', 
+                            border: '1px solid hsl(var(--border))',
+                            borderRadius: '8px'
+                          }}
+                          formatter={(value: number, name: string) => {
+                            const labels: Record<string, string> = {
+                              total: 'Total',
+                              ativos: 'Ativos',
+                              cancelados: 'Cancelados',
+                              churnAcumulado: 'Churn Acum.'
+                            };
+                            return [value, labels[name] || name];
+                          }}
+                        />
+                        <Legend />
+                        <Bar dataKey="total" name="Total" fill="hsl(var(--secondary))" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="ativos" name="Ativos" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="cancelados" name="Cancelados" fill="hsl(var(--destructive))" radius={[4, 4, 0, 0]} />
+                        <Line type="monotone" dataKey="churnAcumulado" name="Churn Acum." stroke="hsl(var(--warning))" strokeWidth={3} dot={{ fill: 'hsl(var(--warning))' }} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                    
+                    {/* Tabela de resumo por ano */}
+                    <div className="mt-4">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-secondary/10">
+                            <TableHead>Ano</TableHead>
+                            <TableHead className="text-center">Total</TableHead>
+                            <TableHead className="text-center">Ativos</TableHead>
+                            <TableHead className="text-center">Cancelados</TableHead>
+                            <TableHead className="text-center">Taxa Churn</TableHead>
+                            <TableHead className="text-center">Churn Acumulado</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {timelineData.map((item) => (
+                            <TableRow key={item.ano}>
+                              <TableCell className="font-bold">{item.ano}</TableCell>
+                              <TableCell className="text-center font-medium">{item.total}</TableCell>
+                              <TableCell className="text-center">
+                                <Badge className="bg-primary/20 text-primary border-0">{item.ativos}</Badge>
+                              </TableCell>
+                              <TableCell className="text-center">
+                                <Badge className="bg-destructive/20 text-destructive border-0">{item.cancelados}</Badge>
+                              </TableCell>
+                              <TableCell className="text-center">
+                                <Badge variant="outline">{item.taxaChurn}%</Badge>
+                              </TableCell>
+                              <TableCell className="text-center font-bold text-warning">{item.churnAcumulado}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
                     </div>
                   </>
                 )}
+              </CardContent>
+            </Card>
+
+            {/* Insights */}
+            <Card className="border-primary/30 bg-primary/5">
+              <CardContent className="p-4">
+                <h4 className="font-bold text-secondary mb-2 flex items-center gap-2">
+                  <TrendingUp className="w-4 h-4 text-primary" />
+                  💡 Insights de LTV
+                </h4>
+                <div className="grid md:grid-cols-2 gap-4 text-sm text-muted-foreground">
+                  <div>
+                    <strong className="text-secondary">Oportunidade:</strong> Se aumentar LTV de {cohortMetrics.ltvMesesMedio.toFixed(1)} para 12 meses, o valor sobe de {formatCurrency(cohortMetrics.ltvMedio)} para {formatCurrency(metrics.ticketMedio * 12)} (+{((metrics.ticketMedio * 12 / Math.max(cohortMetrics.ltvMedio, 1) - 1) * 100).toFixed(0)}%)
+                  </div>
+                  <div>
+                    <strong className="text-secondary">Foco:</strong> Clientes cancelados têm LTV curto. Onboarding nos primeiros 3 meses é crítico para retenção.
+                  </div>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
