@@ -23,20 +23,36 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ArrowLeft, Download, CheckCircle, Loader2, RefreshCw, ClipboardList, Plus, Pencil, ExternalLink } from "lucide-react";
+import { ArrowLeft, Download, CheckCircle, Loader2, RefreshCw, Plus, Pencil, ExternalLink, FileText } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useState } from "react";
 import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import type { Tables } from "@/integrations/supabase/types";
 import VendedorDetalhesModal from "@/components/comissoes/VendedorDetalhesModal";
+import { AjusteComissaoModal } from "@/components/comissoes/AjusteComissaoModal";
+import { AjustesListCard } from "@/components/comissoes/AjustesListCard";
+import { ResumoFechamentoCard } from "@/components/comissoes/ResumoFechamentoCard";
 
 type FechamentoComissao = Tables<"fechamento_comissao">;
 type ComissaoCalculada = Tables<"comissao_calculada">;
 type ConfiguracaoComissao = Tables<"configuracao_comissao">;
 type FaixaComissao = Tables<"faixa_comissao">;
 type VendaImportada = Tables<"venda_importada">;
+
+interface AjusteComissao {
+  id: string;
+  fechamento_id: string;
+  vendedor: string;
+  tipo: string;
+  valor: number;
+  descricao: string;
+  created_at: string;
+  created_by: string | null;
+}
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat("pt-BR", {
@@ -69,6 +85,8 @@ export default function ResultadoFechamento() {
   const [isRecalculating, setIsRecalculating] = useState(false);
   const [selectedComissao, setSelectedComissao] = useState<ComissaoCalculada | null>(null);
   const [isExporting, setIsExporting] = useState(false);
+  const [ajusteModalOpen, setAjusteModalOpen] = useState(false);
+  const [isAddingAjuste, setIsAddingAjuste] = useState(false);
 
   // Fetch fechamento
   const { data: fechamento, isLoading: loadingFechamento } = useQuery({
@@ -100,6 +118,21 @@ export default function ResultadoFechamento() {
     enabled: !!id,
   });
 
+  // Fetch ajustes
+  const { data: ajustes = [] } = useQuery({
+    queryKey: ["ajustes_comissao", id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("ajuste_comissao")
+        .select("*")
+        .eq("fechamento_id", id)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data as AjusteComissao[];
+    },
+    enabled: !!id,
+  });
+
   // Fetch configurações
   const { data: configuracoes = [] } = useQuery({
     queryKey: ["configuracao_comissao"],
@@ -110,6 +143,21 @@ export default function ResultadoFechamento() {
       if (error) throw error;
       return data as ConfiguracaoComissao[];
     },
+  });
+
+  // Fetch meta mensal
+  const { data: metaMensal } = useQuery({
+    queryKey: ["meta_mensal", fechamento?.mes_referencia],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("meta_mensal")
+        .select("*")
+        .eq("mes_referencia", fechamento?.mes_referencia)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!fechamento?.mes_referencia,
   });
 
   // Fetch faixas para exportação
@@ -126,7 +174,62 @@ export default function ResultadoFechamento() {
     },
   });
 
-  const metaMrr = parseFloat(configuracoes.find((c) => c.chave === "meta_mrr")?.valor || "0");
+  const metaMrr = metaMensal?.meta_mrr || parseFloat(configuracoes.find((c) => c.chave === "meta_mrr")?.valor || "0");
+  const bonusEmpresaTotal = metaMensal?.bonus_meta_empresa || 0;
+  const totalColaboradores = metaMensal?.num_colaboradores || comissoes.length;
+
+  // Add ajuste mutation
+  const addAjusteMutation = useMutation({
+    mutationFn: async (data: {
+      vendedor: string;
+      tipo: "credito" | "debito";
+      valor: number;
+      descricao: string;
+    }) => {
+      const { error } = await supabase.from("ajuste_comissao").insert({
+        fechamento_id: id,
+        vendedor: data.vendedor,
+        tipo: data.tipo,
+        valor: data.valor,
+        descricao: data.descricao,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["ajustes_comissao", id] });
+      setAjusteModalOpen(false);
+      toast({ title: "Sucesso!", description: "Ajuste adicionado." });
+    },
+    onError: () => {
+      toast({
+        title: "Erro",
+        description: "Não foi possível adicionar o ajuste.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Delete ajuste mutation
+  const deleteAjusteMutation = useMutation({
+    mutationFn: async (ajusteId: string) => {
+      const { error } = await supabase
+        .from("ajuste_comissao")
+        .delete()
+        .eq("id", ajusteId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["ajustes_comissao", id] });
+      toast({ title: "Sucesso!", description: "Ajuste excluído." });
+    },
+    onError: () => {
+      toast({
+        title: "Erro",
+        description: "Não foi possível excluir o ajuste.",
+        variant: "destructive",
+      });
+    },
+  });
 
   // Close month mutation
   const closeMutation = useMutation({
@@ -156,7 +259,7 @@ export default function ResultadoFechamento() {
   const handleRecalculate = async () => {
     setIsRecalculating(true);
     try {
-      const { data, error } = await supabase.functions.invoke("calcular-comissoes", {
+      const { error } = await supabase.functions.invoke("calcular-comissoes", {
         body: { fechamento_id: id },
       });
       
@@ -176,6 +279,21 @@ export default function ResultadoFechamento() {
     }
   };
 
+  // Handle add ajuste
+  const handleAddAjuste = async (data: {
+    vendedor: string;
+    tipo: "credito" | "debito";
+    valor: number;
+    descricao: string;
+  }) => {
+    setIsAddingAjuste(true);
+    try {
+      await addAjusteMutation.mutateAsync(data);
+    } finally {
+      setIsAddingAjuste(false);
+    }
+  };
+
   // Export to Excel
   const handleExport = async () => {
     if (!fechamento || comissoes.length === 0) return;
@@ -183,7 +301,6 @@ export default function ResultadoFechamento() {
     setIsExporting(true);
 
     try {
-      // Fetch vendas para a aba de vendas
       const { data: vendas = [] } = await supabase
         .from("venda_importada")
         .select("*")
@@ -203,13 +320,18 @@ export default function ResultadoFechamento() {
         ["Meta Batida:", fechamento.meta_batida ? "Sim" : "Não"],
         ["Data Processamento:", format(new Date(fechamento.data_importacao), "dd/MM/yyyy HH:mm")],
         [],
-        ["Vendedor", "Qtd Vendas", "MRR Faixa", "Faixa", "%", "Comissão Base", "Bônus Anual", "Bônus Meta", "Bônus Empresa", "TOTAL"],
+        ["Vendedor", "Qtd Vendas", "MRR Faixa", "Faixa", "%", "Comissão Base", "Bônus Anual", "Bônus Meta", "Bônus Empresa", "Ajustes", "TOTAL"],
       ];
 
-      // Adicionar linhas de comissões
-      const totalsExport = { vendas: 0, mrrFaixa: 0, comissaoBase: 0, bonusAnual: 0, bonusMeta: 0, bonusEmpresa: 0, total: 0 };
+      const totalsExport = { vendas: 0, mrrFaixa: 0, comissaoBase: 0, bonusAnual: 0, bonusMeta: 0, bonusEmpresa: 0, ajustes: 0, total: 0 };
       
       comissoes.forEach((c) => {
+        const ajustesVendedor = ajustes
+          .filter((a) => a.vendedor === c.vendedor)
+          .reduce((acc, a) => acc + (a.tipo === "credito" ? a.valor : -a.valor), 0);
+        
+        const totalComAjuste = c.total_receber + ajustesVendedor;
+        
         resumoData.push([
           c.vendedor,
           c.qtd_vendas,
@@ -220,7 +342,8 @@ export default function ResultadoFechamento() {
           c.bonus_anual,
           c.bonus_meta_equipe,
           c.bonus_empresa,
-          c.total_receber,
+          ajustesVendedor,
+          totalComAjuste,
         ]);
         totalsExport.vendas += c.qtd_vendas;
         totalsExport.mrrFaixa += c.mrr_total;
@@ -228,10 +351,10 @@ export default function ResultadoFechamento() {
         totalsExport.bonusAnual += c.bonus_anual;
         totalsExport.bonusMeta += c.bonus_meta_equipe;
         totalsExport.bonusEmpresa += c.bonus_empresa;
-        totalsExport.total += c.total_receber;
+        totalsExport.ajustes += ajustesVendedor;
+        totalsExport.total += totalComAjuste;
       });
 
-      // Linha de totais
       resumoData.push([
         "TOTAL",
         totalsExport.vendas,
@@ -242,6 +365,7 @@ export default function ResultadoFechamento() {
         totalsExport.bonusAnual,
         totalsExport.bonusMeta,
         totalsExport.bonusEmpresa,
+        totalsExport.ajustes,
         totalsExport.total,
       ]);
 
@@ -269,7 +393,24 @@ export default function ResultadoFechamento() {
         ]);
       });
 
-      // ========== ABA 3: CONFIGURAÇÕES ==========
+      // ========== ABA 3: AJUSTES ==========
+      const ajustesData: (string | number)[][] = [
+        ["AJUSTES MANUAIS"],
+        [],
+        ["Vendedor", "Tipo", "Valor", "Descrição", "Data"],
+      ];
+
+      ajustes.forEach((a) => {
+        ajustesData.push([
+          a.vendedor,
+          a.tipo === "credito" ? "Crédito" : "Débito",
+          a.tipo === "credito" ? a.valor : -a.valor,
+          a.descricao,
+          format(new Date(a.created_at), "dd/MM/yyyy HH:mm"),
+        ]);
+      });
+
+      // ========== ABA 4: CONFIGURAÇÕES ==========
       const configData: (string | number)[][] = [
         ["CONFIGURAÇÕES"],
         [],
@@ -297,15 +438,13 @@ export default function ResultadoFechamento() {
       // Criar workbook
       const wb = XLSX.utils.book_new();
 
-      // Aba Resumo
       const wsResumo = XLSX.utils.aoa_to_sheet(resumoData);
       wsResumo["!cols"] = [
         { wch: 20 }, { wch: 12 }, { wch: 15 }, { wch: 15 }, { wch: 8 },
-        { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 },
+        { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 12 }, { wch: 15 },
       ];
       XLSX.utils.book_append_sheet(wb, wsResumo, "Resumo");
 
-      // Aba Vendas
       const wsVendas = XLSX.utils.aoa_to_sheet(vendasData);
       wsVendas["!cols"] = [
         { wch: 12 }, { wch: 15 }, { wch: 15 }, { wch: 25 }, { wch: 25 },
@@ -314,12 +453,14 @@ export default function ResultadoFechamento() {
       ];
       XLSX.utils.book_append_sheet(wb, wsVendas, "Vendas");
 
-      // Aba Configurações
+      const wsAjustes = XLSX.utils.aoa_to_sheet(ajustesData);
+      wsAjustes["!cols"] = [{ wch: 20 }, { wch: 12 }, { wch: 15 }, { wch: 40 }, { wch: 18 }];
+      XLSX.utils.book_append_sheet(wb, wsAjustes, "Ajustes");
+
       const wsConfig = XLSX.utils.aoa_to_sheet(configData);
       wsConfig["!cols"] = [{ wch: 25 }, { wch: 15 }, { wch: 15 }, { wch: 12 }];
       XLSX.utils.book_append_sheet(wb, wsConfig, "Configurações");
 
-      // Download
       XLSX.writeFile(wb, `comissoes_${mesAnoFile}.xlsx`);
 
       toast({ title: "Exportado!", description: "Arquivo Excel gerado com sucesso." });
@@ -328,6 +469,99 @@ export default function ResultadoFechamento() {
       toast({
         title: "Erro",
         description: "Não foi possível exportar o arquivo.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  // Export to PDF
+  const handleExportPDF = async () => {
+    if (!fechamento || comissoes.length === 0) return;
+
+    setIsExporting(true);
+
+    try {
+      const mesAnoRef = format(parseISO(fechamento.mes_referencia + "T12:00:00"), "MMMM/yyyy", { locale: ptBR });
+      const mesAnoFile = format(parseISO(fechamento.mes_referencia + "T12:00:00"), "yyyy-MM");
+
+      const doc = new jsPDF();
+
+      // Title
+      doc.setFontSize(18);
+      doc.text("Fechamento de Comissões", 14, 20);
+      doc.setFontSize(14);
+      doc.text(mesAnoRef.charAt(0).toUpperCase() + mesAnoRef.slice(1), 14, 28);
+
+      // Summary
+      doc.setFontSize(10);
+      doc.text(`Total de Vendas: ${fechamento.total_vendas}`, 14, 40);
+      doc.text(`MRR Total: ${formatCurrency(fechamento.total_mrr)}`, 14, 46);
+      doc.text(`Meta: ${formatCurrency(metaMrr)}`, 14, 52);
+      doc.text(`Status: ${fechamento.meta_batida ? "✓ Meta Batida" : "✗ Meta Não Batida"}`, 14, 58);
+
+      // Table data
+      const tableData = comissoes.map((c) => {
+        const ajustesVendedor = ajustes
+          .filter((a) => a.vendedor === c.vendedor)
+          .reduce((acc, a) => acc + (a.tipo === "credito" ? a.valor : -a.valor), 0);
+        
+        return [
+          c.vendedor,
+          c.qtd_vendas.toString(),
+          formatCurrency(c.mrr_total),
+          c.faixa_nome || "-",
+          `${c.percentual}%`,
+          formatCurrency(c.valor_comissao),
+          formatCurrency(c.bonus_anual + c.bonus_meta_equipe + c.bonus_empresa),
+          formatCurrency(ajustesVendedor),
+          formatCurrency(c.total_receber + ajustesVendedor),
+        ];
+      });
+
+      // Totals row
+      const totalAjustes = ajustes.reduce((acc, a) => acc + (a.tipo === "credito" ? a.valor : -a.valor), 0);
+      const totals = comissoes.reduce(
+        (acc, c) => ({
+          vendas: acc.vendas + c.qtd_vendas,
+          mrrTotal: acc.mrrTotal + c.mrr_total,
+          comissao: acc.comissao + c.valor_comissao,
+          bonus: acc.bonus + c.bonus_anual + c.bonus_meta_equipe + c.bonus_empresa,
+          total: acc.total + c.total_receber,
+        }),
+        { vendas: 0, mrrTotal: 0, comissao: 0, bonus: 0, total: 0 }
+      );
+
+      tableData.push([
+        "TOTAL",
+        totals.vendas.toString(),
+        formatCurrency(totals.mrrTotal),
+        "-",
+        "-",
+        formatCurrency(totals.comissao),
+        formatCurrency(totals.bonus),
+        formatCurrency(totalAjustes),
+        formatCurrency(totals.total + totalAjustes),
+      ]);
+
+      autoTable(doc, {
+        head: [["Vendedor", "Vendas", "MRR", "Faixa", "%", "Comissão", "Bônus", "Ajustes", "Total"]],
+        body: tableData,
+        startY: 65,
+        styles: { fontSize: 8 },
+        headStyles: { fillColor: [69, 229, 229] },
+        footStyles: { fillColor: [240, 240, 240] },
+      });
+
+      doc.save(`comissoes_${mesAnoFile}.pdf`);
+
+      toast({ title: "Exportado!", description: "Arquivo PDF gerado com sucesso." });
+    } catch (error) {
+      console.error("Erro ao exportar PDF:", error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível exportar o PDF.",
         variant: "destructive",
       });
     } finally {
@@ -355,17 +589,25 @@ export default function ResultadoFechamento() {
   }
 
   const mesAno = format(parseISO(fechamento.mes_referencia + "T12:00:00"), "MMMM/yyyy", { locale: ptBR });
+  const vendedores = comissoes.map((c) => ({ nome: c.vendedor }));
 
-  // Calculate totals
+  // Calculate totals with adjustments
   const totals = comissoes.reduce(
-    (acc, c) => ({
-      vendas: acc.vendas + c.qtd_vendas,
-      mrrTotal: acc.mrrTotal + c.mrr_total,
-      comissao: acc.comissao + c.valor_comissao,
-      bonusTotal: acc.bonusTotal + c.bonus_anual + c.bonus_meta_equipe + c.bonus_empresa,
-      total: acc.total + c.total_receber,
-    }),
-    { vendas: 0, mrrTotal: 0, comissao: 0, bonusTotal: 0, total: 0 }
+    (acc, c) => {
+      const ajustesVendedor = ajustes
+        .filter((a) => a.vendedor === c.vendedor)
+        .reduce((sum, a) => sum + (a.tipo === "credito" ? a.valor : -a.valor), 0);
+      
+      return {
+        vendas: acc.vendas + c.qtd_vendas,
+        mrrTotal: acc.mrrTotal + c.mrr_total,
+        comissao: acc.comissao + c.valor_comissao,
+        bonusTotal: acc.bonusTotal + c.bonus_anual + c.bonus_meta_equipe + c.bonus_empresa,
+        ajustes: acc.ajustes + ajustesVendedor,
+        total: acc.total + c.total_receber + ajustesVendedor,
+      };
+    },
+    { vendas: 0, mrrTotal: 0, comissao: 0, bonusTotal: 0, ajustes: 0, total: 0 }
   );
 
   return (
@@ -436,20 +678,39 @@ export default function ResultadoFechamento() {
         </Card>
       </div>
 
+      {/* Resumo Card */}
+      <ResumoFechamentoCard
+        comissoes={comissoes}
+        ajustes={ajustes}
+        metaBatida={fechamento.meta_batida}
+        bonusEmpresaTotal={bonusEmpresaTotal}
+        totalColaboradores={totalColaboradores}
+      />
+
       {/* Commissions Table */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>💰 Comissões por Vendedor</CardTitle>
           <div className="flex gap-2">
             {fechamento.status === "rascunho" && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => navigate(`/comissoes/relatorio-vendas?fechamento=${id}`)}
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Lançar Venda
-              </Button>
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setAjusteModalOpen(true)}
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Ajuste Manual
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate(`/comissoes/relatorio-vendas?fechamento=${id}`)}
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Lançar Venda
+                </Button>
+              </>
             )}
             <Button
               variant="outline"
@@ -496,52 +757,63 @@ export default function ResultadoFechamento() {
                   <TableHead className="text-center">%</TableHead>
                   <TableHead className="text-right">Comissão</TableHead>
                   <TableHead className="text-right">Bônus</TableHead>
+                  <TableHead className="text-right">Ajustes</TableHead>
                   <TableHead className="text-right">Total</TableHead>
                   <TableHead className="text-center w-12">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {comissoes.map((comissao, index) => (
-                  <TableRow
-                    key={comissao.id}
-                    className={`cursor-pointer hover:bg-muted/50 transition-colors ${index % 2 === 0 ? "bg-muted/30" : ""}`}
-                    onClick={() => setSelectedComissao(comissao)}
-                  >
-                    <TableCell className="font-medium">{comissao.vendedor}</TableCell>
-                    <TableCell className="text-center">{comissao.qtd_vendas}</TableCell>
-                    <TableCell className="text-right">{formatCurrency(comissao.mrr_total)}</TableCell>
-                    <TableCell className="text-center">
-                      <Badge
-                        variant="outline"
-                        className={getFaixaColor(comissao.faixa_nome)}
-                      >
-                        {comissao.faixa_nome || "-"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-center">{formatPercent(comissao.percentual)}</TableCell>
-                    <TableCell className="text-right">{formatCurrency(comissao.valor_comissao)}</TableCell>
-                    <TableCell className="text-right">
-                      {formatCurrency(comissao.bonus_anual + comissao.bonus_meta_equipe + comissao.bonus_empresa)}
-                    </TableCell>
-                    <TableCell className="text-right font-semibold">
-                      {formatCurrency(comissao.total_receber)}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate(`/comissoes/relatorio-vendas?fechamento=${id}&vendedor=${encodeURIComponent(comissao.vendedor)}`);
-                        }}
-                        title="Ver vendas do vendedor"
-                      >
-                        <ExternalLink className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {comissoes.map((comissao, index) => {
+                  const ajustesVendedor = ajustes
+                    .filter((a) => a.vendedor === comissao.vendedor)
+                    .reduce((acc, a) => acc + (a.tipo === "credito" ? a.valor : -a.valor), 0);
+                  const totalComAjuste = comissao.total_receber + ajustesVendedor;
+                  
+                  return (
+                    <TableRow
+                      key={comissao.id}
+                      className={`cursor-pointer hover:bg-muted/50 transition-colors ${index % 2 === 0 ? "bg-muted/30" : ""}`}
+                      onClick={() => setSelectedComissao(comissao)}
+                    >
+                      <TableCell className="font-medium">{comissao.vendedor}</TableCell>
+                      <TableCell className="text-center">{comissao.qtd_vendas}</TableCell>
+                      <TableCell className="text-right">{formatCurrency(comissao.mrr_total)}</TableCell>
+                      <TableCell className="text-center">
+                        <Badge
+                          variant="outline"
+                          className={getFaixaColor(comissao.faixa_nome)}
+                        >
+                          {comissao.faixa_nome || "-"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-center">{formatPercent(comissao.percentual)}</TableCell>
+                      <TableCell className="text-right">{formatCurrency(comissao.valor_comissao)}</TableCell>
+                      <TableCell className="text-right">
+                        {formatCurrency(comissao.bonus_anual + comissao.bonus_meta_equipe + comissao.bonus_empresa)}
+                      </TableCell>
+                      <TableCell className={`text-right ${ajustesVendedor >= 0 ? "text-success" : "text-destructive"}`}>
+                        {ajustesVendedor !== 0 ? formatCurrency(ajustesVendedor) : "-"}
+                      </TableCell>
+                      <TableCell className="text-right font-semibold">
+                        {formatCurrency(totalComAjuste)}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/comissoes/relatorio-vendas?fechamento=${id}&vendedor=${encodeURIComponent(comissao.vendedor)}`);
+                          }}
+                          title="Ver vendas do vendedor"
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
               <TableFooter>
                 <TableRow className="bg-muted font-bold">
@@ -552,6 +824,9 @@ export default function ResultadoFechamento() {
                   <TableCell></TableCell>
                   <TableCell className="text-right">{formatCurrency(totals.comissao)}</TableCell>
                   <TableCell className="text-right">{formatCurrency(totals.bonusTotal)}</TableCell>
+                  <TableCell className={`text-right ${totals.ajustes >= 0 ? "text-success" : "text-destructive"}`}>
+                    {totals.ajustes !== 0 ? formatCurrency(totals.ajustes) : "-"}
+                  </TableCell>
                   <TableCell className="text-right">{formatCurrency(totals.total)}</TableCell>
                   <TableCell></TableCell>
                 </TableRow>
@@ -561,8 +836,28 @@ export default function ResultadoFechamento() {
         </CardContent>
       </Card>
 
+      {/* Ajustes List */}
+      <AjustesListCard
+        ajustes={ajustes}
+        onDelete={(id) => deleteAjusteMutation.mutate(id)}
+        onAdd={() => setAjusteModalOpen(true)}
+        isReadOnly={fechamento.status !== "rascunho"}
+      />
+
       {/* Action Buttons */}
       <div className="flex gap-4 justify-end">
+        <Button 
+          variant="outline" 
+          onClick={handleExportPDF} 
+          disabled={comissoes.length === 0 || isExporting}
+        >
+          {isExporting ? (
+            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+          ) : (
+            <FileText className="w-4 h-4 mr-2" />
+          )}
+          PDF
+        </Button>
         <Button 
           variant="outline" 
           onClick={handleExport} 
@@ -573,6 +868,7 @@ export default function ResultadoFechamento() {
           ) : (
             <Download className="w-4 h-4 mr-2" />
           )}
+          Excel
         </Button>
         {fechamento.status === "rascunho" && (
           <Button
@@ -606,6 +902,15 @@ export default function ResultadoFechamento() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Ajuste Modal */}
+      <AjusteComissaoModal
+        open={ajusteModalOpen}
+        onOpenChange={setAjusteModalOpen}
+        vendedores={vendedores}
+        onSubmit={handleAddAjuste}
+        isLoading={isAddingAjuste}
+      />
 
       {/* Vendor Details Modal */}
       <VendedorDetalhesModal

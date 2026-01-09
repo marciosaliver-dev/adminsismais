@@ -14,6 +14,47 @@ export type Database = {
   }
   public: {
     Tables: {
+      ajuste_comissao: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          descricao: string
+          fechamento_id: string
+          id: string
+          tipo: string
+          valor: number
+          vendedor: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          descricao: string
+          fechamento_id: string
+          id?: string
+          tipo: string
+          valor?: number
+          vendedor: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          descricao?: string
+          fechamento_id?: string
+          id?: string
+          tipo?: string
+          valor?: number
+          vendedor?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ajuste_comissao_fechamento_id_fkey"
+            columns: ["fechamento_id"]
+            isOneToOne: false
+            referencedRelation: "fechamento_comissao"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       colaboradores: {
         Row: {
           ativo: boolean | null
