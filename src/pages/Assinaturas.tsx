@@ -212,6 +212,7 @@ export default function Assinaturas() {
   // Filters
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [plataformaFilter, setPlataformaFilter] = useState<string>("all");
+  const [intervaloFilter, setIntervaloFilter] = useState<string>("all");
   const [searchTerm, setSearchTerm] = useState("");
   
   // Cohort Filters
@@ -274,71 +275,78 @@ export default function Assinaturas() {
       
       const matchStatus = statusFilter === "all" || c.status.toLowerCase() === statusFilter.toLowerCase();
       const matchPlataforma = plataformaFilter === "all" || c.plataforma === plataformaFilter;
+      const matchIntervalo = intervaloFilter === "all" || getCicloLabel(c.ciclo_dias) === intervaloFilter;
       const matchSearch = searchTerm === "" || 
         c.nome_contato?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         c.email_contato?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         c.codigo_assinatura.toLowerCase().includes(searchTerm.toLowerCase()) ||
         c.nome_produto?.toLowerCase().includes(searchTerm.toLowerCase());
       
-      return matchStatus && matchPlataforma && matchSearch;
+      return matchStatus && matchPlataforma && matchIntervalo && matchSearch;
     });
-  }, [contratos, statusFilter, plataformaFilter, searchTerm]);
+  }, [contratos, statusFilter, plataformaFilter, intervaloFilter, searchTerm]);
 
   // Contratos válidos (com cobranças > 0) para métricas
   const contratosValidos = useMemo(() => {
     return contratos.filter(c => (c.quantidade_cobrancas || 0) > 0);
   }, [contratos]);
 
-  // Calculate unique clients using email/phone
+  // Verificar se há filtros ativos no dashboard
+  const temFiltrosDashboard = statusFilter !== "all" || plataformaFilter !== "all" || intervaloFilter !== "all" || searchTerm !== "";
+
+  // Calculate unique clients using email/phone - baseado nos filtrados
   const clientesUnicos = useMemo(() => {
+    const dados = temFiltrosDashboard ? contratosFiltrados : contratosValidos;
     const uniqueClients = new Set<string>();
-    contratosValidos.forEach(c => {
+    dados.forEach(c => {
       const key = c.email_contato?.toLowerCase() || c.telefone_contato || c.codigo_assinatura;
       if (key) uniqueClients.add(key);
     });
     return uniqueClients.size;
-  }, [contratosValidos]);
+  }, [contratosValidos, contratosFiltrados, temFiltrosDashboard]);
 
-  // Clientes ativos únicos
+  // Clientes ativos únicos - baseado nos filtrados
   const clientesAtivosUnicos = useMemo(() => {
+    const dados = temFiltrosDashboard ? contratosFiltrados : contratosValidos;
     const uniqueClients = new Set<string>();
-    contratosValidos
+    dados
       .filter(c => c.status.toLowerCase() === "ativa" || c.status.toLowerCase() === "active")
       .forEach(c => {
         const key = c.email_contato?.toLowerCase() || c.telefone_contato || c.codigo_assinatura;
         if (key) uniqueClients.add(key);
       });
     return uniqueClients.size;
-  }, [contratosValidos]);
+  }, [contratosValidos, contratosFiltrados, temFiltrosDashboard]);
 
-  // Calculate metrics
+  // Calculate metrics - baseado nos filtrados
   const metrics = useMemo(() => {
-    const ativos = contratosValidos.filter(c => c.status.toLowerCase() === "ativa" || c.status.toLowerCase() === "active");
-    const atrasados = contratosValidos.filter(c => c.status.toLowerCase() === "atrasada" || c.status.toLowerCase() === "overdue");
+    const dados = temFiltrosDashboard ? contratosFiltrados : contratosValidos;
+    const ativos = dados.filter(c => c.status.toLowerCase() === "ativa" || c.status.toLowerCase() === "active");
+    const atrasados = dados.filter(c => c.status.toLowerCase() === "atrasada" || c.status.toLowerCase() === "overdue");
     const totalMRR = ativos.reduce((sum, c) => sum + (c.mrr || 0), 0);
     const mrrAtrasados = atrasados.reduce((sum, c) => sum + (c.mrr || 0), 0);
-    const totalLTV = contratosValidos.reduce((sum, c) => sum + calculateLTV(c), 0);
-    const totalLTVMeses = contratosValidos.reduce((sum, c) => sum + calculateLTVMeses(c), 0);
-    const cancelados = contratosValidos.filter(c => c.status.toLowerCase() === "cancelada");
-    const churn = contratosValidos.length > 0 
-      ? (cancelados.length / contratosValidos.length) * 100
+    const totalLTV = dados.reduce((sum, c) => sum + calculateLTV(c), 0);
+    const totalLTVMeses = dados.reduce((sum, c) => sum + calculateLTVMeses(c), 0);
+    const cancelados = dados.filter(c => c.status.toLowerCase() === "cancelada");
+    const churn = dados.length > 0 
+      ? (cancelados.length / dados.length) * 100
       : 0;
     
     return {
-      totalContratos: contratosValidos.length,
+      totalContratos: dados.length,
       contratosAtivos: ativos.length,
       contratosAtrasados: atrasados.length,
       mrrAtrasados,
       totalMRR,
       totalLTV,
-      ltvMedioMeses: contratosValidos.length > 0 ? totalLTVMeses / contratosValidos.length : 0,
-      ltvMedioValor: contratosValidos.length > 0 ? totalLTV / contratosValidos.length : 0,
+      ltvMedioMeses: dados.length > 0 ? totalLTVMeses / dados.length : 0,
+      ltvMedioValor: dados.length > 0 ? totalLTV / dados.length : 0,
       ticketMedio: ativos.length > 0 ? totalMRR / ativos.length : 0,
       churnRate: churn,
       clientesUnicos,
       clientesAtivosUnicos,
     };
-  }, [contratosValidos, clientesUnicos, clientesAtivosUnicos]);
+  }, [contratosValidos, contratosFiltrados, temFiltrosDashboard, clientesUnicos, clientesAtivosUnicos]);
 
   // MRR by Product
   const mrrPorProduto = useMemo(() => {
@@ -947,44 +955,78 @@ export default function Assinaturas() {
 
           <TabsContent value="contratos" className="space-y-4">
             {/* Filters */}
-            <Card className="bg-white shadow-sm">
+            <Card className="bg-card shadow-sm">
               <CardContent className="p-4">
-                <div className="flex flex-col sm:flex-row gap-4">
-                  <div className="flex-1">
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                      <Input
-                        placeholder="Buscar por nome, email ou código..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="pl-9"
-                      />
+                <div className="flex flex-col gap-4">
+                  <div className="flex flex-col sm:flex-row gap-4">
+                    <div className="flex-1">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                        <Input
+                          placeholder="Buscar por nome, email ou código..."
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                          className="pl-9"
+                        />
+                      </div>
                     </div>
+                    <Select value={statusFilter} onValueChange={setStatusFilter}>
+                      <SelectTrigger className="w-[150px]">
+                        <SelectValue placeholder="Status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos Status</SelectItem>
+                        <SelectItem value="ativa">Ativa</SelectItem>
+                        <SelectItem value="cancelada">Cancelada</SelectItem>
+                        <SelectItem value="suspensa">Suspensa</SelectItem>
+                        <SelectItem value="atrasada">Atrasada</SelectItem>
+                        <SelectItem value="trial">Trial</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Select value={intervaloFilter} onValueChange={setIntervaloFilter}>
+                      <SelectTrigger className="w-[150px]">
+                        <SelectValue placeholder="Intervalo" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos Intervalos</SelectItem>
+                        <SelectItem value="Mensal">Mensal</SelectItem>
+                        <SelectItem value="Trimestral">Trimestral</SelectItem>
+                        <SelectItem value="Semestral">Semestral</SelectItem>
+                        <SelectItem value="Anual">Anual</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Select value={plataformaFilter} onValueChange={setPlataformaFilter}>
+                      <SelectTrigger className="w-[150px]">
+                        <SelectValue placeholder="Plataforma" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todas</SelectItem>
+                        <SelectItem value="guru">Guru</SelectItem>
+                        <SelectItem value="eduzz">Eduzz</SelectItem>
+                        <SelectItem value="galaxypay">GalaxyPay</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
-                  <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="w-[150px]">
-                      <SelectValue placeholder="Status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos Status</SelectItem>
-                      <SelectItem value="ativa">Ativa</SelectItem>
-                      <SelectItem value="cancelada">Cancelada</SelectItem>
-                      <SelectItem value="suspensa">Suspensa</SelectItem>
-                      <SelectItem value="atrasada">Atrasada</SelectItem>
-                      <SelectItem value="trial">Trial</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Select value={plataformaFilter} onValueChange={setPlataformaFilter}>
-                    <SelectTrigger className="w-[150px]">
-                      <SelectValue placeholder="Plataforma" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todas</SelectItem>
-                      <SelectItem value="guru">Guru</SelectItem>
-                      <SelectItem value="eduzz">Eduzz</SelectItem>
-                      <SelectItem value="galaxypay">GalaxyPay</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  {temFiltrosDashboard && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <Filter className="w-4 h-4 text-primary" />
+                      <span className="text-muted-foreground">Filtros ativos - Dashboard atualizado</span>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => {
+                          setStatusFilter("all");
+                          setPlataformaFilter("all");
+                          setIntervaloFilter("all");
+                          setSearchTerm("");
+                        }}
+                        className="h-6 px-2 text-xs"
+                      >
+                        <RefreshCw className="w-3 h-3 mr-1" />
+                        Limpar filtros
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
