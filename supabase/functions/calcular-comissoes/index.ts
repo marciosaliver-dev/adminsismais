@@ -224,21 +224,30 @@ Deno.serve(async (req) => {
 
     // Passo 7 e 8: Calcular bônus se meta batida
     if (metaBatida) {
-      // Calcular soma total de mrr_comissao para proporção
-      let somaMrrEquipe = 0;
+      // Calcular soma total de mrr_total (para proporção) e mrr_comissao (para base)
+      let somaMrrTotal = 0;
+      let somaMrrComissao = 0;
       for (const dados of vendedoresMap.values()) {
-        somaMrrEquipe += dados.mrr_comissao;
+        somaMrrTotal += dados.mrr_total;
+        somaMrrComissao += dados.mrr_comissao;
       }
 
-      // Total MRR base de comissão = soma de mrr_comissao de todos vendedores
-      const mrrBaseComissao = somaMrrEquipe;
+      // MRR Base de Comissão = soma de mrr_comissao de todos vendedores
+      const mrrBaseComissao = somaMrrComissao;
+      
+      // Pool de bônus equipe = MRR Base Comissão * % bônus equipe
+      const poolBonusEquipe = mrrBaseComissao * bonusMetaEquipePercent;
+      
+      console.log(`[calcular-comissoes] MRR Base Comissão: ${mrrBaseComissao}, Pool Bonus Equipe: ${poolBonusEquipe}`);
 
       for (const dados of vendedoresMap.values()) {
-        // Passo 7: Bônus meta equipe (proporcional à participação)
-        // Fórmula: (MRR Base Comissão * % bonus equipe) * (mrr_comissao vendedor / MRR total)
-        if (somaMrrEquipe > 0) {
-          const proporcao = dados.mrr_comissao / somaMrrEquipe;
-          dados.bonus_meta_equipe = mrrBaseComissao * bonusMetaEquipePercent * proporcao;
+        // Passo 7: Bônus meta equipe (proporcional à participação no MRR Total)
+        // Fórmula: (MRR Base Comissão * % bonus equipe) * (mrr_total vendedor / MRR Total empresa)
+        // Exemplo: Josilane 1799.04 / 5046.04 = 35.65% => 439.05 * 35.65% = 156.52
+        if (somaMrrTotal > 0) {
+          const proporcao = dados.mrr_total / somaMrrTotal;
+          dados.bonus_meta_equipe = poolBonusEquipe * proporcao;
+          console.log(`[calcular-comissoes] ${dados.vendedor}: MRR Total ${dados.mrr_total}, Proporção ${(proporcao * 100).toFixed(2)}%, Bonus Equipe ${dados.bonus_meta_equipe.toFixed(2)}`);
         }
 
         // Passo 8: Bônus empresa (igual para todos colaboradores)
