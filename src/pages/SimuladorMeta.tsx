@@ -29,7 +29,11 @@ import {
   CheckCircle,
   Calculator,
   Loader2,
+  Sparkles,
+  Brain,
+  BarChart3,
 } from "lucide-react";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface SimuladorInputs {
   mrrAtual: number;
@@ -43,6 +47,7 @@ interface SimuladorInputs {
   custoFixoVendedor: number;
   comissaoVenda: number;
   vendedoresAtuais: number;
+  ltvMeses: number;
 }
 
 interface SimuladorOutputs {
@@ -59,6 +64,9 @@ interface SimuladorOutputs {
   mesesAteData: number;
   vendasPorMes: number;
   leadsPorMes: number;
+  ltv: number;
+  cac: number;
+  ltvCacRatio: number;
 }
 
 const defaultInputs: SimuladorInputs = {
@@ -73,6 +81,7 @@ const defaultInputs: SimuladorInputs = {
   custoFixoVendedor: 3000,
   comissaoVenda: 5,
   vendedoresAtuais: 1,
+  ltvMeses: 12,
 };
 
 const formatCurrency = (value: number) =>
@@ -87,6 +96,8 @@ const formatPercent = (value: number) =>
 export default function SimuladorMeta() {
   const [inputs, setInputs] = useState<SimuladorInputs>(defaultInputs);
   const [isLoadingData, setIsLoadingData] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
 
   // Buscar dados reais para carregar
   const { data: dadosReais, refetch: refetchDados } = useQuery({
@@ -197,13 +208,19 @@ export default function SimuladorMeta() {
     // Custo total
     const custoTotal = investimentoMarketing + custoVendedores;
 
+    // LTV e CAC
+    const ltv = inputs.ticketMedio * inputs.ltvMeses;
+    const cac = inputs.taxaConversao > 0 
+      ? (inputs.custoPorLead / (inputs.taxaConversao / 100)) + (inputs.custoFixoVendedor / inputs.leadsVendedorMes / (inputs.taxaConversao / 100))
+      : 0;
+    const ltvCacRatio = cac > 0 ? ltv / cac : 0;
+
     // ROI
-    const receitaGerada = novasVendas * inputs.ticketMedio * 12; // Projeção anual
+    const receitaGerada = novasVendas * inputs.ticketMedio * inputs.ltvMeses;
     const roi = custoTotal > 0 ? ((receitaGerada - custoTotal) / custoTotal) * 100 : 0;
 
     // Payback em meses
     const receitaMensal = novasVendas * inputs.ticketMedio / mesesAteData;
-    const custoMensal = custoTotal / mesesAteData;
     const paybackMeses = receitaMensal > 0 ? Math.ceil(custoTotal / receitaMensal) : 0;
 
     return {
@@ -220,6 +237,9 @@ export default function SimuladorMeta() {
       mesesAteData,
       vendasPorMes: Math.ceil(novasVendas / mesesAteData),
       leadsPorMes: Math.ceil(leadsNecessarios / mesesAteData),
+      ltv,
+      cac,
+      ltvCacRatio,
     };
   }, [inputs]);
 
@@ -229,7 +249,41 @@ export default function SimuladorMeta() {
 
   const resetar = () => {
     setInputs(defaultInputs);
+    setAiAnalysis(null);
     toast({ title: "Valores resetados", description: "Todos os campos voltaram aos valores padrão." });
+  };
+
+  const analisarComIA = async () => {
+    setIsAnalyzing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("analisar-simulacao", {
+        body: {
+          ...inputs,
+          ...outputs,
+          ltv: outputs.ltv,
+          cac: outputs.cac,
+          ltvCacRatio: outputs.ltvCacRatio,
+        },
+      });
+
+      if (error) throw error;
+      if (data?.analysis) {
+        setAiAnalysis(data.analysis);
+        toast({
+          title: "✅ Análise concluída",
+          description: "A IA gerou insights baseados em benchmarks de mercado.",
+        });
+      }
+    } catch (error) {
+      console.error("Erro na análise:", error);
+      toast({
+        title: "Erro na análise",
+        description: "Não foi possível gerar a análise com IA.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
   // Status de viabilidade
@@ -357,7 +411,7 @@ export default function SimuladorMeta() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-4 sm:grid-cols-3">
                 <div className="space-y-2">
                   <Label>Ticket Médio (R$)</Label>
                   <Input
@@ -366,6 +420,17 @@ export default function SimuladorMeta() {
                     onChange={e => updateInput("ticketMedio", Number(e.target.value))}
                     min={1}
                   />
+                </div>
+                <div className="space-y-2">
+                  <Label>LTV (meses)</Label>
+                  <Input
+                    type="number"
+                    value={inputs.ltvMeses}
+                    onChange={e => updateInput("ltvMeses", Number(e.target.value))}
+                    min={1}
+                    max={60}
+                  />
+                  <p className="text-xs text-muted-foreground">Tempo médio de vida do cliente</p>
                 </div>
                 <div className="space-y-2">
                   <Label>Churn Mensal (%)</Label>
@@ -683,6 +748,67 @@ export default function SimuladorMeta() {
             </Card>
           </div>
 
+          {/* Cards LTV/CAC */}
+          <div className="grid gap-4 sm:grid-cols-3">
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground">LTV ({inputs.ltvMeses} meses)</p>
+                    <p className="text-2xl font-bold text-primary">{formatCurrency(outputs.ltv)}</p>
+                    <p className="text-xs text-muted-foreground mt-1">Valor vitalício do cliente</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-primary/10">
+                    <TrendingUp className="w-6 h-6 text-primary" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground">CAC Estimado</p>
+                    <p className="text-2xl font-bold text-amber-600">{formatCurrency(outputs.cac)}</p>
+                    <p className="text-xs text-muted-foreground mt-1">Custo de aquisição</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-amber-500/10">
+                    <DollarSign className="w-6 h-6 text-amber-600" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Ratio LTV/CAC</p>
+                    <p className={cn(
+                      "text-2xl font-bold",
+                      outputs.ltvCacRatio >= 3 ? "text-green-600" : outputs.ltvCacRatio >= 2 ? "text-amber-600" : "text-red-600"
+                    )}>
+                      {outputs.ltvCacRatio.toFixed(1)}x
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {outputs.ltvCacRatio >= 3 ? "Excelente!" : outputs.ltvCacRatio >= 2 ? "Saudável" : "Precisa melhorar"}
+                    </p>
+                  </div>
+                  <div className={cn(
+                    "p-3 rounded-lg",
+                    outputs.ltvCacRatio >= 3 ? "bg-green-500/10" : outputs.ltvCacRatio >= 2 ? "bg-amber-500/10" : "bg-red-500/10"
+                  )}>
+                    <BarChart3 className={cn(
+                      "w-6 h-6",
+                      outputs.ltvCacRatio >= 3 ? "text-green-600" : outputs.ltvCacRatio >= 2 ? "text-amber-600" : "text-red-600"
+                    )} />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
           {/* Resumo */}
           <Card className="bg-muted/50">
             <CardHeader className="pb-2">
@@ -698,11 +824,58 @@ export default function SimuladorMeta() {
                 <li>Você precisa de <strong className="text-foreground">{formatNumber(outputs.novasVendas)} novas vendas</strong> ({formatNumber(outputs.vendasPorMes)}/mês)</li>
                 <li>Gerando <strong className="text-foreground">{formatNumber(outputs.leadsNecessarios)} leads</strong> ({formatNumber(outputs.leadsPorMes)}/mês)</li>
                 <li>Investindo <strong className="text-foreground">{formatCurrency(outputs.investimentoMarketing)}</strong> em marketing</li>
+                <li>LTV/CAC de <strong className="text-foreground">{outputs.ltvCacRatio.toFixed(1)}x</strong> (benchmark: ≥3x)</li>
                 {outputs.vendedoresAdicionais > 0 && (
                   <li>Contratando <strong className="text-foreground">{outputs.vendedoresAdicionais} vendedores</strong> adicionais</li>
                 )}
               </ul>
             </CardContent>
+          </Card>
+
+          {/* Análise com IA */}
+          <Card className="border-purple-200 dark:border-purple-800">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <Brain className="w-5 h-5 text-purple-500" />
+                  Análise com IA
+                </CardTitle>
+                <Button 
+                  onClick={analisarComIA} 
+                  disabled={isAnalyzing}
+                  className="bg-purple-600 hover:bg-purple-700"
+                >
+                  {isAnalyzing ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Sparkles className="w-4 h-4 mr-2" />
+                  )}
+                  {isAnalyzing ? "Analisando..." : "Analisar Cenário"}
+                </Button>
+              </div>
+              <CardDescription>
+                Obtenha insights estratégicos baseados em benchmarks de mercado SaaS
+              </CardDescription>
+            </CardHeader>
+            {aiAnalysis && (
+              <CardContent>
+                <ScrollArea className="h-[400px] pr-4">
+                  <div className="prose prose-sm dark:prose-invert max-w-none">
+                    <div 
+                      className="space-y-4"
+                      dangerouslySetInnerHTML={{ 
+                        __html: aiAnalysis
+                          .replace(/^## /gm, '<h3 class="text-lg font-bold mt-6 mb-2">')
+                          .replace(/^### /gm, '<h4 class="text-base font-semibold mt-4 mb-2">')
+                          .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+                          .replace(/^- /gm, '• ')
+                          .replace(/\n/g, '<br/>')
+                      }}
+                    />
+                  </div>
+                </ScrollArea>
+              </CardContent>
+            )}
           </Card>
         </div>
       </div>
