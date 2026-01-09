@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -303,7 +303,7 @@ export default function ExtratoEduzzDetalhe() {
     currentPage * ITEMS_PER_PAGE
   );
 
-  useMemo(() => {
+  useEffect(() => {
     setCurrentPage(1);
   }, [dataInicio, dataFim, tiposSelecionados, busca]);
 
