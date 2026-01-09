@@ -406,6 +406,11 @@ export default function FechamentoEquipe() {
     mutationFn: async () => {
       setIsCalculando(true);
 
+      // Verificar se existe fechamento de comissão
+      if (!dadosCalculo?.fechamentoComissao?.id) {
+        throw new Error("Não existe fechamento de comissão para este mês. Importe as vendas primeiro.");
+      }
+
       if (!dadosCalculo?.colaboradores?.length) {
         throw new Error("Nenhum colaborador participante encontrado");
       }
@@ -647,32 +652,36 @@ export default function FechamentoEquipe() {
             onChange={(e) => setMesReferencia(e.target.value)}
             className="w-40"
           />
-          <Button variant="outline" onClick={() => {
-            if (fechamento) {
-              setConfigBase({
-                assinaturasInicioMes: fechamento.assinaturas_inicio_mes || 0,
-                cancelamentosMes: fechamento.cancelamentos_mes || 0,
-                limiteChurn: fechamento.limite_churn || 5,
-                limiteCancelamentos: fechamento.limite_cancelamentos || 50,
-                percentualBonusChurn: fechamento.percentual_bonus_churn || 3,
-                percentualBonusRetencao: fechamento.percentual_bonus_retencao || 3,
-                percentualBonusMeta: fechamento.percentual_bonus_meta || 10,
-                metaVendas: fechamento.meta_vendas || 0,
-              });
-            }
-            setConfigModal(true);
-          }}>
-            <Settings className="mr-2 h-4 w-4" />
-            Configurar
-          </Button>
-          <Button onClick={() => calcularMutation.mutate()} disabled={isCalculando}>
-            {isCalculando ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Calculator className="mr-2 h-4 w-4" />
-            )}
-            {fechamento ? "Recalcular" : "Calcular"}
-          </Button>
+          {dadosCalculo?.fechamentoComissao?.id && (
+            <>
+              <Button variant="outline" onClick={() => {
+                if (fechamento) {
+                  setConfigBase({
+                    assinaturasInicioMes: fechamento.assinaturas_inicio_mes || 0,
+                    cancelamentosMes: fechamento.cancelamentos_mes || 0,
+                    limiteChurn: fechamento.limite_churn || 5,
+                    limiteCancelamentos: fechamento.limite_cancelamentos || 50,
+                    percentualBonusChurn: fechamento.percentual_bonus_churn || 3,
+                    percentualBonusRetencao: fechamento.percentual_bonus_retencao || 3,
+                    percentualBonusMeta: fechamento.percentual_bonus_meta || 10,
+                    metaVendas: fechamento.meta_vendas || 0,
+                  });
+                }
+                setConfigModal(true);
+              }}>
+                <Settings className="mr-2 h-4 w-4" />
+                Configurar
+              </Button>
+              <Button onClick={() => calcularMutation.mutate()} disabled={isCalculando}>
+                {isCalculando ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                )}
+                Recalcular
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
@@ -680,15 +689,37 @@ export default function FechamentoEquipe() {
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
+      ) : !dadosCalculo?.fechamentoComissao?.id ? (
+        // Não existe fechamento de comissão para o mês
+        <Card className="border-amber-200 bg-amber-50/50 dark:bg-amber-950/20 dark:border-amber-800">
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <AlertCircle className="h-12 w-12 text-amber-500 mb-4" />
+            <h3 className="text-lg font-medium mb-2">Fechamento de Comissão Não Encontrado</h3>
+            <p className="text-muted-foreground text-center mb-4 max-w-md">
+              Para calcular o fechamento de equipe de{" "}
+              <strong>{format(mesReferenciaDate, "MMMM/yyyy", { locale: ptBR })}</strong>, 
+              é necessário primeiro importar as vendas e criar o fechamento de comissão.
+            </p>
+            <Button variant="outline" onClick={() => window.location.href = "/comissoes"}>
+              <FileText className="mr-2 h-4 w-4" />
+              Ir para Fechamento de Comissão
+            </Button>
+          </CardContent>
+        </Card>
       ) : !fechamento ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <Calculator className="h-12 w-12 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-medium mb-2">Nenhum fechamento encontrado</h3>
+            <h3 className="text-lg font-medium mb-2">Nenhum fechamento de equipe encontrado</h3>
             <p className="text-muted-foreground text-center mb-4">
-              Configure os parâmetros base e clique em "Calcular" para gerar o fechamento do mês de{" "}
-              {format(mesReferenciaDate, "MMMM/yyyy", { locale: ptBR })}
+              Fechamento de comissão encontrado para{" "}
+              {format(mesReferenciaDate, "MMMM/yyyy", { locale: ptBR })}. 
+              Clique em "Calcular" para gerar o fechamento de equipe.
             </p>
+            <div className="text-sm text-center mb-4 p-3 bg-muted rounded-lg">
+              <p><strong>MRR Total:</strong> {formatCurrency(dadosCalculo.fechamentoComissao.total_mrr || 0)}</p>
+              <p><strong>Total de Vendas:</strong> {dadosCalculo.fechamentoComissao.total_vendas || 0}</p>
+            </div>
             <div className="flex gap-2">
               <Button variant="outline" onClick={() => setConfigModal(true)}>
                 <Settings className="mr-2 h-4 w-4" />
