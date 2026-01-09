@@ -16,6 +16,9 @@ import ExtratoAsaasDetalhe from "./pages/ExtratoAsaasDetalhe";
 import GerenciarUsuarios from "./pages/admin/GerenciarUsuarios";
 import GerenciarPermissoes from "./pages/admin/GerenciarPermissoes";
 import Colaboradores from "./pages/equipe/Colaboradores";
+import VendasServicos from "./pages/equipe/VendasServicos";
+import MetasIndividuais from "./pages/equipe/MetasIndividuais";
+import FechamentoEquipe from "./pages/equipe/FechamentoEquipe";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
@@ -116,6 +119,36 @@ const App = () => (
                 <ProtectedRoute>
                   <Layout>
                     <Colaboradores />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/equipe/vendas-servicos"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <VendasServicos />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/equipe/metas"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <MetasIndividuais />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/equipe/fechamento"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <FechamentoEquipe />
                   </Layout>
                 </ProtectedRoute>
               }
