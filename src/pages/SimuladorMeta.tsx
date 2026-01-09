@@ -40,6 +40,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   LineChart,
   Line,
@@ -344,12 +345,21 @@ export default function SimuladorMeta() {
   const chartData = useMemo(() => {
     const meses = outputs.mesesAteData;
     const taxaCrescimento = outputs.crescimentoMensalMrr / 100;
+    const vendasMensais = outputs.vendasPorMes;
+    const churnRate = inputs.churnMensal / 100;
     const data = [];
+    
+    let clientesAcumulados = inputs.clientesAtivos;
     
     for (let i = 0; i <= meses; i++) {
       const mesData = addMonths(new Date(), i);
       const mrrProjetado = inputs.mrrAtual * Math.pow(1 + taxaCrescimento, i);
       const mrrMeta = inputs.mrrMeta;
+      
+      // Calcular novas vendas e clientes acumulados
+      const novasVendasMes = i === 0 ? 0 : vendasMensais;
+      const churnMes = i === 0 ? 0 : Math.round(clientesAcumulados * churnRate);
+      clientesAcumulados = i === 0 ? clientesAcumulados : clientesAcumulados + novasVendasMes - churnMes;
       
       data.push({
         mes: format(mesData, "MMM/yy", { locale: ptBR }),
@@ -357,11 +367,14 @@ export default function SimuladorMeta() {
         mrrProjetado: Math.round(mrrProjetado),
         mrrMeta: mrrMeta,
         percentualMeta: Math.round((mrrProjetado / mrrMeta) * 100),
+        novasVendas: novasVendasMes,
+        churn: churnMes,
+        clientesAcumulados: Math.max(0, clientesAcumulados),
       });
     }
     
     return data;
-  }, [inputs.mrrAtual, inputs.mrrMeta, outputs.mesesAteData, outputs.crescimentoMensalMrr]);
+  }, [inputs.mrrAtual, inputs.mrrMeta, inputs.clientesAtivos, inputs.churnMensal, outputs.mesesAteData, outputs.crescimentoMensalMrr, outputs.vendasPorMes]);
 
   // Efeito para calcular MRR automaticamente baseado em clientes ativos e ticket médio
   // Só calcula se não estiver em modo manual
@@ -1238,6 +1251,113 @@ export default function SimuladorMeta() {
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-0.5 bg-destructive" style={{ borderStyle: "dashed" }} />
                   <span className="text-muted-foreground">Meta: {formatCurrency(inputs.mrrMeta)}</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Tabela Detalhada de Projeção */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <BarChart3 className="w-5 h-5 text-primary" />
+                Projeção Detalhada Mês a Mês
+              </CardTitle>
+              <CardDescription>
+                MRR projetado, novas vendas, churn e base de clientes acumulada
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ScrollArea className="h-[400px]">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/50">
+                      <TableHead className="font-semibold">Mês</TableHead>
+                      <TableHead className="text-right font-semibold">MRR Projetado</TableHead>
+                      <TableHead className="text-right font-semibold">% da Meta</TableHead>
+                      <TableHead className="text-right font-semibold">Novas Vendas</TableHead>
+                      <TableHead className="text-right font-semibold">Churn</TableHead>
+                      <TableHead className="text-right font-semibold">Clientes Acumulados</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {chartData.map((row, index) => {
+                      const isMetaAtingida = row.mrrProjetado >= row.mrrMeta;
+                      return (
+                        <TableRow 
+                          key={index}
+                          className={cn(
+                            isMetaAtingida && "bg-green-50/50 dark:bg-green-950/20"
+                          )}
+                        >
+                          <TableCell className="font-medium">
+                            <div className="flex items-center gap-2">
+                              {row.mesCompleto}
+                              {isMetaAtingida && index > 0 && chartData[index - 1].mrrProjetado < row.mrrMeta && (
+                                <Badge variant="default" className="bg-green-600 text-xs">Meta!</Badge>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <span className={cn(
+                              "font-semibold",
+                              isMetaAtingida ? "text-green-600" : "text-foreground"
+                            )}>
+                              {formatCurrency(row.mrrProjetado)}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <div className="w-16 h-2 bg-muted rounded-full overflow-hidden">
+                                <div 
+                                  className={cn(
+                                    "h-full rounded-full transition-all",
+                                    row.percentualMeta >= 100 ? "bg-green-500" : 
+                                    row.percentualMeta >= 75 ? "bg-amber-500" : "bg-primary"
+                                  )}
+                                  style={{ width: `${Math.min(row.percentualMeta, 100)}%` }}
+                                />
+                              </div>
+                              <span className={cn(
+                                "text-sm font-medium min-w-[3rem] text-right",
+                                row.percentualMeta >= 100 ? "text-green-600" : "text-muted-foreground"
+                              )}>
+                                {row.percentualMeta}%
+                              </span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {row.novasVendas > 0 ? (
+                              <span className="text-green-600 font-medium">+{formatNumber(row.novasVendas)}</span>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {row.churn > 0 ? (
+                              <span className="text-red-500 font-medium">-{formatNumber(row.churn)}</span>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right font-semibold">
+                            {formatNumber(row.clientesAcumulados)}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </ScrollArea>
+              <div className="mt-4 pt-4 border-t flex flex-wrap items-center justify-between gap-4 text-sm">
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded bg-green-100 dark:bg-green-950/50 border border-green-500" />
+                    <span className="text-muted-foreground">Meta atingida</span>
+                  </div>
+                </div>
+                <div className="text-muted-foreground">
+                  Total de {chartData.length} meses projetados
                 </div>
               </div>
             </CardContent>
