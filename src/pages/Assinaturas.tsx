@@ -38,6 +38,12 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { TableSkeleton } from "@/components/ui/table-skeleton";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import * as XLSX from "xlsx";
@@ -70,7 +76,7 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
-  Tooltip,
+  Tooltip as RechartsTooltip,
   ResponsiveContainer,
   PieChart as RechartsPie,
   Pie,
@@ -1082,81 +1088,153 @@ export default function Assinaturas() {
         </div>
 
         {/* Metrics Cards - 2 rows of 5 */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
-          <Card className="bg-blue-50 border-blue-200">
-            <CardContent className="p-3">
-              <div className="text-xs text-blue-600">Total</div>
-              <p className="text-xl font-bold text-blue-700">{metrics.totalContratos}</p>
-            </CardContent>
-          </Card>
-          
-          <Card className="bg-emerald-50 border-emerald-200">
-            <CardContent className="p-3">
-              <div className="text-xs text-emerald-600">Ativos</div>
-              <p className="text-xl font-bold text-emerald-700">{metrics.contratosAtivos}</p>
-            </CardContent>
-          </Card>
-          
-          <Card className="bg-amber-50 border-amber-200 border-2 border-l-4 border-l-amber-500">
-            <CardContent className="p-3">
-              <div className="text-xs text-amber-600 flex items-center gap-1">
-                <AlertCircle className="w-3 h-3" />
-                Atrasados
-              </div>
-              <p className="text-xl font-bold text-amber-700">{metrics.contratosAtrasados}</p>
-              <p className="text-xs text-amber-600">{formatCurrency(metrics.mrrAtrasados)} MRR</p>
-            </CardContent>
-          </Card>
-          
-          <Card className="bg-red-50 border-red-200">
-            <CardContent className="p-3">
-              <div className="text-xs text-red-600">Churn</div>
-              <p className="text-xl font-bold text-red-700">{metrics.churnRate.toFixed(1)}%</p>
-            </CardContent>
-          </Card>
-          
-          <Card className="bg-teal-50 border-teal-200">
-            <CardContent className="p-3">
-              <div className="text-xs text-teal-600">MRR Total</div>
-              <p className="text-lg font-bold text-teal-700">{formatCurrency(metrics.totalMRR)}</p>
-            </CardContent>
-          </Card>
-          
-          <Card className="bg-purple-50 border-purple-200">
-            <CardContent className="p-3">
-              <div className="text-xs text-purple-600">LTV Médio (R$)</div>
-              <p className="text-lg font-bold text-purple-700">{formatCurrency(metrics.ltvMedioValor)}</p>
-            </CardContent>
-          </Card>
-          
-          <Card className="bg-indigo-50 border-indigo-200">
-            <CardContent className="p-3">
-              <div className="text-xs text-indigo-600">LTV (Meses)</div>
-              <p className="text-xl font-bold text-indigo-700">{metrics.ltvMedioMeses.toFixed(1)}</p>
-            </CardContent>
-          </Card>
-          
-          <Card className="bg-cyan-50 border-cyan-200">
-            <CardContent className="p-3">
-              <div className="text-xs text-cyan-600">Ticket Médio</div>
-              <p className="text-lg font-bold text-cyan-700">{formatCurrency(metrics.ticketMedio)}</p>
-            </CardContent>
-          </Card>
+        <TooltipProvider delayDuration={200}>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Card className="bg-blue-50 border-blue-200 cursor-help">
+                  <CardContent className="p-3">
+                    <div className="text-xs text-blue-600">Total</div>
+                    <p className="text-xl font-bold text-blue-700">{metrics.totalContratos}</p>
+                  </CardContent>
+                </Card>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="text-sm">Total de contratos cadastrados (ativos + cancelados)</p>
+              </TooltipContent>
+            </Tooltip>
+            
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Card className="bg-emerald-50 border-emerald-200 cursor-help">
+                  <CardContent className="p-3">
+                    <div className="text-xs text-emerald-600">Ativos</div>
+                    <p className="text-xl font-bold text-emerald-700">{metrics.contratosAtivos}</p>
+                  </CardContent>
+                </Card>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="text-sm">Contratos com status ativo gerando receita recorrente</p>
+              </TooltipContent>
+            </Tooltip>
+            
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Card className="bg-amber-50 border-amber-200 border-2 border-l-4 border-l-amber-500 cursor-help">
+                  <CardContent className="p-3">
+                    <div className="text-xs text-amber-600 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" />
+                      Atrasados
+                    </div>
+                    <p className="text-xl font-bold text-amber-700">{metrics.contratosAtrasados}</p>
+                    <p className="text-xs text-amber-600">{formatCurrency(metrics.mrrAtrasados)} MRR</p>
+                  </CardContent>
+                </Card>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="text-sm">Contratos com pagamentos em atraso - risco de cancelamento</p>
+              </TooltipContent>
+            </Tooltip>
+            
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Card className="bg-red-50 border-red-200 cursor-help">
+                  <CardContent className="p-3">
+                    <div className="text-xs text-red-600">Churn</div>
+                    <p className="text-xl font-bold text-red-700">{metrics.churnRate.toFixed(1)}%</p>
+                  </CardContent>
+                </Card>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="text-sm">Taxa de cancelamento: % de contratos cancelados sobre o total</p>
+              </TooltipContent>
+            </Tooltip>
+            
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Card className="bg-teal-50 border-teal-200 cursor-help">
+                  <CardContent className="p-3">
+                    <div className="text-xs text-teal-600">MRR Total</div>
+                    <p className="text-lg font-bold text-teal-700">{formatCurrency(metrics.totalMRR)}</p>
+                  </CardContent>
+                </Card>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="text-sm">Monthly Recurring Revenue: receita mensal recorrente dos contratos ativos</p>
+              </TooltipContent>
+            </Tooltip>
+            
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Card className="bg-purple-50 border-purple-200 cursor-help">
+                  <CardContent className="p-3">
+                    <div className="text-xs text-purple-600">LTV Médio (R$)</div>
+                    <p className="text-lg font-bold text-purple-700">{formatCurrency(metrics.ltvMedioValor)}</p>
+                  </CardContent>
+                </Card>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="text-sm">Lifetime Value: valor médio gerado por cliente ao longo da vida</p>
+              </TooltipContent>
+            </Tooltip>
+            
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Card className="bg-indigo-50 border-indigo-200 cursor-help">
+                  <CardContent className="p-3">
+                    <div className="text-xs text-indigo-600">LTV (Meses)</div>
+                    <p className="text-xl font-bold text-indigo-700">{metrics.ltvMedioMeses.toFixed(1)}</p>
+                  </CardContent>
+                </Card>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="text-sm">Tempo médio de permanência dos clientes em meses</p>
+              </TooltipContent>
+            </Tooltip>
+            
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Card className="bg-cyan-50 border-cyan-200 cursor-help">
+                  <CardContent className="p-3">
+                    <div className="text-xs text-cyan-600">Ticket Médio</div>
+                    <p className="text-lg font-bold text-cyan-700">{formatCurrency(metrics.ticketMedio)}</p>
+                  </CardContent>
+                </Card>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="text-sm">Valor médio mensal por contrato ativo</p>
+              </TooltipContent>
+            </Tooltip>
 
-          <Card className="bg-violet-50 border-violet-200">
-            <CardContent className="p-3">
-              <div className="text-xs text-violet-600">Clientes Únicos</div>
-              <p className="text-xl font-bold text-violet-700">{metrics.clientesUnicos}</p>
-            </CardContent>
-          </Card>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Card className="bg-violet-50 border-violet-200 cursor-help">
+                  <CardContent className="p-3">
+                    <div className="text-xs text-violet-600">Clientes Únicos</div>
+                    <p className="text-xl font-bold text-violet-700">{metrics.clientesUnicos}</p>
+                  </CardContent>
+                </Card>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="text-sm">Total de clientes únicos (baseado no email/documento)</p>
+              </TooltipContent>
+            </Tooltip>
 
-          <Card className="bg-green-50 border-green-200">
-            <CardContent className="p-3">
-              <div className="text-xs text-green-600">Clientes Ativos</div>
-              <p className="text-xl font-bold text-green-700">{metrics.clientesAtivosUnicos}</p>
-            </CardContent>
-          </Card>
-        </div>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Card className="bg-green-50 border-green-200 cursor-help">
+                  <CardContent className="p-3">
+                    <div className="text-xs text-green-600">Clientes Ativos</div>
+                    <p className="text-xl font-bold text-green-700">{metrics.clientesAtivosUnicos}</p>
+                  </CardContent>
+                </Card>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="text-sm">Clientes únicos com pelo menos 1 contrato ativo</p>
+              </TooltipContent>
+            </Tooltip>
+          </div>
+        </TooltipProvider>
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -1668,7 +1746,7 @@ export default function Assinaturas() {
                         <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                         <XAxis dataKey="ano" stroke="hsl(var(--muted-foreground))" />
                         <YAxis stroke="hsl(var(--muted-foreground))" />
-                        <Tooltip 
+                        <RechartsTooltip 
                           contentStyle={{ 
                             backgroundColor: 'hsl(var(--card))', 
                             border: '1px solid hsl(var(--border))',
@@ -1781,7 +1859,7 @@ export default function Assinaturas() {
                           axisLine={{ stroke: 'hsl(var(--border))' }}
                           tickLine={{ stroke: 'hsl(var(--border))' }}
                         />
-                        <Tooltip 
+                        <RechartsTooltip 
                           formatter={(v: number) => formatCurrency(v)} 
                           contentStyle={{ 
                             backgroundColor: 'hsl(var(--background))', 
@@ -1824,7 +1902,7 @@ export default function Assinaturas() {
                               <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
                             ))}
                           </Pie>
-                          <Tooltip formatter={(v: number) => formatCurrency(v)} />
+                          <RechartsTooltip formatter={(v: number) => formatCurrency(v)} />
                         </RechartsPie>
                       </ResponsiveContainer>
                       <div className="grid grid-cols-2 gap-2">
@@ -1871,7 +1949,7 @@ export default function Assinaturas() {
                         axisLine={{ stroke: 'hsl(var(--border))' }}
                         tickLine={{ stroke: 'hsl(var(--border))' }}
                       />
-                      <Tooltip 
+                      <RechartsTooltip 
                         contentStyle={{ 
                           backgroundColor: 'hsl(var(--background))', 
                           border: '1px solid hsl(var(--border))',
