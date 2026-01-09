@@ -23,6 +23,7 @@ import MetasIndividuais from "./pages/equipe/MetasIndividuais";
 import FechamentoEquipe from "./pages/equipe/FechamentoEquipe";
 import LancarVendaPublica from "./pages/LancarVendaPublica";
 import SimuladorMeta from "./pages/SimuladorMeta";
+import Assinaturas from "./pages/Assinaturas";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
@@ -146,8 +147,14 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
-            
-            {/* Protected routes - Equipe */}
+            <Route
+              path="/assinaturas"
+              element={
+                <ProtectedRoute>
+                  <Assinaturas />
+                </ProtectedRoute>
+              }
+            />
             <Route
               path="/equipe/colaboradores"
               element={
