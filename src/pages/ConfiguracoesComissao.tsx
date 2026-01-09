@@ -33,7 +33,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Pencil, Trash2, Calendar, Target, Users, TrendingUp, Settings2, ChevronRight } from "lucide-react";
+import { Plus, Pencil, Trash2, Calendar, Target, Users, TrendingUp, Settings2, ChevronRight, Copy } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import type { Tables } from "@/integrations/supabase/types";
 import { format } from "date-fns";
@@ -383,6 +383,40 @@ export default function ConfiguracoesComissao() {
     setIsDeleteMetaDialogOpen(true);
   };
 
+  const duplicateMeta = (meta: MetaMensal) => {
+    // Calcula o próximo mês
+    const [year, month] = meta.mes_referencia.split('-').map(Number);
+    const nextMonth = month === 12 ? 1 : month + 1;
+    const nextYear = month === 12 ? year + 1 : year;
+    const nextMesReferencia = `${nextYear}-${String(nextMonth).padStart(2, '0')}`;
+
+    setMetaForm({
+      mes_referencia: nextMesReferencia,
+      meta_mrr: meta.meta_mrr,
+      meta_quantidade: meta.meta_quantidade,
+      observacao: "",
+      bonus_meta_equipe: meta.bonus_meta_equipe,
+      bonus_meta_empresa: meta.bonus_meta_empresa,
+      num_colaboradores: meta.num_colaboradores,
+      multiplicador_anual: meta.multiplicador_anual,
+      comissao_venda_unica: meta.comissao_venda_unica,
+      ltv_medio: meta.ltv_medio || 6,
+      assinaturas_inicio_mes: meta.assinaturas_inicio_mes || 0,
+      limite_churn: meta.limite_churn || 5,
+      limite_cancelamentos: meta.limite_cancelamentos || 50,
+      percentual_bonus_churn: meta.percentual_bonus_churn || 3,
+      percentual_bonus_retencao: meta.percentual_bonus_retencao || 3,
+    });
+    setEditingMeta(null);
+    setMetaFormStep(1);
+    setIsMetaDialogOpen(true);
+    
+    toast({
+      title: "Configuração duplicada",
+      description: `Dados copiados de ${formatMonthYear(meta.mes_referencia)} para ${formatMonthYear(nextMesReferencia)}. Ajuste os valores se necessário.`,
+    });
+  };
+
   const handleFaixaSubmit = () => {
     if (!faixaForm.nome.trim()) {
       toast({ title: "Erro", description: "Nome é obrigatório.", variant: "destructive" });
@@ -518,6 +552,14 @@ export default function ConfiguracoesComissao() {
                             </div>
                             
                             <div className="flex gap-2">
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                onClick={() => duplicateMeta(meta)}
+                                title="Duplicar para próximo mês"
+                              >
+                                <Copy className="w-4 h-4" />
+                              </Button>
                               <Button
                                 variant="outline"
                                 size="icon"
