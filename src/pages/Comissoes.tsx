@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { TableSkeleton } from "@/components/ui/table-skeleton";
-import { Upload, FileText, Loader2, Eye, Download, Trash2, AlertCircle, FileSpreadsheet, ClipboardList } from "lucide-react";
+import { Upload, FileText, Loader2, Eye, Download, Trash2, AlertCircle, FileSpreadsheet, ClipboardList, Users } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { format, parse, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -628,6 +628,18 @@ export default function Comissoes() {
                             title="Ver Detalhes"
                           >
                             <Eye className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => {
+                              const mesRef = fechamento.mes_referencia.slice(0, 7);
+                              navigate(`/equipe/fechamento?mes=${mesRef}`);
+                            }}
+                            title="Fechamento de Equipe"
+                            className="text-primary hover:text-primary"
+                          >
+                            <Users className="w-4 h-4" />
                           </Button>
                           {fechamento.status === "rascunho" && (
                             <Button

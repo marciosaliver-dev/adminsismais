@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -130,7 +131,9 @@ interface ConfiguracaoBase {
 
 export default function FechamentoEquipe() {
   const queryClient = useQueryClient();
-  const [mesReferencia, setMesReferencia] = useState(format(new Date(), "yyyy-MM"));
+  const [searchParams] = useSearchParams();
+  const mesParam = searchParams.get("mes");
+  const [mesReferencia, setMesReferencia] = useState(mesParam || format(new Date(), "yyyy-MM"));
   const [isCalculando, setIsCalculando] = useState(false);
   const [demonstrativoModal, setDemonstrativoModal] = useState<{
     open: boolean;
