@@ -227,12 +227,18 @@ export default function FechamentoEquipe() {
   const { data: dadosCalculo } = useQuery({
     queryKey: ["dados-calculo-fechamento", mesReferencia],
     queryFn: async () => {
-      // Buscar colaboradores participantes
+      // Buscar colaboradores participantes do fechamento de equipe
       const { data: colaboradores } = await supabase
         .from("colaboradores")
         .select("id, nome, cargo, salario_base, percentual_comissao")
         .eq("ativo", true)
         .eq("participa_fechamento_equipe", true);
+
+      // Buscar TODOS os colaboradores ativos (incluindo vendedores) para o bônus de meta
+      const { data: todosColaboradoresAtivos } = await supabase
+        .from("colaboradores")
+        .select("id, nome, cargo, salario_base, percentual_comissao")
+        .eq("ativo", true);
 
       // Buscar meta do mês (com parâmetros de fechamento)
       const { data: meta } = await supabase
@@ -291,6 +297,7 @@ export default function FechamentoEquipe() {
 
       return {
         colaboradores: colaboradores as Colaborador[] || [],
+        todosColaboradoresAtivos: todosColaboradoresAtivos as Colaborador[] || [],
         meta,
         fechamentoComissao,
         vendasServicos: vendasServicos || [],
@@ -303,17 +310,18 @@ export default function FechamentoEquipe() {
   });
 
   // Atualizar configBase quando fechamento ou meta mudar
+  // Prioridade: meta_mensal primeiro, depois fechamento existente
   useEffect(() => {
     const meta = dadosCalculo?.meta;
     setConfigBase({
-      assinaturasInicioMes: fechamento?.assinaturas_inicio_mes || meta?.assinaturas_inicio_mes || 0,
+      assinaturasInicioMes: meta?.assinaturas_inicio_mes || fechamento?.assinaturas_inicio_mes || 0,
       cancelamentosMes: fechamento?.cancelamentos_mes || 0,
-      limiteChurn: fechamento?.limite_churn || meta?.limite_churn || 5,
-      limiteCancelamentos: fechamento?.limite_cancelamentos || meta?.limite_cancelamentos || 50,
-      percentualBonusChurn: fechamento?.percentual_bonus_churn || meta?.percentual_bonus_churn || 3,
-      percentualBonusRetencao: fechamento?.percentual_bonus_retencao || meta?.percentual_bonus_retencao || 3,
-      percentualBonusMeta: fechamento?.percentual_bonus_meta || meta?.bonus_meta_equipe || 10,
-      metaVendas: fechamento?.meta_vendas || meta?.meta_quantidade || 0,
+      limiteChurn: meta?.limite_churn || fechamento?.limite_churn || 5,
+      limiteCancelamentos: meta?.limite_cancelamentos || fechamento?.limite_cancelamentos || 50,
+      percentualBonusChurn: meta?.percentual_bonus_churn || fechamento?.percentual_bonus_churn || 3,
+      percentualBonusRetencao: meta?.percentual_bonus_retencao || fechamento?.percentual_bonus_retencao || 3,
+      percentualBonusMeta: meta?.bonus_meta_equipe || fechamento?.percentual_bonus_meta || 10,
+      metaVendas: meta?.meta_quantidade || fechamento?.meta_vendas || 0,
     });
   }, [fechamento, dadosCalculo?.meta]);
 
@@ -419,26 +427,28 @@ export default function FechamentoEquipe() {
       }
 
       const colaboradores = dadosCalculo.colaboradores;
+      const todosColaboradoresAtivos = dadosCalculo.todosColaboradoresAtivos || [];
       const meta = dadosCalculo.meta;
       const fechamentoComissao = dadosCalculo.fechamentoComissao;
       const vendasServicos = dadosCalculo.vendasServicos;
       const metasIndividuais = dadosCalculo.metasIndividuais;
 
-      // Prioridade: 1) configBase (modal local), 2) meta_mensal, 3) fechamento existente, 4) padrão
-      const assinaturasInicioMes = configBase.assinaturasInicioMes || meta?.assinaturas_inicio_mes || fechamento?.assinaturas_inicio_mes || 0;
+      // Prioridade para dados de fechamento: 1) meta_mensal, 2) configBase manual, 3) fechamento existente, 4) padrão
+      // Usar valores da meta_mensal como fonte primária
+      const assinaturasInicioMes = meta?.assinaturas_inicio_mes || configBase.assinaturasInicioMes || fechamento?.assinaturas_inicio_mes || 0;
       const cancelamentosMes = configBase.cancelamentosMes || fechamento?.cancelamentos_mes || 0;
       const vendasMes = dadosCalculo.qtdVendasRecorrentes || 0;
       const mrrMes = fechamentoComissao?.total_mrr || 0;
       const mrrBaseComissao = dadosCalculo.mrrBaseComissao || 0;
       const totalComissoesVendedores = dadosCalculo.totalComissoesVendedores || 0;
-      const metaVendas = configBase.metaVendas || meta?.meta_quantidade || fechamento?.meta_vendas || 0;
+      const metaVendas = meta?.meta_quantidade || configBase.metaVendas || fechamento?.meta_vendas || 0;
 
-      // Usar limites da meta_mensal ou configuração manual
-      const limiteChurn = configBase.limiteChurn || meta?.limite_churn || 5;
-      const limiteCancelamentos = configBase.limiteCancelamentos || meta?.limite_cancelamentos || 50;
-      const percentualBonusChurn = configBase.percentualBonusChurn || meta?.percentual_bonus_churn || 3;
-      const percentualBonusRetencao = configBase.percentualBonusRetencao || meta?.percentual_bonus_retencao || 3;
-      const percentualBonusMeta = configBase.percentualBonusMeta || meta?.bonus_meta_equipe || 10;
+      // Usar limites da meta_mensal como fonte primária
+      const limiteChurn = meta?.limite_churn || configBase.limiteChurn || 5;
+      const limiteCancelamentos = meta?.limite_cancelamentos || configBase.limiteCancelamentos || 50;
+      const percentualBonusChurn = meta?.percentual_bonus_churn || configBase.percentualBonusChurn || 3;
+      const percentualBonusRetencao = meta?.percentual_bonus_retencao || configBase.percentualBonusRetencao || 3;
+      const percentualBonusMeta = meta?.bonus_meta_equipe || configBase.percentualBonusMeta || 10;
 
       // Cálculos
       const churnRate = assinaturasInicioMes > 0 
@@ -456,10 +466,11 @@ export default function FechamentoEquipe() {
       const bonusRetencaoLiberado = taxaCancelamentos < limiteCancelamentos;
       const bonusMetaLiberado = percentualMeta >= 100;
 
-      // Valores de bônus
+      // Valores de bônus - Bônus de Meta dividido entre TODOS os colaboradores ativos (incluindo vendedores)
+      const totalColaboradoresParaBonusMeta = todosColaboradoresAtivos.length;
       const valorBonusMetaTotal = bonusMetaLiberado ? mrrMes * (percentualBonusMeta / 100) : 0;
-      const valorBonusMetaIndividual = colaboradores.length > 0 
-        ? valorBonusMetaTotal / colaboradores.length 
+      const valorBonusMetaIndividual = totalColaboradoresParaBonusMeta > 0 
+        ? valorBonusMetaTotal / totalColaboradoresParaBonusMeta 
         : 0;
 
       // Criar ou atualizar fechamento_equipe
@@ -484,7 +495,7 @@ export default function FechamentoEquipe() {
         bonus_retencao_liberado: bonusRetencaoLiberado,
         bonus_meta_liberado: bonusMetaLiberado,
         valor_bonus_meta_total: valorBonusMetaTotal,
-        total_colaboradores_participantes: colaboradores.length,
+        total_colaboradores_participantes: totalColaboradoresParaBonusMeta,
         valor_bonus_meta_individual: valorBonusMetaIndividual,
         status: "calculado",
         calculado_em: new Date().toISOString(),
