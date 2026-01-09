@@ -13,6 +13,7 @@ import HistoricoComissoes from "./pages/HistoricoComissoes";
 import RelatorioVendas from "./pages/RelatorioVendas";
 import ExtratoAsaas from "./pages/ExtratoAsaas";
 import ExtratoAsaasDetalhe from "./pages/ExtratoAsaasDetalhe";
+import ExtratoEduzz from "./pages/ExtratoEduzz";
 import GerenciarUsuarios from "./pages/admin/GerenciarUsuarios";
 import GerenciarPermissoes from "./pages/admin/GerenciarPermissoes";
 import Colaboradores from "./pages/equipe/Colaboradores";
@@ -120,6 +121,16 @@ const App = () => (
                 <ProtectedRoute>
                   <Layout>
                     <ExtratoAsaasDetalhe />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/extrato-eduzz"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <ExtratoEduzz />
                   </Layout>
                 </ProtectedRoute>
               }

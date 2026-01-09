@@ -302,6 +302,47 @@ export type Database = {
           },
         ]
       }
+      extrato_eduzz: {
+        Row: {
+          created_at: string
+          data: string
+          descricao: string
+          fatura_id: string
+          id: string
+          importacao_id: string
+          tipo_transacao: string
+          valor: number | null
+        }
+        Insert: {
+          created_at?: string
+          data: string
+          descricao: string
+          fatura_id: string
+          id?: string
+          importacao_id: string
+          tipo_transacao: string
+          valor?: number | null
+        }
+        Update: {
+          created_at?: string
+          data?: string
+          descricao?: string
+          fatura_id?: string
+          id?: string
+          importacao_id?: string
+          tipo_transacao?: string
+          valor?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "extrato_eduzz_importacao_id_fkey"
+            columns: ["importacao_id"]
+            isOneToOne: false
+            referencedRelation: "importacoes_extrato_eduzz"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       faixa_comissao: {
         Row: {
           ativo: boolean
@@ -649,6 +690,48 @@ export type Database = {
           total_creditos?: number
           total_debitos?: number
           total_registros?: number
+        }
+        Relationships: []
+      }
+      importacoes_extrato_eduzz: {
+        Row: {
+          arquivo_nome: string
+          created_at: string
+          id: string
+          observacao: string | null
+          periodo_fim: string
+          periodo_inicio: string
+          registros_duplicados: number | null
+          registros_novos: number | null
+          status: string
+          total_registros: number | null
+          total_vendas: number | null
+        }
+        Insert: {
+          arquivo_nome: string
+          created_at?: string
+          id?: string
+          observacao?: string | null
+          periodo_fim: string
+          periodo_inicio: string
+          registros_duplicados?: number | null
+          registros_novos?: number | null
+          status?: string
+          total_registros?: number | null
+          total_vendas?: number | null
+        }
+        Update: {
+          arquivo_nome?: string
+          created_at?: string
+          id?: string
+          observacao?: string | null
+          periodo_fim?: string
+          periodo_inicio?: string
+          registros_duplicados?: number | null
+          registros_novos?: number | null
+          status?: string
+          total_registros?: number | null
+          total_vendas?: number | null
         }
         Relationships: []
       }
