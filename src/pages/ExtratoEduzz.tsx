@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -43,7 +44,8 @@ import {
   Download,
   Trash2,
   CheckCircle2,
-  AlertTriangle
+  AlertTriangle,
+  Eye
 } from "lucide-react";
 import { format, subMonths, startOfYear } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -148,6 +150,7 @@ export default function ExtratoEduzz() {
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   // Fetch histórico de importações
   const { data: importacoes = [], isLoading: isLoadingImportacoes } = useQuery({
@@ -895,8 +898,19 @@ export default function ExtratoEduzz() {
                                   <Button
                                     variant="ghost"
                                     size="icon"
+                                    onClick={() => navigate(`/extrato-eduzz/${imp.id}`)}
+                                  >
+                                    <Eye className="w-4 h-4" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Ver detalhes</TooltipContent>
+                              </Tooltip>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
                                     onClick={() => {
-                                      // Filter by the import's period and switch to Visão Geral tab
                                       const inicioDate = new Date(imp.periodo_inicio + "T12:00:00");
                                       const fimDate = new Date(imp.periodo_fim + "T12:00:00");
                                       setMesInicio(format(inicioDate, "yyyy-MM"));
@@ -908,7 +922,7 @@ export default function ExtratoEduzz() {
                                     <Search className="w-4 h-4" />
                                   </Button>
                                 </TooltipTrigger>
-                                <TooltipContent>Ver transações deste período</TooltipContent>
+                                <TooltipContent>Filtrar período</TooltipContent>
                               </Tooltip>
                               <Tooltip>
                                 <TooltipTrigger asChild>
