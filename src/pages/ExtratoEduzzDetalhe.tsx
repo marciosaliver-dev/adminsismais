@@ -143,16 +143,29 @@ export default function ExtratoEduzzDetalhe() {
     enabled: !!id,
   });
 
-  // Get unique tipos for filter
-  const tiposUnicos = useMemo(() => {
-    const tipos = new Set(transacoes.map(t => t.tipo_transacao));
-    return Array.from(tipos).sort();
-  }, [transacoes]);
+  // Utility functions - defined before useMemo hooks that use them
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    }).format(value);
+  };
+
+  const formatDateBR = (dateStr: string) => {
+    const [year, month, day] = dateStr.split("-");
+    return `${day}/${month}/${year}`;
+  };
 
   const datePickerToString = (date: Date | undefined): string | null => {
     if (!date) return null;
     return format(date, "yyyy-MM-dd");
   };
+
+  // Get unique tipos for filter
+  const tiposUnicos = useMemo(() => {
+    const tipos = new Set(transacoes.map(t => t.tipo_transacao));
+    return Array.from(tipos).sort();
+  }, [transacoes]);
 
   // Filtered and sorted transações
   const transacoesFiltradas = useMemo(() => {
@@ -339,17 +352,6 @@ export default function ExtratoEduzzDetalhe() {
     }
   };
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-    }).format(value);
-  };
-
-  const formatDateBR = (dateStr: string) => {
-    const [year, month, day] = dateStr.split("-");
-    return `${day}/${month}/${year}`;
-  };
 
   const SortIcon = ({ field }: { field: SortField }) => {
     if (sortField !== field) return null;
