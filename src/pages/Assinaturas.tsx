@@ -63,6 +63,7 @@ import {
   BarChart3,
   PieChart,
 } from "lucide-react";
+import { parseDateBR } from "@/lib/extratoUtils";
 import {
   BarChart,
   Bar,
@@ -608,26 +609,9 @@ export default function Assinaturas() {
     const worksheet = workbook.Sheets[sheetName];
     const jsonData = XLSX.utils.sheet_to_json(worksheet, { raw: true });
 
+    // Usa parseDateBR do extratoUtils para tratamento correto de timezone
     const parseDate = (dateStr: string | number | Date | null | undefined): string | null => {
-      if (!dateStr) return null;
-      if (dateStr instanceof Date) {
-        return dateStr.toISOString().split('T')[0];
-      }
-      if (typeof dateStr === 'number') {
-        // Excel serial date
-        const excelDate = new Date((dateStr - 25569) * 86400 * 1000);
-        return excelDate.toISOString().split('T')[0];
-      }
-      // Try DD/MM/YYYY HH:mm:ss format
-      const match = String(dateStr).match(/(\d{2})\/(\d{2})\/(\d{4})/);
-      if (match) {
-        return `${match[3]}-${match[2]}-${match[1]}`;
-      }
-      // Try YYYY-MM-DD
-      if (/^\d{4}-\d{2}-\d{2}/.test(String(dateStr))) {
-        return String(dateStr).split('T')[0];
-      }
-      return null;
+      return parseDateBR(dateStr);
     };
 
     const parseValue = (val: string | number | null | undefined): number => {
