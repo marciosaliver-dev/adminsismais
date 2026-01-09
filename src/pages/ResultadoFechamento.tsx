@@ -320,18 +320,64 @@ export default function ResultadoFechamento() {
       const mesAnoRef = format(parseISO(fechamento.mes_referencia + "T12:00:00"), "MMMM/yyyy", { locale: ptBR });
       const mesAnoFile = format(parseISO(fechamento.mes_referencia + "T12:00:00"), "yyyy-MM");
 
+      // Calcular totais por tipo de venda
+      const vendasTyped = vendas as VendaImportada[];
+      const vendasPorTipo = vendasTyped.reduce((acc, v) => {
+        const tipo = v.tipo_venda || "Não informado";
+        if (!acc[tipo]) {
+          acc[tipo] = { qtd: 0, mrr: 0, adesao: 0, assinatura: 0 };
+        }
+        acc[tipo].qtd += 1;
+        acc[tipo].mrr += v.valor_mrr;
+        acc[tipo].adesao += v.valor_adesao;
+        acc[tipo].assinatura += v.valor_assinatura;
+        return acc;
+      }, {} as Record<string, { qtd: number; mrr: number; adesao: number; assinatura: number }>);
+
+      // Vendas únicas e anuais
+      const vendasUnicas = vendasTyped.filter(v => 
+        v.intervalo?.toLowerCase().includes("única") || v.tipo_venda?.toLowerCase().includes("única")
+      );
+      const vendasAnuais = vendasTyped.filter(v => 
+        v.intervalo?.toLowerCase() === "anual"
+      );
+
+      const totalVendasUnicas = vendasUnicas.reduce((acc, v) => acc + v.valor_adesao, 0);
+      const totalVendasAnuais = vendasAnuais.reduce((acc, v) => acc + v.valor_mrr, 0);
+
       // ========== ABA 1: RESUMO ==========
       const resumoData: (string | number)[][] = [
         ["Fechamento de Comissões"],
         [mesAnoRef],
         [],
+        ["INDICADORES GERAIS"],
         ["Total de Vendas:", fechamento.total_vendas],
-        ["MRR Total:", fechamento.total_mrr],
+        ["MRR Total Equipe:", fechamento.total_mrr],
+        ["MRR Base Comissão:", mrrBaseComissao],
+        ["Meta MRR:", metaMrr],
         ["Meta Batida:", fechamento.meta_batida ? "Sim" : "Não"],
         ["Data Processamento:", format(new Date(fechamento.data_importacao), "dd/MM/yyyy HH:mm")],
         [],
-        ["Vendedor", "Qtd Vendas", "MRR Faixa", "Faixa", "%", "Comissão Base", "Bônus Anual", "Bônus Meta", "Bônus Empresa", "Ajustes", "TOTAL"],
+        ["VENDAS POR TIPO"],
       ];
+
+      Object.entries(vendasPorTipo).forEach(([tipo, dados]) => {
+        resumoData.push([tipo, `${dados.qtd} vendas`, `MRR: ${dados.mrr}`, `Adesão: ${dados.adesao}`]);
+      });
+
+      resumoData.push([]);
+      resumoData.push(["VENDAS ÚNICAS"]);
+      resumoData.push(["Quantidade:", vendasUnicas.length]);
+      resumoData.push(["Valor Total:", totalVendasUnicas]);
+
+      resumoData.push([]);
+      resumoData.push(["VENDAS ANUAIS"]);
+      resumoData.push(["Quantidade:", vendasAnuais.length]);
+      resumoData.push(["MRR Anual:", totalVendasAnuais]);
+
+      resumoData.push([]);
+      resumoData.push(["COMISSÕES POR VENDEDOR"]);
+      resumoData.push(["Vendedor", "Qtd Vendas", "MRR Faixa", "Faixa", "%", "Comissão Base", "Bônus Anual", "Bônus Meta", "Bônus Empresa", "Ajustes", "TOTAL"]);
 
       const totalsExport = { vendas: 0, mrrFaixa: 0, comissaoBase: 0, bonusAnual: 0, bonusMeta: 0, bonusEmpresa: 0, ajustes: 0, total: 0 };
       
@@ -384,7 +430,7 @@ export default function ResultadoFechamento() {
         ["Data", "Plataforma", "Contrato", "Cliente", "Email", "Plano", "Tipo Venda", "Intervalo", "Vendedor", "Assinatura", "MRR", "Adesão", "Conta Comissão", "Conta Faixa"],
       ];
 
-      (vendas as VendaImportada[]).forEach((v) => {
+      vendasTyped.forEach((v) => {
         vendasData.push([
           v.data_contrato ? format(new Date(v.data_contrato + "T12:00:00"), "dd/MM/yyyy") : "-",
           v.plataforma || "-",
@@ -403,12 +449,55 @@ export default function ResultadoFechamento() {
         ]);
       });
 
-      // ========== ABA 3: AJUSTES ==========
+      // ========== ABA 3: VENDAS ÚNICAS ==========
+      const vendasUnicasData: (string | number)[][] = [
+        ["VENDAS ÚNICAS"],
+        [],
+        ["Data", "Cliente", "Plano", "Vendedor", "Valor"],
+      ];
+
+      vendasUnicas.forEach((v) => {
+        vendasUnicasData.push([
+          v.data_contrato ? format(new Date(v.data_contrato + "T12:00:00"), "dd/MM/yyyy") : "-",
+          v.cliente || "-",
+          v.plano || "-",
+          v.vendedor || "-",
+          v.valor_adesao,
+        ]);
+      });
+
+      vendasUnicasData.push([]);
+      vendasUnicasData.push(["TOTAL VENDAS ÚNICAS:", vendasUnicas.length, "", "", totalVendasUnicas]);
+
+      // ========== ABA 4: VENDAS ANUAIS ==========
+      const vendasAnuaisData: (string | number)[][] = [
+        ["VENDAS ANUAIS"],
+        [],
+        ["Data", "Cliente", "Plano", "Vendedor", "MRR"],
+      ];
+
+      vendasAnuais.forEach((v) => {
+        vendasAnuaisData.push([
+          v.data_contrato ? format(new Date(v.data_contrato + "T12:00:00"), "dd/MM/yyyy") : "-",
+          v.cliente || "-",
+          v.plano || "-",
+          v.vendedor || "-",
+          v.valor_mrr,
+        ]);
+      });
+
+      vendasAnuaisData.push([]);
+      vendasAnuaisData.push(["TOTAL VENDAS ANUAIS:", vendasAnuais.length, "", "", totalVendasAnuais]);
+
+      // ========== ABA 5: AJUSTES ==========
       const ajustesData: (string | number)[][] = [
-        ["AJUSTES MANUAIS"],
+        ["AJUSTES MANUAIS DE COMISSÃO"],
         [],
         ["Vendedor", "Tipo", "Valor", "Descrição", "Data"],
       ];
+
+      const totalCreditos = ajustes.filter(a => a.tipo === "credito").reduce((acc, a) => acc + a.valor, 0);
+      const totalDebitos = ajustes.filter(a => a.tipo === "debito").reduce((acc, a) => acc + a.valor, 0);
 
       ajustes.forEach((a) => {
         ajustesData.push([
@@ -420,7 +509,13 @@ export default function ResultadoFechamento() {
         ]);
       });
 
-      // ========== ABA 4: CONFIGURAÇÕES ==========
+      ajustesData.push([]);
+      ajustesData.push(["RESUMO DE AJUSTES"]);
+      ajustesData.push(["Total Créditos:", totalCreditos]);
+      ajustesData.push(["Total Débitos:", totalDebitos]);
+      ajustesData.push(["Saldo Ajustes:", totalCreditos - totalDebitos]);
+
+      // ========== ABA 6: CONFIGURAÇÕES ==========
       const configData: (string | number)[][] = [
         ["CONFIGURAÇÕES"],
         [],
@@ -463,6 +558,14 @@ export default function ResultadoFechamento() {
       ];
       XLSX.utils.book_append_sheet(wb, wsVendas, "Vendas");
 
+      const wsVendasUnicas = XLSX.utils.aoa_to_sheet(vendasUnicasData);
+      wsVendasUnicas["!cols"] = [{ wch: 12 }, { wch: 25 }, { wch: 20 }, { wch: 20 }, { wch: 15 }];
+      XLSX.utils.book_append_sheet(wb, wsVendasUnicas, "Vendas Únicas");
+
+      const wsVendasAnuais = XLSX.utils.aoa_to_sheet(vendasAnuaisData);
+      wsVendasAnuais["!cols"] = [{ wch: 12 }, { wch: 25 }, { wch: 20 }, { wch: 20 }, { wch: 15 }];
+      XLSX.utils.book_append_sheet(wb, wsVendasAnuais, "Vendas Anuais");
+
       const wsAjustes = XLSX.utils.aoa_to_sheet(ajustesData);
       wsAjustes["!cols"] = [{ wch: 20 }, { wch: 12 }, { wch: 15 }, { wch: 40 }, { wch: 18 }];
       XLSX.utils.book_append_sheet(wb, wsAjustes, "Ajustes");
@@ -493,6 +596,37 @@ export default function ResultadoFechamento() {
     setIsExporting(true);
 
     try {
+      // Buscar vendas para estatísticas
+      const { data: vendas = [] } = await supabase
+        .from("venda_importada")
+        .select("*")
+        .eq("fechamento_id", id);
+
+      const vendasTyped = vendas as VendaImportada[];
+      
+      // Calcular totais por tipo de venda
+      const vendasPorTipo = vendasTyped.reduce((acc, v) => {
+        const tipo = v.tipo_venda || "Não informado";
+        if (!acc[tipo]) {
+          acc[tipo] = { qtd: 0, mrr: 0, adesao: 0 };
+        }
+        acc[tipo].qtd += 1;
+        acc[tipo].mrr += v.valor_mrr;
+        acc[tipo].adesao += v.valor_adesao;
+        return acc;
+      }, {} as Record<string, { qtd: number; mrr: number; adesao: number }>);
+
+      // Vendas únicas e anuais
+      const vendasUnicas = vendasTyped.filter(v => 
+        v.intervalo?.toLowerCase().includes("única") || v.tipo_venda?.toLowerCase().includes("única")
+      );
+      const vendasAnuais = vendasTyped.filter(v => 
+        v.intervalo?.toLowerCase() === "anual"
+      );
+
+      const totalVendasUnicas = vendasUnicas.reduce((acc, v) => acc + v.valor_adesao, 0);
+      const totalVendasAnuais = vendasAnuais.reduce((acc, v) => acc + v.valor_mrr, 0);
+
       const mesAnoRef = format(parseISO(fechamento.mes_referencia + "T12:00:00"), "MMMM/yyyy", { locale: ptBR });
       const mesAnoFile = format(parseISO(fechamento.mes_referencia + "T12:00:00"), "yyyy-MM");
 
@@ -504,14 +638,38 @@ export default function ResultadoFechamento() {
       doc.setFontSize(14);
       doc.text(mesAnoRef.charAt(0).toUpperCase() + mesAnoRef.slice(1), 14, 28);
 
-      // Summary
-      doc.setFontSize(10);
-      doc.text(`Total de Vendas: ${fechamento.total_vendas}`, 14, 40);
-      doc.text(`MRR Total: ${formatCurrency(fechamento.total_mrr)}`, 14, 46);
-      doc.text(`Meta: ${formatCurrency(metaMrr)}`, 14, 52);
-      doc.text(`Status: ${fechamento.meta_batida ? "✓ Meta Batida" : "✗ Meta Não Batida"}`, 14, 58);
+      // Summary - Indicadores
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.text("INDICADORES GERAIS", 14, 40);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.text(`Total de Vendas: ${fechamento.total_vendas}`, 14, 47);
+      doc.text(`MRR Total Equipe: ${formatCurrency(fechamento.total_mrr)}`, 14, 53);
+      doc.text(`MRR Base Comissão: ${formatCurrency(mrrBaseComissao)}`, 100, 47);
+      doc.text(`Meta MRR: ${formatCurrency(metaMrr)}`, 100, 53);
+      doc.text(`Status: ${fechamento.meta_batida ? "✓ Meta Batida" : "✗ Meta Não Batida"}`, 14, 59);
+
+      // Vendas por Tipo
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.text("VENDAS POR TIPO", 14, 70);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      let yPos = 77;
+      Object.entries(vendasPorTipo).forEach(([tipo, dados]) => {
+        doc.text(`${tipo}: ${dados.qtd} vendas | MRR: ${formatCurrency(dados.mrr)} | Adesão: ${formatCurrency(dados.adesao)}`, 14, yPos);
+        yPos += 5;
+      });
+
+      // Vendas Únicas e Anuais
+      yPos += 3;
+      doc.setFontSize(9);
+      doc.text(`Vendas Únicas: ${vendasUnicas.length} | Total: ${formatCurrency(totalVendasUnicas)}`, 14, yPos);
+      doc.text(`Vendas Anuais: ${vendasAnuais.length} | MRR: ${formatCurrency(totalVendasAnuais)}`, 100, yPos);
 
       // Table data
+      yPos += 10;
       const tableData = comissoes.map((c) => {
         const ajustesVendedor = ajustes
           .filter((a) => a.vendedor === c.vendedor)
@@ -558,11 +716,115 @@ export default function ResultadoFechamento() {
       autoTable(doc, {
         head: [["Vendedor", "Vendas", "MRR", "Faixa", "%", "Comissão", "Bônus", "Ajustes", "Total"]],
         body: tableData,
-        startY: 65,
+        startY: yPos,
         styles: { fontSize: 8 },
         headStyles: { fillColor: [69, 229, 229] },
         footStyles: { fillColor: [240, 240, 240] },
       });
+
+      // Ajustes detalhados
+      if (ajustes.length > 0) {
+        const finalY = (doc as any).lastAutoTable.finalY || yPos + 50;
+        
+        doc.setFontSize(11);
+        doc.setFont("helvetica", "bold");
+        doc.text("AJUSTES MANUAIS DE COMISSÃO", 14, finalY + 15);
+        doc.setFont("helvetica", "normal");
+
+        const ajustesTableData = ajustes.map(a => [
+          a.vendedor,
+          a.tipo === "credito" ? "Crédito" : "Débito",
+          formatCurrency(a.tipo === "credito" ? a.valor : -a.valor),
+          a.descricao,
+          format(new Date(a.created_at), "dd/MM/yyyy"),
+        ]);
+
+        const totalCreditos = ajustes.filter(a => a.tipo === "credito").reduce((acc, a) => acc + a.valor, 0);
+        const totalDebitos = ajustes.filter(a => a.tipo === "debito").reduce((acc, a) => acc + a.valor, 0);
+
+        ajustesTableData.push([
+          "TOTAL",
+          "",
+          formatCurrency(totalCreditos - totalDebitos),
+          `Créditos: ${formatCurrency(totalCreditos)} | Débitos: ${formatCurrency(totalDebitos)}`,
+          "",
+        ]);
+
+        autoTable(doc, {
+          head: [["Vendedor", "Tipo", "Valor", "Descrição", "Data"]],
+          body: ajustesTableData,
+          startY: finalY + 20,
+          styles: { fontSize: 8 },
+          headStyles: { fillColor: [100, 100, 100] },
+        });
+      }
+
+      // Vendas Únicas detalhadas (nova página se necessário)
+      if (vendasUnicas.length > 0) {
+        doc.addPage();
+        doc.setFontSize(14);
+        doc.setFont("helvetica", "bold");
+        doc.text("VENDAS ÚNICAS", 14, 20);
+        doc.setFont("helvetica", "normal");
+
+        const vendasUnicasData = vendasUnicas.map(v => [
+          v.data_contrato ? format(new Date(v.data_contrato + "T12:00:00"), "dd/MM/yyyy") : "-",
+          v.cliente || "-",
+          v.plano || "-",
+          v.vendedor || "-",
+          formatCurrency(v.valor_adesao),
+        ]);
+
+        vendasUnicasData.push([
+          "TOTAL",
+          `${vendasUnicas.length} vendas`,
+          "",
+          "",
+          formatCurrency(totalVendasUnicas),
+        ]);
+
+        autoTable(doc, {
+          head: [["Data", "Cliente", "Plano", "Vendedor", "Valor"]],
+          body: vendasUnicasData,
+          startY: 30,
+          styles: { fontSize: 8 },
+          headStyles: { fillColor: [255, 159, 64] },
+        });
+
+        // Vendas Anuais
+        const finalYUnicas = (doc as any).lastAutoTable.finalY || 80;
+        
+        doc.setFontSize(14);
+        doc.setFont("helvetica", "bold");
+        doc.text("VENDAS ANUAIS", 14, finalYUnicas + 15);
+        doc.setFont("helvetica", "normal");
+
+        if (vendasAnuais.length > 0) {
+          const vendasAnuaisData = vendasAnuais.map(v => [
+            v.data_contrato ? format(new Date(v.data_contrato + "T12:00:00"), "dd/MM/yyyy") : "-",
+            v.cliente || "-",
+            v.plano || "-",
+            v.vendedor || "-",
+            formatCurrency(v.valor_mrr),
+          ]);
+
+          vendasAnuaisData.push([
+            "TOTAL",
+            `${vendasAnuais.length} vendas`,
+            "",
+            "",
+            formatCurrency(totalVendasAnuais),
+          ]);
+
+          autoTable(doc, {
+            head: [["Data", "Cliente", "Plano", "Vendedor", "MRR"]],
+            body: vendasAnuaisData,
+            startY: finalYUnicas + 20,
+            styles: { fontSize: 8 },
+            headStyles: { fillColor: [54, 162, 235] },
+          });
+        }
+      }
 
       doc.save(`comissoes_${mesAnoFile}.pdf`);
 
