@@ -14,6 +14,8 @@ import {
   Shield,
   Users,
   Lock,
+  Target,
+  ClipboardList,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -50,6 +52,15 @@ const navSections: NavSection[] = [
     ],
   },
   {
+    title: "👥 Equipe",
+    items: [
+      { title: "Colaboradores", icon: Users, href: "/equipe/colaboradores", permission: "equipe.gerenciar" },
+      { title: "Vendas Serviços", icon: Receipt, href: "/equipe/vendas-servicos", permission: "equipe.vendas" },
+      { title: "Metas Individuais", icon: Target, href: "/equipe/metas", permission: "equipe.metas" },
+      { title: "Fechamento", icon: ClipboardList, href: "/equipe/fechamento", permission: "equipe.fechamento" },
+    ],
+  },
+  {
     title: "Financeiro",
     items: [
       { title: "📄 Extrato Asaas", icon: FileSpreadsheet, href: "/extrato-asaas", permission: "extrato.visualizar" },
@@ -69,6 +80,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const { hasPermission, isAdmin, loading } = usePermissions();
   const [expandedSections, setExpandedSections] = useState<string[]>([
     "💰 Comissões",
+    "👥 Equipe",
     "Financeiro",
     "🔒 Administração",
   ]);

@@ -15,6 +15,7 @@ import ExtratoAsaas from "./pages/ExtratoAsaas";
 import ExtratoAsaasDetalhe from "./pages/ExtratoAsaasDetalhe";
 import GerenciarUsuarios from "./pages/admin/GerenciarUsuarios";
 import GerenciarPermissoes from "./pages/admin/GerenciarPermissoes";
+import Colaboradores from "./pages/equipe/Colaboradores";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
@@ -103,6 +104,18 @@ const App = () => (
                 <ProtectedRoute>
                   <Layout>
                     <ExtratoAsaasDetalhe />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            
+            {/* Protected routes - Equipe */}
+            <Route
+              path="/equipe/colaboradores"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <Colaboradores />
                   </Layout>
                 </ProtectedRoute>
               }

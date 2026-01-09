@@ -14,6 +14,57 @@ export type Database = {
   }
   public: {
     Tables: {
+      colaboradores: {
+        Row: {
+          ativo: boolean | null
+          cargo: string | null
+          created_at: string | null
+          data_admissao: string | null
+          departamento: string | null
+          eh_vendedor_direto: boolean | null
+          email: string | null
+          id: string
+          nome: string
+          participa_fechamento_equipe: boolean | null
+          percentual_comissao: number | null
+          salario_base: number
+          telefone: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          ativo?: boolean | null
+          cargo?: string | null
+          created_at?: string | null
+          data_admissao?: string | null
+          departamento?: string | null
+          eh_vendedor_direto?: boolean | null
+          email?: string | null
+          id?: string
+          nome: string
+          participa_fechamento_equipe?: boolean | null
+          percentual_comissao?: number | null
+          salario_base?: number
+          telefone?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          ativo?: boolean | null
+          cargo?: string | null
+          created_at?: string | null
+          data_admissao?: string | null
+          departamento?: string | null
+          eh_vendedor_direto?: boolean | null
+          email?: string | null
+          id?: string
+          nome?: string
+          participa_fechamento_equipe?: boolean | null
+          percentual_comissao?: number | null
+          salario_base?: number
+          telefone?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       comissao_calculada: {
         Row: {
           bonus_anual: number
@@ -198,6 +249,99 @@ export type Database = {
         }
         Relationships: []
       }
+      fechamento_colaborador: {
+        Row: {
+          bonus_churn: number | null
+          bonus_meta_equipe: number | null
+          bonus_retencao: number | null
+          cargo: string | null
+          colaborador_id: string
+          comissao_servicos: number | null
+          created_at: string | null
+          enviado: boolean | null
+          enviado_em: string | null
+          enviado_para: string | null
+          fechamento_equipe_id: string
+          id: string
+          nome_colaborador: string
+          percentual_comissao: number | null
+          qtd_metas_atingidas: number | null
+          qtd_metas_individuais: number | null
+          qtd_vendas_servicos: number | null
+          relatorio_html: string | null
+          salario_base: number | null
+          subtotal_bonus_equipe: number | null
+          total_a_receber: number | null
+          total_bonus_metas_individuais: number | null
+          total_vendas_servicos: number | null
+        }
+        Insert: {
+          bonus_churn?: number | null
+          bonus_meta_equipe?: number | null
+          bonus_retencao?: number | null
+          cargo?: string | null
+          colaborador_id: string
+          comissao_servicos?: number | null
+          created_at?: string | null
+          enviado?: boolean | null
+          enviado_em?: string | null
+          enviado_para?: string | null
+          fechamento_equipe_id: string
+          id?: string
+          nome_colaborador: string
+          percentual_comissao?: number | null
+          qtd_metas_atingidas?: number | null
+          qtd_metas_individuais?: number | null
+          qtd_vendas_servicos?: number | null
+          relatorio_html?: string | null
+          salario_base?: number | null
+          subtotal_bonus_equipe?: number | null
+          total_a_receber?: number | null
+          total_bonus_metas_individuais?: number | null
+          total_vendas_servicos?: number | null
+        }
+        Update: {
+          bonus_churn?: number | null
+          bonus_meta_equipe?: number | null
+          bonus_retencao?: number | null
+          cargo?: string | null
+          colaborador_id?: string
+          comissao_servicos?: number | null
+          created_at?: string | null
+          enviado?: boolean | null
+          enviado_em?: string | null
+          enviado_para?: string | null
+          fechamento_equipe_id?: string
+          id?: string
+          nome_colaborador?: string
+          percentual_comissao?: number | null
+          qtd_metas_atingidas?: number | null
+          qtd_metas_individuais?: number | null
+          qtd_vendas_servicos?: number | null
+          relatorio_html?: string | null
+          salario_base?: number | null
+          subtotal_bonus_equipe?: number | null
+          total_a_receber?: number | null
+          total_bonus_metas_individuais?: number | null
+          total_vendas_servicos?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fechamento_colaborador_colaborador_id_fkey"
+            columns: ["colaborador_id"]
+            isOneToOne: false
+            referencedRelation: "colaboradores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fechamento_colaborador_fechamento_equipe_id_fkey"
+            columns: ["fechamento_equipe_id"]
+            isOneToOne: false
+            referencedRelation: "fechamento_equipe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fechamento_comissao: {
         Row: {
           arquivo_nome: string | null
@@ -234,6 +378,96 @@ export type Database = {
           total_mrr?: number
           total_vendas?: number
           updated_at?: string
+        }
+        Relationships: []
+      }
+      fechamento_equipe: {
+        Row: {
+          assinaturas_inicio_mes: number | null
+          bonus_churn_liberado: boolean | null
+          bonus_meta_liberado: boolean | null
+          bonus_retencao_liberado: boolean | null
+          calculado_em: string | null
+          cancelamentos_mes: number | null
+          churn_rate: number | null
+          created_at: string | null
+          fechado_em: string | null
+          fechado_por: string | null
+          id: string
+          limite_cancelamentos: number | null
+          limite_churn: number | null
+          mes_referencia: string
+          meta_atingida: boolean | null
+          meta_vendas: number | null
+          mrr_mes: number | null
+          percentual_bonus_churn: number | null
+          percentual_bonus_meta: number | null
+          percentual_bonus_retencao: number | null
+          percentual_meta: number | null
+          status: string | null
+          total_colaboradores_participantes: number | null
+          updated_at: string | null
+          valor_bonus_meta_individual: number | null
+          valor_bonus_meta_total: number | null
+          vendas_mes: number | null
+        }
+        Insert: {
+          assinaturas_inicio_mes?: number | null
+          bonus_churn_liberado?: boolean | null
+          bonus_meta_liberado?: boolean | null
+          bonus_retencao_liberado?: boolean | null
+          calculado_em?: string | null
+          cancelamentos_mes?: number | null
+          churn_rate?: number | null
+          created_at?: string | null
+          fechado_em?: string | null
+          fechado_por?: string | null
+          id?: string
+          limite_cancelamentos?: number | null
+          limite_churn?: number | null
+          mes_referencia: string
+          meta_atingida?: boolean | null
+          meta_vendas?: number | null
+          mrr_mes?: number | null
+          percentual_bonus_churn?: number | null
+          percentual_bonus_meta?: number | null
+          percentual_bonus_retencao?: number | null
+          percentual_meta?: number | null
+          status?: string | null
+          total_colaboradores_participantes?: number | null
+          updated_at?: string | null
+          valor_bonus_meta_individual?: number | null
+          valor_bonus_meta_total?: number | null
+          vendas_mes?: number | null
+        }
+        Update: {
+          assinaturas_inicio_mes?: number | null
+          bonus_churn_liberado?: boolean | null
+          bonus_meta_liberado?: boolean | null
+          bonus_retencao_liberado?: boolean | null
+          calculado_em?: string | null
+          cancelamentos_mes?: number | null
+          churn_rate?: number | null
+          created_at?: string | null
+          fechado_em?: string | null
+          fechado_por?: string | null
+          id?: string
+          limite_cancelamentos?: number | null
+          limite_churn?: number | null
+          mes_referencia?: string
+          meta_atingida?: boolean | null
+          meta_vendas?: number | null
+          mrr_mes?: number | null
+          percentual_bonus_churn?: number | null
+          percentual_bonus_meta?: number | null
+          percentual_bonus_retencao?: number | null
+          percentual_meta?: number | null
+          status?: string | null
+          total_colaboradores_participantes?: number | null
+          updated_at?: string | null
+          valor_bonus_meta_individual?: number | null
+          valor_bonus_meta_total?: number | null
+          vendas_mes?: number | null
         }
         Relationships: []
       }
@@ -370,6 +604,62 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      metas_individuais: {
+        Row: {
+          atingida: boolean | null
+          colaborador_id: string
+          created_at: string | null
+          descricao: string | null
+          id: string
+          mes_referencia: string
+          percentual_atingido: number | null
+          tipo_bonus: string
+          titulo: string
+          updated_at: string | null
+          valor_atingido: string | null
+          valor_bonus: number
+          valor_meta: string
+        }
+        Insert: {
+          atingida?: boolean | null
+          colaborador_id: string
+          created_at?: string | null
+          descricao?: string | null
+          id?: string
+          mes_referencia: string
+          percentual_atingido?: number | null
+          tipo_bonus?: string
+          titulo: string
+          updated_at?: string | null
+          valor_atingido?: string | null
+          valor_bonus: number
+          valor_meta: string
+        }
+        Update: {
+          atingida?: boolean | null
+          colaborador_id?: string
+          created_at?: string | null
+          descricao?: string | null
+          id?: string
+          mes_referencia?: string
+          percentual_atingido?: number | null
+          tipo_bonus?: string
+          titulo?: string
+          updated_at?: string | null
+          valor_atingido?: string | null
+          valor_bonus?: number
+          valor_meta?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "metas_individuais_colaborador_id_fkey"
+            columns: ["colaborador_id"]
+            isOneToOne: false
+            referencedRelation: "colaboradores"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       modulos: {
         Row: {
@@ -560,6 +850,62 @@ export type Database = {
             columns: ["fechamento_id"]
             isOneToOne: false
             referencedRelation: "fechamento_comissao"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vendas_servicos: {
+        Row: {
+          aprovado_em: string | null
+          aprovado_por: string | null
+          cliente: string
+          colaborador_id: string
+          created_at: string | null
+          data_venda: string
+          descricao_servico: string
+          id: string
+          mes_referencia: string
+          motivo_rejeicao: string | null
+          observacoes: string | null
+          status: string | null
+          valor_servico: number
+        }
+        Insert: {
+          aprovado_em?: string | null
+          aprovado_por?: string | null
+          cliente: string
+          colaborador_id: string
+          created_at?: string | null
+          data_venda: string
+          descricao_servico: string
+          id?: string
+          mes_referencia: string
+          motivo_rejeicao?: string | null
+          observacoes?: string | null
+          status?: string | null
+          valor_servico: number
+        }
+        Update: {
+          aprovado_em?: string | null
+          aprovado_por?: string | null
+          cliente?: string
+          colaborador_id?: string
+          created_at?: string | null
+          data_venda?: string
+          descricao_servico?: string
+          id?: string
+          mes_referencia?: string
+          motivo_rejeicao?: string | null
+          observacoes?: string | null
+          status?: string | null
+          valor_servico?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vendas_servicos_colaborador_id_fkey"
+            columns: ["colaborador_id"]
+            isOneToOne: false
+            referencedRelation: "colaboradores"
             referencedColumns: ["id"]
           },
         ]
