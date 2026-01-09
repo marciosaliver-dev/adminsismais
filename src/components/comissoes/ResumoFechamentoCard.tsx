@@ -16,6 +16,10 @@ interface ResumoFechamentoCardProps {
   comissoes: ComissaoCalculada[];
   ajustes: AjusteComissao[];
   metaBatida: boolean;
+  mrrBaseComissao: number;
+  bonusEquipePercent: number;
+  bonusEmpresaPercent: number;
+  bonusEquipeTotal: number;
   bonusEmpresaTotal: number;
   totalColaboradores: number;
 }
@@ -27,14 +31,22 @@ const formatCurrency = (value: number) => {
   }).format(value);
 };
 
+const formatPercent = (value: number) => {
+  return `${(value * 100).toFixed(1)}%`;
+};
+
 export function ResumoFechamentoCard({
   comissoes,
   ajustes,
   metaBatida,
+  mrrBaseComissao,
+  bonusEquipePercent,
+  bonusEmpresaPercent,
+  bonusEquipeTotal,
   bonusEmpresaTotal,
   totalColaboradores,
 }: ResumoFechamentoCardProps) {
-  // Calcular totais
+  // Calcular totais das comissões
   const totals = comissoes.reduce(
     (acc, c) => ({
       vendas: acc.vendas + c.qtd_vendas,
@@ -69,7 +81,7 @@ export function ResumoFechamentoCard({
 
   const totalAjustes = totalCreditos - totalDebitos;
 
-  // Calcular bônus empresa rateado
+  // Calcular bônus empresa rateado por colaborador
   const bonusEmpresaIndividual = metaBatida && totalColaboradores > 0
     ? bonusEmpresaTotal / totalColaboradores
     : 0;
@@ -92,7 +104,7 @@ export function ResumoFechamentoCard({
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {/* Coluna 1: Vendas e MRR */}
           <div className="space-y-4">
             <h4 className="font-semibold text-sm text-muted-foreground uppercase tracking-wider">
@@ -106,6 +118,12 @@ export function ResumoFechamentoCard({
               <div className="flex justify-between">
                 <span className="text-muted-foreground">MRR Total:</span>
                 <span className="font-medium">{formatCurrency(totals.mrrTotal)}</span>
+              </div>
+              <div className="flex justify-between border-t pt-2">
+                <span className="text-muted-foreground font-medium">MRR Base Comissão:</span>
+                <span className="font-bold text-cyan-700 dark:text-cyan-400">
+                  {formatCurrency(mrrBaseComissao)}
+                </span>
               </div>
             </div>
           </div>
@@ -131,24 +149,51 @@ export function ResumoFechamentoCard({
             </div>
           </div>
 
-          {/* Coluna 3: Bônus Meta */}
+          {/* Coluna 3: Bônus Equipe */}
           <div className="space-y-4">
             <h4 className="font-semibold text-sm text-muted-foreground uppercase tracking-wider">
-              Bônus Meta Empresa
+              Bônus Equipe ({formatPercent(bonusEquipePercent)})
             </h4>
             <div className="space-y-2">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Bônus Total:</span>
-                <span className="font-medium">{formatCurrency(bonusEmpresaTotal)}</span>
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>Fórmula:</span>
+                <span>MRR Base × {formatPercent(bonusEquipePercent)} × % Participação</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Colaboradores:</span>
-                <span className="font-medium">{totalColaboradores}</span>
+                <span className="text-muted-foreground">Total Bônus Equipe:</span>
+                <span className="font-medium">
+                  {metaBatida ? formatCurrency(bonusEquipeTotal) : "-"}
+                </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Valor por Pessoa:</span>
+                <span className="text-muted-foreground">Distribuído:</span>
+                <span className="font-medium">
+                  {formatCurrency(totals.bonusMetaEquipe)}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Coluna 4: Bônus Empresa */}
+          <div className="space-y-4">
+            <h4 className="font-semibold text-sm text-muted-foreground uppercase tracking-wider">
+              Bônus Empresa ({formatPercent(bonusEmpresaPercent)})
+            </h4>
+            <div className="space-y-2">
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>Fórmula:</span>
+                <span>MRR Base × {formatPercent(bonusEmpresaPercent)} ÷ {totalColaboradores}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Total Bônus:</span>
+                <span className="font-medium">
+                  {metaBatida ? formatCurrency(bonusEmpresaTotal) : "-"}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Por Colaborador:</span>
                 <span className="font-semibold text-success">
-                  {formatCurrency(bonusEmpresaIndividual)}
+                  {metaBatida ? formatCurrency(bonusEmpresaIndividual) : "-"}
                 </span>
               </div>
             </div>

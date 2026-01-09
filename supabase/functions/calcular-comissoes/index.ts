@@ -230,15 +230,20 @@ Deno.serve(async (req) => {
         somaMrrEquipe += dados.mrr_comissao;
       }
 
+      // Total MRR base de comissão = soma de mrr_comissao de todos vendedores
+      const mrrBaseComissao = somaMrrEquipe;
+
       for (const dados of vendedoresMap.values()) {
-        // Passo 7: Bônus meta equipe (proporcional)
+        // Passo 7: Bônus meta equipe (proporcional à participação)
+        // Fórmula: (MRR Base Comissão * % bonus equipe) * (mrr_comissao vendedor / MRR total)
         if (somaMrrEquipe > 0) {
           const proporcao = dados.mrr_comissao / somaMrrEquipe;
-          dados.bonus_meta_equipe = totalMrrEmpresa * bonusMetaEquipePercent * proporcao;
+          dados.bonus_meta_equipe = mrrBaseComissao * bonusMetaEquipePercent * proporcao;
         }
 
-        // Passo 8: Bônus empresa (igual para todos)
-        dados.bonus_empresa = (totalMrrEmpresa * bonusMetaEmpresaPercent) / numColaboradores;
+        // Passo 8: Bônus empresa (igual para todos colaboradores)
+        // Fórmula: (MRR Base Comissão * % bonus empresa) / num_colaboradores
+        dados.bonus_empresa = (mrrBaseComissao * bonusMetaEmpresaPercent) / numColaboradores;
       }
     }
 

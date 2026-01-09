@@ -175,8 +175,18 @@ export default function ResultadoFechamento() {
   });
 
   const metaMrr = metaMensal?.meta_mrr || parseFloat(configuracoes.find((c) => c.chave === "meta_mrr")?.valor || "0");
-  const bonusEmpresaTotal = metaMensal?.bonus_meta_empresa || 0;
+  const bonusEquipePercent = (metaMensal?.bonus_meta_equipe || 10) / 100;
+  const bonusEmpresaPercent = (metaMensal?.bonus_meta_empresa || 10) / 100;
   const totalColaboradores = metaMensal?.num_colaboradores || comissoes.length;
+  
+  // Calcular MRR base de comissão (soma de mrr_comissao de todos vendedores)
+  const mrrBaseComissao = comissoes.reduce((sum, c) => sum + c.mrr_comissao, 0);
+  
+  // Calcular bônus com base nos parâmetros corretos
+  // Bonus Equipe: (MRR Base Comissão * % bonus equipe) - distribuído proporcionalmente
+  const bonusEquipeTotal = mrrBaseComissao * bonusEquipePercent;
+  // Bonus Empresa: (MRR Base Comissão * % bonus empresa) / num colaboradores
+  const bonusEmpresaTotal = fechamento?.meta_batida ? (mrrBaseComissao * bonusEmpresaPercent) : 0;
 
   // Add ajuste mutation
   const addAjusteMutation = useMutation({
@@ -636,7 +646,7 @@ export default function ResultadoFechamento() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Total Vendas</CardTitle>
@@ -646,25 +656,34 @@ export default function ResultadoFechamento() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="bg-cyan-50 dark:bg-cyan-950/30 border-cyan-200 dark:border-cyan-800">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">MRR Total</CardTitle>
+            <CardTitle className="text-sm font-medium text-cyan-700 dark:text-cyan-400">MRR Total Equipe</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold">{formatCurrency(fechamento.total_mrr)}</p>
+            <p className="text-3xl font-bold text-cyan-700 dark:text-cyan-400">{formatCurrency(fechamento.total_mrr)}</p>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-cyan-100 dark:bg-cyan-900/40 border-cyan-300 dark:border-cyan-700">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-cyan-800 dark:text-cyan-300">MRR Base Comissão</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-bold text-cyan-800 dark:text-cyan-300">{formatCurrency(mrrBaseComissao)}</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Meta</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Meta MRR</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-bold">{formatCurrency(metaMrr)}</p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className={fechamento.meta_batida ? "bg-success/10 border-success/30" : "bg-destructive/10 border-destructive/30"}>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Status</CardTitle>
           </CardHeader>
@@ -683,6 +702,10 @@ export default function ResultadoFechamento() {
         comissoes={comissoes}
         ajustes={ajustes}
         metaBatida={fechamento.meta_batida}
+        mrrBaseComissao={mrrBaseComissao}
+        bonusEquipePercent={bonusEquipePercent}
+        bonusEmpresaPercent={bonusEmpresaPercent}
+        bonusEquipeTotal={bonusEquipeTotal}
         bonusEmpresaTotal={bonusEmpresaTotal}
         totalColaboradores={totalColaboradores}
       />
