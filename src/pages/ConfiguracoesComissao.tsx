@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -31,14 +31,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Plus, Pencil, Trash2, Save, Calendar, Target } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { Plus, Pencil, Trash2, Calendar, Target, Users, TrendingUp, Settings2, ChevronRight } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import type { Tables } from "@/integrations/supabase/types";
-import { format, parse } from "date-fns";
+import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 type FaixaComissao = Tables<"faixa_comissao">;
-type ConfiguracaoComissao = Tables<"configuracao_comissao">;
 
 interface MetaMensal {
   id: string;
@@ -52,7 +53,6 @@ interface MetaMensal {
   multiplicador_anual: number;
   comissao_venda_unica: number;
   ltv_medio: number;
-  // Parâmetros de fechamento de equipe
   assinaturas_inicio_mes: number;
   limite_churn: number;
   limite_cancelamentos: number;
@@ -84,6 +84,9 @@ const formatMonthYear = (dateStr: string) => {
 
 export default function ConfiguracoesComissao() {
   const queryClient = useQueryClient();
+  const [activeTab, setActiveTab] = useState("metas");
+  
+  // Faixa states
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [editingFaixa, setEditingFaixa] = useState<FaixaComissao | null>(null);
@@ -101,6 +104,7 @@ export default function ConfiguracoesComissao() {
   const [isDeleteMetaDialogOpen, setIsDeleteMetaDialogOpen] = useState(false);
   const [editingMeta, setEditingMeta] = useState<MetaMensal | null>(null);
   const [deletingMeta, setDeletingMeta] = useState<MetaMensal | null>(null);
+  const [metaFormStep, setMetaFormStep] = useState<1 | 2 | 3>(1);
   const [metaForm, setMetaForm] = useState({
     mes_referencia: "",
     meta_mrr: 0,
@@ -112,7 +116,6 @@ export default function ConfiguracoesComissao() {
     multiplicador_anual: 2,
     comissao_venda_unica: 10,
     ltv_medio: 6,
-    // Parâmetros de fechamento de equipe
     assinaturas_inicio_mes: 0,
     limite_churn: 5,
     limite_cancelamentos: 50,
@@ -198,7 +201,6 @@ export default function ConfiguracoesComissao() {
   // Delete faixa mutation
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      // Check if faixa is being used
       const { data: usedFaixas } = await supabase
         .from("comissao_calculada")
         .select("id")
@@ -244,7 +246,6 @@ export default function ConfiguracoesComissao() {
         multiplicador_anual: metaForm.multiplicador_anual,
         comissao_venda_unica: metaForm.comissao_venda_unica,
         ltv_medio: metaForm.ltv_medio,
-        // Parâmetros de fechamento de equipe
         assinaturas_inicio_mes: metaForm.assinaturas_inicio_mes,
         limite_churn: metaForm.limite_churn,
         limite_cancelamentos: metaForm.limite_cancelamentos,
@@ -334,6 +335,7 @@ export default function ConfiguracoesComissao() {
       percentual_bonus_retencao: 3,
     });
     setEditingMeta(null);
+    setMetaFormStep(1);
   };
 
   const openEditDialog = (faixa: FaixaComissao) => {
@@ -372,6 +374,7 @@ export default function ConfiguracoesComissao() {
       percentual_bonus_churn: meta.percentual_bonus_churn || 3,
       percentual_bonus_retencao: meta.percentual_bonus_retencao || 3,
     });
+    setMetaFormStep(1);
     setIsMetaDialogOpen(true);
   };
 
@@ -381,7 +384,6 @@ export default function ConfiguracoesComissao() {
   };
 
   const handleFaixaSubmit = () => {
-    // Validation
     if (!faixaForm.nome.trim()) {
       toast({ title: "Erro", description: "Nome é obrigatório.", variant: "destructive" });
       return;
@@ -394,12 +396,10 @@ export default function ConfiguracoesComissao() {
       });
       return;
     }
-
     faixaMutation.mutate();
   };
 
   const handleMetaSubmit = () => {
-    // Validation
     if (!metaForm.mes_referencia) {
       toast({ title: "Erro", description: "Mês de referência é obrigatório.", variant: "destructive" });
       return;
@@ -408,180 +408,230 @@ export default function ConfiguracoesComissao() {
       toast({ title: "Erro", description: "Meta de MRR deve ser maior que zero.", variant: "destructive" });
       return;
     }
-
     metaMutation.mutate();
   };
+
+  const stepLabels = [
+    { step: 1, label: "Metas", icon: Target },
+    { step: 2, label: "Bônus", icon: TrendingUp },
+    { step: 3, label: "Equipe", icon: Users },
+  ];
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-heading font-bold">Configurações de Comissão</h1>
+        <h1 className="text-3xl font-heading font-bold">Configurações</h1>
         <p className="text-muted-foreground mt-1">
-          Gerencie faixas de comissão e metas
+          Gerencie metas, faixas de comissão e parâmetros de fechamento
         </p>
       </div>
 
-      {/* Seção 1: Faixas de Comissão */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
-            📊 Faixas de Comissão
-          </CardTitle>
-          <Button
-            onClick={() => {
-              resetFaixaForm();
-              setIsDialogOpen(true);
-            }}
-            className="gap-2"
-          >
-            <Plus className="w-4 h-4" />
-            Nova Faixa
-          </Button>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nome</TableHead>
-                <TableHead>MRR Mín</TableHead>
-                <TableHead>MRR Máx</TableHead>
-                <TableHead>Percentual</TableHead>
-                <TableHead className="text-right">Ações</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loadingFaixas ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center">
-                    Carregando...
-                  </TableCell>
-                </TableRow>
-              ) : faixas.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center text-muted-foreground">
-                    Nenhuma faixa cadastrada
-                  </TableCell>
-                </TableRow>
-              ) : (
-                faixas.map((faixa) => (
-                  <TableRow key={faixa.id}>
-                    <TableCell className="font-medium">{faixa.nome}</TableCell>
-                    <TableCell>{formatCurrency(faixa.mrr_min)}</TableCell>
-                    <TableCell>
-                      {faixa.mrr_max ? formatCurrency(faixa.mrr_max) : "—"}
-                    </TableCell>
-                    <TableCell>{formatPercent(faixa.percentual)}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          onClick={() => openEditDialog(faixa)}
-                        >
-                          <Pencil className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          className="text-destructive hover:text-destructive"
-                          onClick={() => openDeleteDialog(faixa)}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-
-      {/* Seção 2: Metas Mensais */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
-            <Calendar className="w-5 h-5" />
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+        <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsTrigger value="metas" className="gap-2">
+            <Calendar className="h-4 w-4" />
             Metas Mensais
-          </CardTitle>
-          <Button
-            onClick={() => {
-              resetMetaForm();
-              setIsMetaDialogOpen(true);
-            }}
-            className="gap-2"
-          >
-            <Plus className="w-4 h-4" />
-            Nova Meta
-          </Button>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Mês</TableHead>
-                <TableHead>Meta MRR</TableHead>
-                <TableHead>Meta Qtd</TableHead>
-                <TableHead>LTV</TableHead>
-                <TableHead>Bônus Equipe</TableHead>
-                <TableHead>Bônus Empresa</TableHead>
-                <TableHead>Colaboradores</TableHead>
-                <TableHead className="text-right">Ações</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loadingMetas ? (
-                <TableRow>
-                  <TableCell colSpan={8} className="text-center">
-                    Carregando...
-                  </TableCell>
-                </TableRow>
-              ) : metasMensais.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={8} className="text-center text-muted-foreground">
-                    Nenhuma meta mensal cadastrada
-                  </TableCell>
-                </TableRow>
-              ) : (
-                metasMensais.map((meta) => (
-                  <TableRow key={meta.id}>
-                    <TableCell className="font-medium capitalize">
-                      {formatMonthYear(meta.mes_referencia)}
-                    </TableCell>
-                    <TableCell>{formatCurrency(meta.meta_mrr)}</TableCell>
-                    <TableCell>{meta.meta_quantidade}</TableCell>
-                    <TableCell>{meta.ltv_medio} meses</TableCell>
-                    <TableCell>{formatPercent(meta.bonus_meta_equipe)}</TableCell>
-                    <TableCell>{formatPercent(meta.bonus_meta_empresa)}</TableCell>
-                    <TableCell>{meta.num_colaboradores}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          onClick={() => openEditMetaDialog(meta)}
-                        >
-                          <Pencil className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          className="text-destructive hover:text-destructive"
-                          onClick={() => openDeleteMetaDialog(meta)}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+          </TabsTrigger>
+          <TabsTrigger value="faixas" className="gap-2">
+            <TrendingUp className="h-4 w-4" />
+            Faixas de Comissão
+          </TabsTrigger>
+        </TabsList>
 
+        {/* Metas Mensais Tab */}
+        <TabsContent value="metas" className="space-y-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <div>
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <Calendar className="w-5 h-5 text-primary" />
+                  Metas e Configurações Mensais
+                </CardTitle>
+                <CardDescription>
+                  Defina metas de vendas, parâmetros de comissão e bônus de equipe para cada mês
+                </CardDescription>
+              </div>
+              <Button
+                onClick={() => {
+                  resetMetaForm();
+                  setIsMetaDialogOpen(true);
+                }}
+                className="gap-2"
+              >
+                <Plus className="w-4 h-4" />
+                Nova Configuração
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {loadingMetas ? (
+                  <div className="text-center py-8 text-muted-foreground">Carregando...</div>
+                ) : metasMensais.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground border rounded-lg border-dashed">
+                    Nenhuma configuração mensal cadastrada
+                  </div>
+                ) : (
+                  metasMensais.map((meta) => (
+                    <Card key={meta.id} className="hover:bg-accent/50 transition-colors">
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-4">
+                            <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-primary/10">
+                              <Calendar className="w-6 h-6 text-primary" />
+                            </div>
+                            <div>
+                              <h3 className="font-semibold capitalize text-lg">
+                                {formatMonthYear(meta.mes_referencia)}
+                              </h3>
+                              <div className="flex items-center gap-3 text-sm text-muted-foreground mt-1">
+                                <span className="flex items-center gap-1">
+                                  <Target className="w-3 h-3" />
+                                  MRR: {formatCurrency(meta.meta_mrr)}
+                                </span>
+                                <span>•</span>
+                                <span>Qtd: {meta.meta_quantidade}</span>
+                                <span>•</span>
+                                <span className="flex items-center gap-1">
+                                  <Users className="w-3 h-3" />
+                                  {meta.num_colaboradores} colab.
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center gap-6">
+                            <div className="hidden md:flex items-center gap-4 text-sm">
+                              <div className="text-center px-3 py-1 rounded bg-green-500/10">
+                                <div className="text-xs text-muted-foreground">Bônus Equipe</div>
+                                <div className="font-medium text-green-600">{meta.bonus_meta_equipe}%</div>
+                              </div>
+                              <div className="text-center px-3 py-1 rounded bg-blue-500/10">
+                                <div className="text-xs text-muted-foreground">Bônus Empresa</div>
+                                <div className="font-medium text-blue-600">{meta.bonus_meta_empresa}%</div>
+                              </div>
+                              {meta.assinaturas_inicio_mes > 0 && (
+                                <div className="text-center px-3 py-1 rounded bg-purple-500/10">
+                                  <div className="text-xs text-muted-foreground">Clientes</div>
+                                  <div className="font-medium text-purple-600">{meta.assinaturas_inicio_mes}</div>
+                                </div>
+                              )}
+                            </div>
+                            
+                            <div className="flex gap-2">
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                onClick={() => openEditMetaDialog(meta)}
+                              >
+                                <Pencil className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                className="text-destructive hover:text-destructive"
+                                onClick={() => openDeleteMetaDialog(meta)}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Faixas de Comissão Tab */}
+        <TabsContent value="faixas" className="space-y-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <div>
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <TrendingUp className="w-5 h-5 text-primary" />
+                  Faixas de Comissão
+                </CardTitle>
+                <CardDescription>
+                  Configure os percentuais de comissão por faixa de MRR
+                </CardDescription>
+              </div>
+              <Button
+                onClick={() => {
+                  resetFaixaForm();
+                  setIsDialogOpen(true);
+                }}
+                className="gap-2"
+              >
+                <Plus className="w-4 h-4" />
+                Nova Faixa
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nome</TableHead>
+                    <TableHead>MRR Mín</TableHead>
+                    <TableHead>MRR Máx</TableHead>
+                    <TableHead>Percentual</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {loadingFaixas ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center">
+                        Carregando...
+                      </TableCell>
+                    </TableRow>
+                  ) : faixas.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center text-muted-foreground">
+                        Nenhuma faixa cadastrada
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    faixas.map((faixa) => (
+                      <TableRow key={faixa.id}>
+                        <TableCell className="font-medium">{faixa.nome}</TableCell>
+                        <TableCell>{formatCurrency(faixa.mrr_min)}</TableCell>
+                        <TableCell>
+                          {faixa.mrr_max ? formatCurrency(faixa.mrr_max) : "—"}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="secondary">{formatPercent(faixa.percentual)}</Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              onClick={() => openEditDialog(faixa)}
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              className="text-destructive hover:text-destructive"
+                              onClick={() => openDeleteDialog(faixa)}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       {/* Dialog para criar/editar faixa */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -668,7 +718,7 @@ export default function ConfiguracoesComissao() {
         </DialogContent>
       </Dialog>
 
-      {/* Alert Dialog para confirmar exclusão */}
+      {/* Alert Dialog para confirmar exclusão de faixa */}
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -690,252 +740,365 @@ export default function ConfiguracoesComissao() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Dialog para criar/editar meta mensal */}
-      <Dialog open={isMetaDialogOpen} onOpenChange={setIsMetaDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      {/* Dialog para criar/editar meta mensal - Multi-step */}
+      <Dialog open={isMetaDialogOpen} onOpenChange={(open) => {
+        setIsMetaDialogOpen(open);
+        if (!open) setMetaFormStep(1);
+      }}>
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>
-              {editingMeta ? "Editar Meta Mensal" : "Nova Meta Mensal"}
+            <DialogTitle className="flex items-center gap-2">
+              <Settings2 className="w-5 h-5" />
+              {editingMeta ? "Editar Configuração Mensal" : "Nova Configuração Mensal"}
             </DialogTitle>
             <DialogDescription>
-              Defina metas e configurações de bônus para o mês
+              Configure metas de vendas e parâmetros de fechamento de equipe
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="mes_referencia">Mês de Referência</Label>
-              <Input
-                id="mes_referencia"
-                type="month"
-                value={metaForm.mes_referencia?.substring(0, 7) || ""}
-                onChange={(e) =>
-                  setMetaForm({ ...metaForm, mes_referencia: e.target.value + "-01" })
-                }
-              />
-            </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="meta_mrr_form">Meta de MRR</Label>
-                <Input
-                  id="meta_mrr_form"
-                  type="number"
-                  value={metaForm.meta_mrr}
-                  onChange={(e) =>
-                    setMetaForm({ ...metaForm, meta_mrr: Number(e.target.value) })
-                  }
-                  placeholder="Ex: 8500"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="meta_quantidade_form">Meta de Quantidade</Label>
-                <Input
-                  id="meta_quantidade_form"
-                  type="number"
-                  value={metaForm.meta_quantidade}
-                  onChange={(e) =>
-                    setMetaForm({ ...metaForm, meta_quantidade: Number(e.target.value) })
-                  }
-                  placeholder="Ex: 130"
-                />
-              </div>
-            </div>
 
-            <div className="border-t pt-4">
-              <h4 className="text-sm font-medium mb-4">Configurações de Bônus</h4>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="bonus_meta_equipe_form">Bônus Meta Equipe (%)</Label>
-                  <Input
-                    id="bonus_meta_equipe_form"
-                    type="number"
-                    step="1"
-                    min="0"
-                    max="100"
-                    value={metaForm.bonus_meta_equipe}
-                    onChange={(e) =>
-                      setMetaForm({ ...metaForm, bonus_meta_equipe: Number(e.target.value) })
-                    }
-                    placeholder="Ex: 10"
-                  />
-                  <p className="text-xs text-muted-foreground">Digite 10 para 10%</p>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="bonus_meta_empresa_form">Bônus Meta Empresa (%)</Label>
-                  <Input
-                    id="bonus_meta_empresa_form"
-                    type="number"
-                    step="1"
-                    min="0"
-                    max="100"
-                    value={metaForm.bonus_meta_empresa}
-                    onChange={(e) =>
-                      setMetaForm({ ...metaForm, bonus_meta_empresa: Number(e.target.value) })
-                    }
-                    placeholder="Ex: 10"
-                  />
-                  <p className="text-xs text-muted-foreground">Digite 10 para 10%</p>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="num_colaboradores_form">Nº Colaboradores</Label>
-                  <Input
-                    id="num_colaboradores_form"
-                    type="number"
-                    min="1"
-                    value={metaForm.num_colaboradores}
-                    onChange={(e) =>
-                      setMetaForm({ ...metaForm, num_colaboradores: Number(e.target.value) })
-                    }
-                    placeholder="Ex: 12"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="multiplicador_anual_form">Multiplicador Venda Anual</Label>
-                  <Input
-                    id="multiplicador_anual_form"
-                    type="number"
-                    step="0.1"
-                    min="1"
-                    value={metaForm.multiplicador_anual}
-                    onChange={(e) =>
-                      setMetaForm({ ...metaForm, multiplicador_anual: Number(e.target.value) })
-                    }
-                    placeholder="Ex: 2"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="comissao_venda_unica_form">Comissão Venda Única (%)</Label>
-                  <Input
-                    id="comissao_venda_unica_form"
-                    type="number"
-                    step="1"
-                    min="0"
-                    max="100"
-                    value={metaForm.comissao_venda_unica}
-                    onChange={(e) =>
-                      setMetaForm({ ...metaForm, comissao_venda_unica: Number(e.target.value) })
-                    }
-                    placeholder="Ex: 10"
-                  />
-                  <p className="text-xs text-muted-foreground">Digite 10 para 10% sobre adesão</p>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="ltv_medio_form">LTV Médio (meses)</Label>
-                  <Input
-                    id="ltv_medio_form"
-                    type="number"
-                    min="1"
-                    max="120"
-                    value={metaForm.ltv_medio}
-                    onChange={(e) =>
-                      setMetaForm({ ...metaForm, ltv_medio: Number(e.target.value) })
-                    }
-                    placeholder="Ex: 6"
-                  />
-                  <p className="text-xs text-muted-foreground">Para cálculo de Faturamento Total</p>
-                </div>
+          {/* Step Indicator */}
+          <div className="flex items-center justify-center gap-2 py-4 border-b">
+            {stepLabels.map(({ step, label, icon: Icon }, index) => (
+              <div key={step} className="flex items-center">
+                <button
+                  type="button"
+                  onClick={() => setMetaFormStep(step as 1 | 2 | 3)}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                    metaFormStep === step
+                      ? "bg-primary text-primary-foreground"
+                      : metaFormStep > step
+                      ? "bg-primary/20 text-primary"
+                      : "bg-muted text-muted-foreground"
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  <span className="text-sm font-medium">{label}</span>
+                </button>
+                {index < stepLabels.length - 1 && (
+                  <ChevronRight className="w-4 h-4 mx-2 text-muted-foreground" />
+                )}
               </div>
-            </div>
-
-            {/* Seção: Parâmetros de Fechamento de Equipe */}
-            <div className="border-t pt-4">
-              <h4 className="text-sm font-medium mb-4">📊 Parâmetros de Fechamento de Equipe</h4>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="assinaturas_inicio_mes_form">Clientes no Início do Mês</Label>
-                  <Input
-                    id="assinaturas_inicio_mes_form"
-                    type="number"
-                    min="0"
-                    value={metaForm.assinaturas_inicio_mes}
-                    onChange={(e) =>
-                      setMetaForm({ ...metaForm, assinaturas_inicio_mes: Number(e.target.value) })
-                    }
-                    placeholder="Ex: 2000"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="limite_churn_form">Limite Churn (%)</Label>
-                  <Input
-                    id="limite_churn_form"
-                    type="number"
-                    step="0.1"
-                    min="0"
-                    max="100"
-                    value={metaForm.limite_churn}
-                    onChange={(e) =>
-                      setMetaForm({ ...metaForm, limite_churn: Number(e.target.value) })
-                    }
-                    placeholder="Ex: 5"
-                  />
-                  <p className="text-xs text-muted-foreground">Bônus liberado se churn &lt; este limite</p>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="limite_cancelamentos_form">Limite Cancelamentos (%)</Label>
-                  <Input
-                    id="limite_cancelamentos_form"
-                    type="number"
-                    step="0.1"
-                    min="0"
-                    max="100"
-                    value={metaForm.limite_cancelamentos}
-                    onChange={(e) =>
-                      setMetaForm({ ...metaForm, limite_cancelamentos: Number(e.target.value) })
-                    }
-                    placeholder="Ex: 50"
-                  />
-                  <p className="text-xs text-muted-foreground">Cancelamentos &lt; % das vendas</p>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="percentual_bonus_churn_form">% Bônus Churn</Label>
-                  <Input
-                    id="percentual_bonus_churn_form"
-                    type="number"
-                    step="0.1"
-                    min="0"
-                    max="100"
-                    value={metaForm.percentual_bonus_churn}
-                    onChange={(e) =>
-                      setMetaForm({ ...metaForm, percentual_bonus_churn: Number(e.target.value) })
-                    }
-                    placeholder="Ex: 3"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="percentual_bonus_retencao_form">% Bônus Retenção</Label>
-                  <Input
-                    id="percentual_bonus_retencao_form"
-                    type="number"
-                    step="0.1"
-                    min="0"
-                    max="100"
-                    value={metaForm.percentual_bonus_retencao}
-                    onChange={(e) =>
-                      setMetaForm({ ...metaForm, percentual_bonus_retencao: Number(e.target.value) })
-                    }
-                    placeholder="Ex: 3"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="observacao">Observação (opcional)</Label>
-              <Input
-                id="observacao"
-                value={metaForm.observacao}
-                onChange={(e) => setMetaForm({ ...metaForm, observacao: e.target.value })}
-                placeholder="Ex: Meta especial fim de ano"
-              />
-            </div>
+            ))}
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsMetaDialogOpen(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={handleMetaSubmit} disabled={metaMutation.isPending}>
-              Salvar
-            </Button>
+
+          <div className="py-4 min-h-[320px]">
+            {/* Step 1: Metas */}
+            {metaFormStep === 1 && (
+              <div className="space-y-6">
+                <div className="space-y-2">
+                  <Label htmlFor="mes_referencia">Mês de Referência</Label>
+                  <Input
+                    id="mes_referencia"
+                    type="month"
+                    value={metaForm.mes_referencia?.substring(0, 7) || ""}
+                    onChange={(e) =>
+                      setMetaForm({ ...metaForm, mes_referencia: e.target.value + "-01" })
+                    }
+                  />
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="meta_mrr_form">Meta de MRR</Label>
+                    <Input
+                      id="meta_mrr_form"
+                      type="number"
+                      value={metaForm.meta_mrr}
+                      onChange={(e) =>
+                        setMetaForm({ ...metaForm, meta_mrr: Number(e.target.value) })
+                      }
+                      placeholder="Ex: 8500"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="meta_quantidade_form">Meta de Quantidade</Label>
+                    <Input
+                      id="meta_quantidade_form"
+                      type="number"
+                      value={metaForm.meta_quantidade}
+                      onChange={(e) =>
+                        setMetaForm({ ...metaForm, meta_quantidade: Number(e.target.value) })
+                      }
+                      placeholder="Ex: 130"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="ltv_medio_form">LTV Médio (meses)</Label>
+                    <Input
+                      id="ltv_medio_form"
+                      type="number"
+                      min="1"
+                      max="120"
+                      value={metaForm.ltv_medio}
+                      onChange={(e) =>
+                        setMetaForm({ ...metaForm, ltv_medio: Number(e.target.value) })
+                      }
+                      placeholder="Ex: 6"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="num_colaboradores_form">Nº Colaboradores</Label>
+                    <Input
+                      id="num_colaboradores_form"
+                      type="number"
+                      min="1"
+                      value={metaForm.num_colaboradores}
+                      onChange={(e) =>
+                        setMetaForm({ ...metaForm, num_colaboradores: Number(e.target.value) })
+                      }
+                      placeholder="Ex: 12"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="observacao">Observação (opcional)</Label>
+                  <Input
+                    id="observacao"
+                    value={metaForm.observacao}
+                    onChange={(e) => setMetaForm({ ...metaForm, observacao: e.target.value })}
+                    placeholder="Ex: Meta especial fim de ano"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Step 2: Bônus Vendedores */}
+            {metaFormStep === 2 && (
+              <div className="space-y-6">
+                <div className="p-4 rounded-lg bg-muted/50">
+                  <h4 className="text-sm font-medium mb-2">Configurações de Comissão de Vendedores</h4>
+                  <p className="text-xs text-muted-foreground">
+                    Estes parâmetros são usados no cálculo de comissão individual dos vendedores
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="bonus_meta_equipe_form">Bônus Meta Equipe (%)</Label>
+                    <Input
+                      id="bonus_meta_equipe_form"
+                      type="number"
+                      step="1"
+                      min="0"
+                      max="100"
+                      value={metaForm.bonus_meta_equipe}
+                      onChange={(e) =>
+                        setMetaForm({ ...metaForm, bonus_meta_equipe: Number(e.target.value) })
+                      }
+                    />
+                    <p className="text-xs text-muted-foreground">% sobre MRR individual se meta equipe batida</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="bonus_meta_empresa_form">Bônus Meta Empresa (%)</Label>
+                    <Input
+                      id="bonus_meta_empresa_form"
+                      type="number"
+                      step="1"
+                      min="0"
+                      max="100"
+                      value={metaForm.bonus_meta_empresa}
+                      onChange={(e) =>
+                        setMetaForm({ ...metaForm, bonus_meta_empresa: Number(e.target.value) })
+                      }
+                    />
+                    <p className="text-xs text-muted-foreground">% sobre MRR total ÷ colaboradores</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="multiplicador_anual_form">Multiplicador Venda Anual</Label>
+                    <Input
+                      id="multiplicador_anual_form"
+                      type="number"
+                      step="0.1"
+                      min="1"
+                      value={metaForm.multiplicador_anual}
+                      onChange={(e) =>
+                        setMetaForm({ ...metaForm, multiplicador_anual: Number(e.target.value) })
+                      }
+                    />
+                    <p className="text-xs text-muted-foreground">MRR × multiplicador para vendas anuais</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="comissao_venda_unica_form">Comissão Venda Única (%)</Label>
+                    <Input
+                      id="comissao_venda_unica_form"
+                      type="number"
+                      step="1"
+                      min="0"
+                      max="100"
+                      value={metaForm.comissao_venda_unica}
+                      onChange={(e) =>
+                        setMetaForm({ ...metaForm, comissao_venda_unica: Number(e.target.value) })
+                      }
+                    />
+                    <p className="text-xs text-muted-foreground">% sobre valor de adesão</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Step 3: Parâmetros de Fechamento de Equipe */}
+            {metaFormStep === 3 && (
+              <div className="space-y-6">
+                <div className="p-4 rounded-lg bg-primary/5 border border-primary/20">
+                  <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
+                    <Users className="w-4 h-4 text-primary" />
+                    Parâmetros de Fechamento de Equipe
+                  </h4>
+                  <p className="text-xs text-muted-foreground">
+                    Estes valores serão usados no fechamento de bônus da equipe
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="assinaturas_inicio_mes_form">Clientes no Início do Mês</Label>
+                    <Input
+                      id="assinaturas_inicio_mes_form"
+                      type="number"
+                      min="0"
+                      value={metaForm.assinaturas_inicio_mes}
+                      onChange={(e) =>
+                        setMetaForm({ ...metaForm, assinaturas_inicio_mes: Number(e.target.value) })
+                      }
+                      placeholder="Ex: 2000"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="limite_churn_form">Limite Churn (%)</Label>
+                    <Input
+                      id="limite_churn_form"
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      max="100"
+                      value={metaForm.limite_churn}
+                      onChange={(e) =>
+                        setMetaForm({ ...metaForm, limite_churn: Number(e.target.value) })
+                      }
+                      placeholder="Ex: 5"
+                    />
+                    <p className="text-xs text-muted-foreground">Bônus liberado se churn &lt; limite</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="limite_cancelamentos_form">Limite Cancelamentos (%)</Label>
+                    <Input
+                      id="limite_cancelamentos_form"
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      max="100"
+                      value={metaForm.limite_cancelamentos}
+                      onChange={(e) =>
+                        setMetaForm({ ...metaForm, limite_cancelamentos: Number(e.target.value) })
+                      }
+                      placeholder="Ex: 50"
+                    />
+                    <p className="text-xs text-muted-foreground">Cancelamentos &lt; % das vendas</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="percentual_bonus_meta_form">% Bônus Meta Equipe</Label>
+                    <Input
+                      id="percentual_bonus_meta_form"
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      max="100"
+                      value={metaForm.bonus_meta_equipe}
+                      onChange={(e) =>
+                        setMetaForm({ ...metaForm, bonus_meta_equipe: Number(e.target.value) })
+                      }
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="percentual_bonus_churn_form">% Bônus Churn</Label>
+                    <Input
+                      id="percentual_bonus_churn_form"
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      max="100"
+                      value={metaForm.percentual_bonus_churn}
+                      onChange={(e) =>
+                        setMetaForm({ ...metaForm, percentual_bonus_churn: Number(e.target.value) })
+                      }
+                    />
+                    <p className="text-xs text-muted-foreground">% sobre MRR se churn controlado</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="percentual_bonus_retencao_form">% Bônus Retenção</Label>
+                    <Input
+                      id="percentual_bonus_retencao_form"
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      max="100"
+                      value={metaForm.percentual_bonus_retencao}
+                      onChange={(e) =>
+                        setMetaForm({ ...metaForm, percentual_bonus_retencao: Number(e.target.value) })
+                      }
+                    />
+                    <p className="text-xs text-muted-foreground">% sobre MRR se retenção atingida</p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <div className="flex gap-2 w-full sm:w-auto">
+              {metaFormStep > 1 && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setMetaFormStep((prev) => (prev - 1) as 1 | 2 | 3)}
+                >
+                  Voltar
+                </Button>
+              )}
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setIsMetaDialogOpen(false);
+                  setMetaFormStep(1);
+                }}
+              >
+                Cancelar
+              </Button>
+            </div>
+            <div className="flex gap-2 w-full sm:w-auto">
+              {metaFormStep < 3 ? (
+                <Button
+                  type="button"
+                  onClick={() => setMetaFormStep((prev) => (prev + 1) as 1 | 2 | 3)}
+                  className="w-full sm:w-auto"
+                >
+                  Próximo
+                  <ChevronRight className="w-4 h-4 ml-2" />
+                </Button>
+              ) : (
+                <Button
+                  onClick={handleMetaSubmit}
+                  disabled={metaMutation.isPending}
+                  className="w-full sm:w-auto"
+                >
+                  Salvar Configuração
+                </Button>
+              )}
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -946,9 +1109,9 @@ export default function ConfiguracoesComissao() {
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja excluir a meta de{" "}
-              {deletingMeta && formatMonthYear(deletingMeta.mes_referencia)}? Esta ação
-              não pode ser desfeita.
+              Tem certeza que deseja excluir a configuração de{" "}
+              {deletingMeta && formatMonthYear(deletingMeta.mes_referencia)}? Esta ação não pode
+              ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
