@@ -820,10 +820,12 @@ export default function Assinaturas() {
         );
         
         // Calcular MRR = (Valor da cobrança / ciclo) * 30
-        const mrr = calcularMRREduzz(valorCobranca, cicloDias);
+        const mrrCalculado = calcularMRREduzz(valorCobranca, cicloDias);
+        // Garantir que MRR seja um número válido (não NaN, não Infinity)
+        const mrrFinal = Number.isFinite(mrrCalculado) ? Math.round(mrrCalculado * 100) / 100 : 0;
         
         // LTV = Total pago (já é o valor histórico acumulado)
-        const ltv = totalPago;
+        const ltv = Number.isFinite(totalPago) ? totalPago : 0;
         
         return {
           codigo_assinatura: String(row['Contrato'] || `eduzz_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`),
@@ -835,8 +837,9 @@ export default function Assinaturas() {
           doc_contato: String(row['Cliente / Documento'] || '').replace(/[^\d]/g, '') || null,
           email_contato: (row['Cliente / E-mail'] || row['Cliente / Email']) as string || null,
           telefone_contato: (row['Cliente / Fones'] || row['Cliente / Telefone']) as string || null,
-          valor_assinatura: valorCobranca,
+          valor_assinatura: Number.isFinite(valorCobranca) ? valorCobranca : 0,
           valor_liquido: ltv, // LTV como valor líquido acumulado
+          mrr: mrrFinal, // MRR calculado e validado
           ciclo_dias: cicloDias,
           data_inicio: dataInicio,
           data_status: ultimoPagamento, // Último pagamento como data de status
@@ -850,7 +853,6 @@ export default function Assinaturas() {
           quantidade_cobrancas: cobrancasPagas,
           parcelamento: 1,
           cupom: null,
-          mrr: mrr, // MRR calculado
         };
       })
       // IMPORTANTE: Filtrar registros com cobranças pagas = 0 (não devem entrar nos relatórios)
