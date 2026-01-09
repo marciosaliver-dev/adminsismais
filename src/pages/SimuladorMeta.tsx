@@ -48,6 +48,7 @@ interface SimuladorInputs {
   comissaoVenda: number;
   vendedoresAtuais: number;
   ltvMeses: number;
+  clientesAtivos: number;
 }
 
 interface SimuladorOutputs {
@@ -82,6 +83,7 @@ const defaultInputs: SimuladorInputs = {
   comissaoVenda: 5,
   vendedoresAtuais: 1,
   ltvMeses: 12,
+  clientesAtivos: 0,
 };
 
 const formatCurrency = (value: number) =>
@@ -411,7 +413,17 @@ export default function SimuladorMeta() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid gap-4 sm:grid-cols-3">
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="space-y-2">
+                  <Label>Clientes Ativos</Label>
+                  <Input
+                    type="number"
+                    value={inputs.clientesAtivos}
+                    onChange={e => updateInput("clientesAtivos", Number(e.target.value))}
+                    min={0}
+                  />
+                  <p className="text-xs text-muted-foreground">Base atual de clientes</p>
+                </div>
                 <div className="space-y-2">
                   <Label>Ticket Médio (R$)</Label>
                   <Input
