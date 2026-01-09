@@ -604,14 +604,30 @@ export default function Assinaturas() {
   // Parse Excel file based on platform
   const parseExcelFile = useCallback(async (file: File, plataforma: Plataforma) => {
     const data = await file.arrayBuffer();
-    const workbook = XLSX.read(data, { type: "array", cellDates: true });
+    // IMPORTANTE: cellDates: false para evitar conversão de timezone pelo XLSX
+    // raw: false para obter valores já formatados como string
+    const workbook = XLSX.read(data, { type: "array", cellDates: false, raw: false });
     const sheetName = workbook.SheetNames[0];
     const worksheet = workbook.Sheets[sheetName];
-    const jsonData = XLSX.utils.sheet_to_json(worksheet, { raw: true });
+    const jsonData = XLSX.utils.sheet_to_json(worksheet, { raw: false, defval: null });
 
-    // Usa parseDateBR do extratoUtils para tratamento correto de timezone
-    const parseDate = (dateStr: string | number | Date | null | undefined): string | null => {
-      return parseDateBR(dateStr);
+    // Parser de data SEM timezone - trata serial dates e strings
+    const parseDate = (dateValue: string | number | Date | null | undefined): string | null => {
+      if (!dateValue) return null;
+      
+      // Se for número (Excel serial date)
+      if (typeof dateValue === 'number') {
+        // Excel serial date: dias desde 1/1/1900 (com bug do leap year 1900)
+        const excelEpoch = new Date(Date.UTC(1899, 11, 30));
+        const date = new Date(excelEpoch.getTime() + dateValue * 86400000);
+        const year = date.getUTCFullYear();
+        const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+        const day = String(date.getUTCDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      }
+      
+      // Se for string, usar parseDateBR
+      return parseDateBR(dateValue);
     };
 
     const parseValue = (val: string | number | null | undefined): number => {
