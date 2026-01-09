@@ -246,6 +246,110 @@ export type Database = {
         }
         Relationships: []
       }
+      contratos_assinatura: {
+        Row: {
+          cancelado_por: string | null
+          ciclo_dias: number
+          codigo_assinatura: string
+          created_at: string
+          cupom: string | null
+          data_cancelamento: string | null
+          data_fim_ciclo: string | null
+          data_inicio: string | null
+          data_proximo_ciclo: string | null
+          data_status: string | null
+          doc_contato: string | null
+          email_contato: string | null
+          forma_pagamento: string | null
+          id: string
+          importacao_id: string | null
+          motivo_cancelamento: string | null
+          mrr: number | null
+          nome_assinatura: string | null
+          nome_contato: string | null
+          nome_oferta: string | null
+          nome_produto: string | null
+          parcelamento: number | null
+          plataforma: string
+          quantidade_cobrancas: number | null
+          status: string
+          telefone_contato: string | null
+          updated_at: string
+          valor_assinatura: number
+          valor_liquido: number | null
+        }
+        Insert: {
+          cancelado_por?: string | null
+          ciclo_dias?: number
+          codigo_assinatura: string
+          created_at?: string
+          cupom?: string | null
+          data_cancelamento?: string | null
+          data_fim_ciclo?: string | null
+          data_inicio?: string | null
+          data_proximo_ciclo?: string | null
+          data_status?: string | null
+          doc_contato?: string | null
+          email_contato?: string | null
+          forma_pagamento?: string | null
+          id?: string
+          importacao_id?: string | null
+          motivo_cancelamento?: string | null
+          mrr?: number | null
+          nome_assinatura?: string | null
+          nome_contato?: string | null
+          nome_oferta?: string | null
+          nome_produto?: string | null
+          parcelamento?: number | null
+          plataforma: string
+          quantidade_cobrancas?: number | null
+          status?: string
+          telefone_contato?: string | null
+          updated_at?: string
+          valor_assinatura?: number
+          valor_liquido?: number | null
+        }
+        Update: {
+          cancelado_por?: string | null
+          ciclo_dias?: number
+          codigo_assinatura?: string
+          created_at?: string
+          cupom?: string | null
+          data_cancelamento?: string | null
+          data_fim_ciclo?: string | null
+          data_inicio?: string | null
+          data_proximo_ciclo?: string | null
+          data_status?: string | null
+          doc_contato?: string | null
+          email_contato?: string | null
+          forma_pagamento?: string | null
+          id?: string
+          importacao_id?: string | null
+          motivo_cancelamento?: string | null
+          mrr?: number | null
+          nome_assinatura?: string | null
+          nome_contato?: string | null
+          nome_oferta?: string | null
+          nome_produto?: string | null
+          parcelamento?: number | null
+          plataforma?: string
+          quantidade_cobrancas?: number | null
+          status?: string
+          telefone_contato?: string | null
+          updated_at?: string
+          valor_assinatura?: number
+          valor_liquido?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contratos_assinatura_importacao_id_fkey"
+            columns: ["importacao_id"]
+            isOneToOne: false
+            referencedRelation: "importacoes_assinaturas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       extrato_asaas: {
         Row: {
           created_at: string
@@ -644,6 +748,51 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      importacoes_assinaturas: {
+        Row: {
+          arquivo_nome: string
+          created_at: string
+          id: string
+          observacao: string | null
+          periodo_referencia: string
+          plataforma: string
+          registros_atualizados: number | null
+          registros_novos: number | null
+          status: string
+          total_contratos_ativos: number | null
+          total_mrr: number | null
+          total_registros: number | null
+        }
+        Insert: {
+          arquivo_nome: string
+          created_at?: string
+          id?: string
+          observacao?: string | null
+          periodo_referencia: string
+          plataforma: string
+          registros_atualizados?: number | null
+          registros_novos?: number | null
+          status?: string
+          total_contratos_ativos?: number | null
+          total_mrr?: number | null
+          total_registros?: number | null
+        }
+        Update: {
+          arquivo_nome?: string
+          created_at?: string
+          id?: string
+          observacao?: string | null
+          periodo_referencia?: string
+          plataforma?: string
+          registros_atualizados?: number | null
+          registros_novos?: number | null
+          status?: string
+          total_contratos_ativos?: number | null
+          total_mrr?: number | null
+          total_registros?: number | null
+        }
+        Relationships: []
       }
       importacoes_extrato: {
         Row: {

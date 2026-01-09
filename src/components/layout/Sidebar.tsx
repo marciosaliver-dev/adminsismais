@@ -70,6 +70,7 @@ const navSections: NavSection[] = [
     items: [
       { title: "📄 Extrato Asaas", icon: FileSpreadsheet, href: "/extrato-asaas", permission: "extrato.visualizar" },
       { title: "📄 Extrato Eduzz", icon: FileSpreadsheet, href: "/extrato-eduzz", permission: "extrato.visualizar" },
+      { title: "📈 Assinaturas & MRR", icon: TrendingUp, href: "/assinaturas", permission: "extrato.visualizar" },
     ],
   },
   {
