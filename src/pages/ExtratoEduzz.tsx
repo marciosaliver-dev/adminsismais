@@ -470,11 +470,12 @@ export default function ExtratoEduzz() {
         tipo_transacao: string;
         descricao: string;
         valor: number;
+        unique_key: string; // Chave única para identificar duplicados (fatura + tipo + valor)
       }
 
       const registrosParaInserir: EduzzRow[] = [];
-      const faturaIdsNoArquivo = new Set<string>();
-      const faturaIds: string[] = [];
+      const uniqueKeysNoArquivo = new Set<string>();
+      const uniqueKeys: string[] = [];
       let totalVendas = 0;
       let minDate = "9999-99-99";
       let maxDate = "0000-00-00";
@@ -486,54 +487,71 @@ export default function ExtratoEduzz() {
         
         const [dataStr, descricao, tipoTransacao, fatura, valorStr] = parts;
         
-        if (!fatura || !dataStr) continue;
+        // Permitir registros sem fatura (tarifas, transferências, etc.)
+        if (!dataStr) continue;
 
-        // Skip duplicates within the same file
-        if (faturaIdsNoArquivo.has(fatura)) continue;
-        faturaIdsNoArquivo.add(fatura);
+        const data = parseDate(dataStr);
+        const valor = parseValue(valorStr);
+        
+        // Gerar ID único para registros sem fatura
+        const faturaId = fatura?.trim() || `SEM_FATURA_${data}_${i}`;
+        
+        // Criar chave única combinando fatura + tipo + valor + data para permitir 
+        // mesma fatura com lançamentos diferentes (ex: receita e estorno)
+        const uniqueKey = `${faturaId}|${tipoTransacao || 'Venda'}|${valor}|${data}`;
+
+        // Skip duplicates within the same file based on unique key
+        if (uniqueKeysNoArquivo.has(uniqueKey)) continue;
+        uniqueKeysNoArquivo.add(uniqueKey);
 
         if (i % 50 === 0) {
           setProcessProgress(10 + Math.floor((i / totalRows) * 40));
           setProcessStatus(`Processando linha ${i + 1} de ${totalRows}...`);
         }
 
-        const data = parseDate(dataStr);
-        const valor = parseValue(valorStr);
-
-        faturaIds.push(fatura);
+        uniqueKeys.push(uniqueKey);
         totalVendas += valor;
 
         if (data < minDate) minDate = data;
         if (data > maxDate) maxDate = data;
 
         registrosParaInserir.push({
-          fatura_id: fatura,
+          fatura_id: faturaId,
           data,
-          tipo_transacao: tipoTransacao || "Venda",
+          tipo_transacao: tipoTransacao || "Lançamento",
           descricao: descricao || "",
           valor,
+          unique_key: uniqueKey,
         });
       }
 
       setProcessProgress(55);
       setProcessStatus("Verificando duplicados...");
 
-      // Check for existing fatura_ids
+      // Check for existing records based on unique combination (fatura + tipo + valor + data)
       const existentesSet = new Set<string>();
-      const BATCH_CHECK_SIZE = 500;
-      for (let i = 0; i < faturaIds.length; i += BATCH_CHECK_SIZE) {
-        const batch = faturaIds.slice(i, i + BATCH_CHECK_SIZE);
+      const BATCH_CHECK_SIZE = 200;
+      
+      // Buscar todos os registros existentes para o período e verificar duplicados
+      const faturaIdsUnicos = [...new Set(registrosParaInserir.map(r => r.fatura_id))];
+      
+      for (let i = 0; i < faturaIdsUnicos.length; i += BATCH_CHECK_SIZE) {
+        const batch = faturaIdsUnicos.slice(i, i + BATCH_CHECK_SIZE);
         const { data: existentes } = await supabase
           .from("extrato_eduzz")
-          .select("fatura_id")
+          .select("fatura_id, tipo_transacao, valor, data")
           .in("fatura_id", batch);
         
-        existentes?.forEach((e) => existentesSet.add(e.fatura_id));
+        existentes?.forEach((e) => {
+          // Criar chave única do registro existente
+          const existingKey = `${e.fatura_id}|${e.tipo_transacao}|${e.valor}|${e.data}`;
+          existentesSet.add(existingKey);
+        });
       }
 
-      const novosRegistros = registrosParaInserir.filter((r) => !existentesSet.has(r.fatura_id));
+      const novosRegistros = registrosParaInserir.filter((r) => !existentesSet.has(r.unique_key));
       const duplicadosIds = registrosParaInserir
-        .filter((r) => existentesSet.has(r.fatura_id))
+        .filter((r) => existentesSet.has(r.unique_key))
         .map((r) => r.fatura_id);
       const duplicados = duplicadosIds.length;
 
@@ -575,9 +593,12 @@ export default function ExtratoEduzz() {
 
         setProcessStatus(`Importando lote ${loteAtual} de ${totalLotes}... (${lote.length} registros)`);
 
+        // Remover unique_key antes de inserir (campo auxiliar apenas)
+        const loteParaInserir = lote.map(({ unique_key, ...rest }) => rest);
+
         const { error: insertError } = await supabase
           .from("extrato_eduzz")
-          .upsert(lote, { onConflict: 'fatura_id', ignoreDuplicates: true });
+          .insert(loteParaInserir);
 
         if (insertError) {
           console.error("Erro ao inserir lote:", insertError);
