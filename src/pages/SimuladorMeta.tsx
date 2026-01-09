@@ -35,10 +35,23 @@ import {
   Info,
   ArrowUpRight,
   Zap,
+  LineChart as LineChartIcon,
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip as RechartsTooltip,
+  ResponsiveContainer,
+  ReferenceLine,
+  Area,
+  ComposedChart,
+} from "recharts";
 
 interface SimuladorInputs {
   mrrAtual: number;
@@ -326,6 +339,29 @@ export default function SimuladorMeta() {
       arProjetado,
     };
   }, [inputs]);
+
+  // Dados para o gráfico de projeção de MRR
+  const chartData = useMemo(() => {
+    const meses = outputs.mesesAteData;
+    const taxaCrescimento = outputs.crescimentoMensalMrr / 100;
+    const data = [];
+    
+    for (let i = 0; i <= meses; i++) {
+      const mesData = addMonths(new Date(), i);
+      const mrrProjetado = inputs.mrrAtual * Math.pow(1 + taxaCrescimento, i);
+      const mrrMeta = inputs.mrrMeta;
+      
+      data.push({
+        mes: format(mesData, "MMM/yy", { locale: ptBR }),
+        mesCompleto: format(mesData, "MMMM 'de' yyyy", { locale: ptBR }),
+        mrrProjetado: Math.round(mrrProjetado),
+        mrrMeta: mrrMeta,
+        percentualMeta: Math.round((mrrProjetado / mrrMeta) * 100),
+      });
+    }
+    
+    return data;
+  }, [inputs.mrrAtual, inputs.mrrMeta, outputs.mesesAteData, outputs.crescimentoMensalMrr]);
 
   // Efeito para calcular MRR automaticamente baseado em clientes ativos e ticket médio
   // Só calcula se não estiver em modo manual
@@ -1108,6 +1144,100 @@ export default function SimuladorMeta() {
                   <p className="text-xs text-muted-foreground">
                     {formatNumber(outputs.novasVendas)} vendas × LTV {inputs.ltvMeses}m
                   </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Gráfico de Projeção MRR */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <LineChartIcon className="w-5 h-5 text-primary" />
+                Projeção de Evolução do MRR
+              </CardTitle>
+              <CardDescription>
+                Crescimento mensal de {formatPercent(outputs.crescimentoMensalMrr)} até atingir a meta
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[300px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <ComposedChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                    <defs>
+                      <linearGradient id="mrrGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    <XAxis
+                      dataKey="mes"
+                      className="text-xs fill-muted-foreground"
+                      tick={{ fontSize: 11 }}
+                      tickLine={false}
+                    />
+                    <YAxis
+                      className="text-xs fill-muted-foreground"
+                      tick={{ fontSize: 11 }}
+                      tickLine={false}
+                      tickFormatter={(value) => `R$ ${(value / 1000).toFixed(0)}k`}
+                    />
+                    <RechartsTooltip
+                      contentStyle={{
+                        backgroundColor: "hsl(var(--card))",
+                        border: "1px solid hsl(var(--border))",
+                        borderRadius: "8px",
+                        boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
+                      }}
+                      formatter={(value: number, name: string) => [
+                        formatCurrency(value),
+                        name === "mrrProjetado" ? "MRR Projetado" : "Meta",
+                      ]}
+                      labelFormatter={(label, payload) => {
+                        if (payload && payload[0]) {
+                          return payload[0].payload.mesCompleto;
+                        }
+                        return label;
+                      }}
+                    />
+                    <ReferenceLine
+                      y={inputs.mrrMeta}
+                      stroke="hsl(var(--destructive))"
+                      strokeDasharray="5 5"
+                      strokeWidth={2}
+                      label={{
+                        value: `Meta: ${formatCurrency(inputs.mrrMeta)}`,
+                        position: "insideTopRight",
+                        fill: "hsl(var(--destructive))",
+                        fontSize: 12,
+                      }}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="mrrProjetado"
+                      stroke="transparent"
+                      fill="url(#mrrGradient)"
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="mrrProjetado"
+                      stroke="hsl(var(--primary))"
+                      strokeWidth={3}
+                      dot={{ fill: "hsl(var(--primary))", strokeWidth: 0, r: 4 }}
+                      activeDot={{ r: 6, strokeWidth: 2, stroke: "hsl(var(--background))" }}
+                    />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="mt-4 flex flex-wrap items-center justify-center gap-6 text-sm">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-primary" />
+                  <span className="text-muted-foreground">MRR Projetado</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-0.5 bg-destructive" style={{ borderStyle: "dashed" }} />
+                  <span className="text-muted-foreground">Meta: {formatCurrency(inputs.mrrMeta)}</span>
                 </div>
               </div>
             </CardContent>
