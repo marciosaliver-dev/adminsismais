@@ -908,6 +908,7 @@ export type Database = {
           mes_referencia: string
           motivo_rejeicao: string | null
           observacoes: string | null
+          plataforma: string | null
           status: string | null
           valor_servico: number
         }
@@ -923,6 +924,7 @@ export type Database = {
           mes_referencia: string
           motivo_rejeicao?: string | null
           observacoes?: string | null
+          plataforma?: string | null
           status?: string | null
           valor_servico: number
         }
@@ -938,6 +940,7 @@ export type Database = {
           mes_referencia?: string
           motivo_rejeicao?: string | null
           observacoes?: string | null
+          plataforma?: string | null
           status?: string | null
           valor_servico?: number
         }

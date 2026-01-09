@@ -48,6 +48,7 @@ interface VendaServico {
   aprovado_em: string | null;
   motivo_rejeicao: string | null;
   observacoes: string | null;
+  plataforma: string | null;
   created_at: string;
   colaboradores?: {
     nome: string;
@@ -67,6 +68,7 @@ interface VendaForm {
   valor_servico: string;
   data_venda: string;
   observacoes: string;
+  plataforma: string;
 }
 
 const SERVICOS_SUGERIDOS = [
@@ -79,6 +81,13 @@ const SERVICOS_SUGERIDOS = [
   "Integração",
 ];
 
+const PLATAFORMAS = [
+  "Guru Manager",
+  "Banco Inter",
+  "Eduzz",
+  "GalaxyPay",
+];
+
 const initialFormState: VendaForm = {
   colaborador_id: "",
   cliente: "",
@@ -86,6 +95,7 @@ const initialFormState: VendaForm = {
   valor_servico: "",
   data_venda: format(new Date(), "yyyy-MM-dd"),
   observacoes: "",
+  plataforma: "Guru Manager",
 };
 
 export default function VendasServicos() {
@@ -145,6 +155,7 @@ export default function VendasServicos() {
         data_venda: data.data_venda,
         mes_referencia: format(mesReferenciaDate, "yyyy-MM-dd"),
         observacoes: data.observacoes || null,
+        plataforma: data.plataforma,
         status: "pendente",
       });
 
@@ -380,6 +391,7 @@ export default function VendasServicos() {
                     <TableHead>Colaborador</TableHead>
                     <TableHead>Cliente</TableHead>
                     <TableHead>Serviço</TableHead>
+                    <TableHead>Plataforma</TableHead>
                     <TableHead className="text-right">Valor</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
@@ -388,7 +400,7 @@ export default function VendasServicos() {
                 <TableBody>
                   {filteredVendas?.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                         Nenhuma venda encontrada
                       </TableCell>
                     </TableRow>
@@ -403,6 +415,9 @@ export default function VendasServicos() {
                         </TableCell>
                         <TableCell>{venda.cliente}</TableCell>
                         <TableCell>{venda.descricao_servico}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{venda.plataforma || "Guru Manager"}</Badge>
+                        </TableCell>
                         <TableCell className="text-right font-medium">
                           {formatCurrency(venda.valor_servico)}
                         </TableCell>
@@ -527,6 +542,25 @@ export default function VendasServicos() {
                   onChange={(e) => setFormData({ ...formData, data_venda: e.target.value })}
                 />
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="plataforma">Plataforma de Recebimento *</Label>
+              <Select
+                value={formData.plataforma}
+                onValueChange={(value) => setFormData({ ...formData, plataforma: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione a plataforma" />
+                </SelectTrigger>
+                <SelectContent>
+                  {PLATAFORMAS.map((p) => (
+                    <SelectItem key={p} value={p}>
+                      {p}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="space-y-2">

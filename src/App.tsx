@@ -19,6 +19,7 @@ import Colaboradores from "./pages/equipe/Colaboradores";
 import VendasServicos from "./pages/equipe/VendasServicos";
 import MetasIndividuais from "./pages/equipe/MetasIndividuais";
 import FechamentoEquipe from "./pages/equipe/FechamentoEquipe";
+import LancarVendaPublica from "./pages/LancarVendaPublica";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
@@ -32,8 +33,9 @@ const App = () => (
       <BrowserRouter>
         <AuthProvider>
           <Routes>
-            {/* Public route */}
+            {/* Public routes */}
             <Route path="/auth" element={<Auth />} />
+            <Route path="/lancar-venda" element={<LancarVendaPublica />} />
             
             {/* Redirect root to comissoes */}
             <Route path="/" element={<Navigate to="/comissoes" replace />} />
