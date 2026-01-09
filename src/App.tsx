@@ -20,6 +20,7 @@ import VendasServicos from "./pages/equipe/VendasServicos";
 import MetasIndividuais from "./pages/equipe/MetasIndividuais";
 import FechamentoEquipe from "./pages/equipe/FechamentoEquipe";
 import LancarVendaPublica from "./pages/LancarVendaPublica";
+import SimuladorMeta from "./pages/SimuladorMeta";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
@@ -87,6 +88,16 @@ const App = () => (
                 <ProtectedRoute>
                   <Layout>
                     <RelatorioVendas />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/comissoes/simulador"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <SimuladorMeta />
                   </Layout>
                 </ProtectedRoute>
               }
