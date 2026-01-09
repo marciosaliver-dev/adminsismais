@@ -436,8 +436,11 @@ export default function ExtratoEduzz() {
 
   const parseValue = (valueStr: string): number => {
     if (!valueStr) return 0;
-    // Format: 568,01 (Brazilian format)
-    const cleaned = valueStr.toString().trim().replace(/\s/g, "").replace(",", ".");
+    // Format: -11.941,25 (Brazilian format with thousand separator as dot and decimal as comma)
+    let cleaned = valueStr.toString().trim().replace(/\s/g, "");
+    // Remove thousand separators (dots) but keep the decimal comma
+    // First, replace all dots (thousand separators), then replace comma with dot (decimal)
+    cleaned = cleaned.replace(/\./g, "").replace(",", ".");
     return parseFloat(cleaned) || 0;
   };
 
