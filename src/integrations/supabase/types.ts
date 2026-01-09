@@ -55,6 +55,54 @@ export type Database = {
           },
         ]
       }
+      ajuste_fechamento_equipe: {
+        Row: {
+          colaborador_id: string | null
+          created_at: string
+          created_by: string | null
+          descricao: string
+          fechamento_equipe_id: string
+          id: string
+          tipo: string
+          valor: number
+        }
+        Insert: {
+          colaborador_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          descricao: string
+          fechamento_equipe_id: string
+          id?: string
+          tipo: string
+          valor?: number
+        }
+        Update: {
+          colaborador_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          descricao?: string
+          fechamento_equipe_id?: string
+          id?: string
+          tipo?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ajuste_fechamento_equipe_colaborador_id_fkey"
+            columns: ["colaborador_id"]
+            isOneToOne: false
+            referencedRelation: "colaboradores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ajuste_fechamento_equipe_fechamento_equipe_id_fkey"
+            columns: ["fechamento_equipe_id"]
+            isOneToOne: false
+            referencedRelation: "fechamento_equipe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       colaboradores: {
         Row: {
           ativo: boolean | null
@@ -440,6 +488,7 @@ export type Database = {
           mes_referencia: string
           meta_atingida: boolean | null
           meta_vendas: number | null
+          mrr_base_comissao: number | null
           mrr_mes: number | null
           percentual_bonus_churn: number | null
           percentual_bonus_meta: number | null
@@ -447,6 +496,7 @@ export type Database = {
           percentual_meta: number | null
           status: string | null
           total_colaboradores_participantes: number | null
+          total_comissoes_vendedores: number | null
           updated_at: string | null
           valor_bonus_meta_individual: number | null
           valor_bonus_meta_total: number | null
@@ -469,6 +519,7 @@ export type Database = {
           mes_referencia: string
           meta_atingida?: boolean | null
           meta_vendas?: number | null
+          mrr_base_comissao?: number | null
           mrr_mes?: number | null
           percentual_bonus_churn?: number | null
           percentual_bonus_meta?: number | null
@@ -476,6 +527,7 @@ export type Database = {
           percentual_meta?: number | null
           status?: string | null
           total_colaboradores_participantes?: number | null
+          total_comissoes_vendedores?: number | null
           updated_at?: string | null
           valor_bonus_meta_individual?: number | null
           valor_bonus_meta_total?: number | null
@@ -498,6 +550,7 @@ export type Database = {
           mes_referencia?: string
           meta_atingida?: boolean | null
           meta_vendas?: number | null
+          mrr_base_comissao?: number | null
           mrr_mes?: number | null
           percentual_bonus_churn?: number | null
           percentual_bonus_meta?: number | null
@@ -505,6 +558,7 @@ export type Database = {
           percentual_meta?: number | null
           status?: string | null
           total_colaboradores_participantes?: number | null
+          total_comissoes_vendedores?: number | null
           updated_at?: string | null
           valor_bonus_meta_individual?: number | null
           valor_bonus_meta_total?: number | null

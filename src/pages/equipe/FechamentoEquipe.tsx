@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import {
   Table,
@@ -26,6 +27,10 @@ import {
   AlertCircle,
   FileText,
   RefreshCw,
+  Plus,
+  Trash2,
+  Settings,
+  Save,
 } from "lucide-react";
 import { format, startOfMonth, parse } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -34,7 +39,17 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface FechamentoEquipe {
   id: string;
@@ -44,6 +59,8 @@ interface FechamentoEquipe {
   cancelamentos_mes: number | null;
   churn_rate: number | null;
   mrr_mes: number | null;
+  mrr_base_comissao: number | null;
+  total_comissoes_vendedores: number | null;
   meta_vendas: number | null;
   meta_atingida: boolean | null;
   percentual_meta: number | null;
@@ -90,15 +107,25 @@ interface Colaborador {
   percentual_comissao: number | null;
 }
 
-interface MetaMensal {
-  meta_quantidade: number;
-  meta_mrr: number;
+interface AjusteFechamentoEquipe {
+  id: string;
+  fechamento_equipe_id: string;
+  colaborador_id: string | null;
+  tipo: string;
+  valor: number;
+  descricao: string;
+  created_at: string;
 }
 
-interface FechamentoComissao {
-  total_vendas: number;
-  total_mrr: number;
-  meta_batida: boolean;
+interface ConfiguracaoBase {
+  assinaturasInicioMes: number;
+  cancelamentosMes: number;
+  limiteChurn: number;
+  limiteCancelamentos: number;
+  percentualBonusChurn: number;
+  percentualBonusRetencao: number;
+  percentualBonusMeta: number;
+  metaVendas: number;
 }
 
 export default function FechamentoEquipe() {
@@ -109,6 +136,24 @@ export default function FechamentoEquipe() {
     open: boolean;
     colaborador: FechamentoColaborador | null;
   }>({ open: false, colaborador: null });
+  const [configModal, setConfigModal] = useState(false);
+  const [ajusteModal, setAjusteModal] = useState(false);
+  const [novoAjuste, setNovoAjuste] = useState({
+    colaborador_id: "",
+    tipo: "credito" as "credito" | "debito",
+    valor: 0,
+    descricao: "",
+  });
+  const [configBase, setConfigBase] = useState<ConfiguracaoBase>({
+    assinaturasInicioMes: 0,
+    cancelamentosMes: 0,
+    limiteChurn: 5,
+    limiteCancelamentos: 50,
+    percentualBonusChurn: 3,
+    percentualBonusRetencao: 3,
+    percentualBonusMeta: 10,
+    metaVendas: 0,
+  });
 
   const mesReferenciaDate = startOfMonth(parse(mesReferencia, "yyyy-MM", new Date()));
 
@@ -144,6 +189,37 @@ export default function FechamentoEquipe() {
     enabled: !!fechamento?.id,
   });
 
+  // Buscar ajustes manuais
+  const { data: ajustes = [], refetch: refetchAjustes } = useQuery({
+    queryKey: ["ajustes-fechamento-equipe", fechamento?.id],
+    queryFn: async () => {
+      if (!fechamento?.id) return [];
+      const { data, error } = await supabase
+        .from("ajuste_fechamento_equipe")
+        .select("*")
+        .eq("fechamento_equipe_id", fechamento.id)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      return data as AjusteFechamentoEquipe[];
+    },
+    enabled: !!fechamento?.id,
+  });
+
+  // Buscar todos colaboradores para o select de ajuste
+  const { data: todosColaboradores = [] } = useQuery({
+    queryKey: ["colaboradores-ativos"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("colaboradores")
+        .select("id, nome")
+        .eq("ativo", true)
+        .order("nome");
+      if (error) throw error;
+      return data;
+    },
+  });
+
   // Buscar dados para cálculo
   const { data: dadosCalculo } = useQuery({
     queryKey: ["dados-calculo-fechamento", mesReferencia],
@@ -165,9 +241,24 @@ export default function FechamentoEquipe() {
       // Buscar fechamento de comissão (vendedores)
       const { data: fechamentoComissao } = await supabase
         .from("fechamento_comissao")
-        .select("total_vendas, total_mrr, meta_batida")
+        .select("id, total_vendas, total_mrr, meta_batida")
         .eq("mes_referencia", format(mesReferenciaDate, "yyyy-MM-dd"))
         .maybeSingle();
+
+      // Buscar comissões calculadas para obter MRR base comissão
+      let mrrBaseComissao = 0;
+      let totalComissoesVendedores = 0;
+      if (fechamentoComissao?.id) {
+        const { data: comissoes } = await supabase
+          .from("comissao_calculada")
+          .select("mrr_comissao, total_receber")
+          .eq("fechamento_id", fechamentoComissao.id);
+        
+        if (comissoes) {
+          mrrBaseComissao = comissoes.reduce((sum, c) => sum + c.mrr_comissao, 0);
+          totalComissoesVendedores = comissoes.reduce((sum, c) => sum + c.total_receber, 0);
+        }
+      }
 
       // Buscar vendas de serviços aprovadas
       const { data: vendasServicos } = await supabase
@@ -182,13 +273,132 @@ export default function FechamentoEquipe() {
         .select("colaborador_id, valor_bonus, tipo_bonus, atingida, colaboradores(salario_base)")
         .eq("mes_referencia", format(mesReferenciaDate, "yyyy-MM-dd"));
 
+      // Contar apenas vendas recorrentes
+      let qtdVendasRecorrentes = 0;
+      if (fechamentoComissao?.id) {
+        const { data: vendas, count } = await supabase
+          .from("venda_importada")
+          .select("*", { count: "exact", head: true })
+          .eq("fechamento_id", fechamentoComissao.id)
+          .not("intervalo", "ilike", "%única%")
+          .neq("intervalo", "Venda Única");
+        
+        qtdVendasRecorrentes = count || 0;
+      }
+
       return {
         colaboradores: colaboradores as Colaborador[] || [],
-        meta: meta as MetaMensal | null,
-        fechamentoComissao: fechamentoComissao as FechamentoComissao | null,
+        meta,
+        fechamentoComissao,
         vendasServicos: vendasServicos || [],
         metasIndividuais: metasIndividuais || [],
+        mrrBaseComissao,
+        totalComissoesVendedores,
+        qtdVendasRecorrentes,
       };
+    },
+  });
+
+  // Atualizar configBase quando fechamento mudar
+  useState(() => {
+    if (fechamento) {
+      setConfigBase({
+        assinaturasInicioMes: fechamento.assinaturas_inicio_mes || 0,
+        cancelamentosMes: fechamento.cancelamentos_mes || 0,
+        limiteChurn: fechamento.limite_churn || 5,
+        limiteCancelamentos: fechamento.limite_cancelamentos || 50,
+        percentualBonusChurn: fechamento.percentual_bonus_churn || 3,
+        percentualBonusRetencao: fechamento.percentual_bonus_retencao || 3,
+        percentualBonusMeta: fechamento.percentual_bonus_meta || 10,
+        metaVendas: fechamento.meta_vendas || 0,
+      });
+    }
+  });
+
+  // Mutation para salvar configuração
+  const salvarConfigMutation = useMutation({
+    mutationFn: async () => {
+      if (!fechamento?.id) {
+        // Criar fechamento primeiro
+        const { data, error } = await supabase
+          .from("fechamento_equipe")
+          .insert({
+            mes_referencia: format(mesReferenciaDate, "yyyy-MM-dd"),
+            assinaturas_inicio_mes: configBase.assinaturasInicioMes,
+            cancelamentos_mes: configBase.cancelamentosMes,
+            limite_churn: configBase.limiteChurn,
+            limite_cancelamentos: configBase.limiteCancelamentos,
+            percentual_bonus_churn: configBase.percentualBonusChurn,
+            percentual_bonus_retencao: configBase.percentualBonusRetencao,
+            percentual_bonus_meta: configBase.percentualBonusMeta,
+            meta_vendas: configBase.metaVendas,
+            status: "rascunho",
+          })
+          .select("id")
+          .single();
+        if (error) throw error;
+        return data;
+      } else {
+        const { error } = await supabase
+          .from("fechamento_equipe")
+          .update({
+            assinaturas_inicio_mes: configBase.assinaturasInicioMes,
+            cancelamentos_mes: configBase.cancelamentosMes,
+            limite_churn: configBase.limiteChurn,
+            limite_cancelamentos: configBase.limiteCancelamentos,
+            percentual_bonus_churn: configBase.percentualBonusChurn,
+            percentual_bonus_retencao: configBase.percentualBonusRetencao,
+            percentual_bonus_meta: configBase.percentualBonusMeta,
+            meta_vendas: configBase.metaVendas,
+          })
+          .eq("id", fechamento.id);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["fechamento-equipe"] });
+      refetchFechamento();
+      setConfigModal(false);
+      toast.success("Configuração salva com sucesso!");
+    },
+    onError: (error) => {
+      toast.error("Erro ao salvar configuração: " + error.message);
+    },
+  });
+
+  // Mutation para adicionar ajuste
+  const addAjusteMutation = useMutation({
+    mutationFn: async () => {
+      if (!fechamento?.id) throw new Error("Fechamento não encontrado");
+      const { error } = await supabase.from("ajuste_fechamento_equipe").insert({
+        fechamento_equipe_id: fechamento.id,
+        colaborador_id: novoAjuste.colaborador_id || null,
+        tipo: novoAjuste.tipo,
+        valor: novoAjuste.valor,
+        descricao: novoAjuste.descricao,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      refetchAjustes();
+      setAjusteModal(false);
+      setNovoAjuste({ colaborador_id: "", tipo: "credito", valor: 0, descricao: "" });
+      toast.success("Ajuste adicionado!");
+    },
+    onError: (error) => {
+      toast.error("Erro: " + error.message);
+    },
+  });
+
+  // Mutation para deletar ajuste
+  const deleteAjusteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("ajuste_fechamento_equipe").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      refetchAjustes();
+      toast.success("Ajuste removido!");
     },
   });
 
@@ -207,12 +417,21 @@ export default function FechamentoEquipe() {
       const vendasServicos = dadosCalculo.vendasServicos;
       const metasIndividuais = dadosCalculo.metasIndividuais;
 
-      // Dados simulados para cálculo (em produção viriam de outras fontes)
-      const assinaturasInicioMes = 2000; // TODO: buscar de fonte real
-      const cancelamentosMes = 30; // TODO: buscar de fonte real
-      const vendasMes = fechamentoComissao?.total_vendas || 0;
+      // Usar configuração manual ou dados do sistema
+      const assinaturasInicioMes = configBase.assinaturasInicioMes || fechamento?.assinaturas_inicio_mes || 0;
+      const cancelamentosMes = configBase.cancelamentosMes || fechamento?.cancelamentos_mes || 0;
+      const vendasMes = dadosCalculo.qtdVendasRecorrentes || 0;
       const mrrMes = fechamentoComissao?.total_mrr || 0;
-      const metaVendas = meta?.meta_quantidade || 0;
+      const mrrBaseComissao = dadosCalculo.mrrBaseComissao || 0;
+      const totalComissoesVendedores = dadosCalculo.totalComissoesVendedores || 0;
+      const metaVendas = configBase.metaVendas || meta?.meta_quantidade || 0;
+
+      // Usar limites configurados
+      const limiteChurn = configBase.limiteChurn || 5;
+      const limiteCancelamentos = configBase.limiteCancelamentos || 50;
+      const percentualBonusChurn = configBase.percentualBonusChurn || 3;
+      const percentualBonusRetencao = configBase.percentualBonusRetencao || 3;
+      const percentualBonusMeta = configBase.percentualBonusMeta || 10;
 
       // Cálculos
       const churnRate = assinaturasInicioMes > 0 
@@ -226,16 +445,11 @@ export default function FechamentoEquipe() {
         : 0;
 
       // Verificar bônus
-      const limiteChurn = 5;
-      const limiteCancelamentos = 50;
       const bonusChurnLiberado = churnRate < limiteChurn;
       const bonusRetencaoLiberado = taxaCancelamentos < limiteCancelamentos;
       const bonusMetaLiberado = percentualMeta >= 100;
 
       // Valores de bônus
-      const percentualBonusChurn = 3;
-      const percentualBonusRetencao = 3;
-      const percentualBonusMeta = 10;
       const valorBonusMetaTotal = bonusMetaLiberado ? mrrMes * (percentualBonusMeta / 100) : 0;
       const valorBonusMetaIndividual = colaboradores.length > 0 
         ? valorBonusMetaTotal / colaboradores.length 
@@ -249,6 +463,8 @@ export default function FechamentoEquipe() {
         cancelamentos_mes: cancelamentosMes,
         churn_rate: churnRate,
         mrr_mes: mrrMes,
+        mrr_base_comissao: mrrBaseComissao,
+        total_comissoes_vendedores: totalComissoesVendedores,
         meta_vendas: metaVendas,
         meta_atingida: bonusMetaLiberado,
         percentual_meta: percentualMeta,
@@ -399,6 +615,11 @@ export default function FechamentoEquipe() {
     return `${(value || 0).toFixed(1)}%`;
   };
 
+  // Calcular totais com ajustes
+  const totalAjustesCredito = ajustes.filter(a => a.tipo === "credito").reduce((sum, a) => sum + a.valor, 0);
+  const totalAjustesDebito = ajustes.filter(a => a.tipo === "debito").reduce((sum, a) => sum + a.valor, 0);
+  const totalAjustes = totalAjustesCredito - totalAjustesDebito;
+
   const totais = colaboradoresFechamento?.reduce(
     (acc, c) => ({
       bonusEquipe: acc.bonusEquipe + (c.subtotal_bonus_equipe || 0),
@@ -408,6 +629,8 @@ export default function FechamentoEquipe() {
     }),
     { bonusEquipe: 0, servicos: 0, metas: 0, total: 0 }
   ) || { bonusEquipe: 0, servicos: 0, metas: 0, total: 0 };
+
+  const totalGeralComAjustes = totais.total + totalAjustes + (fechamento?.total_comissoes_vendedores || 0);
 
   return (
     <div className="space-y-6">
@@ -425,6 +648,24 @@ export default function FechamentoEquipe() {
             onChange={(e) => setMesReferencia(e.target.value)}
             className="w-40"
           />
+          <Button variant="outline" onClick={() => {
+            if (fechamento) {
+              setConfigBase({
+                assinaturasInicioMes: fechamento.assinaturas_inicio_mes || 0,
+                cancelamentosMes: fechamento.cancelamentos_mes || 0,
+                limiteChurn: fechamento.limite_churn || 5,
+                limiteCancelamentos: fechamento.limite_cancelamentos || 50,
+                percentualBonusChurn: fechamento.percentual_bonus_churn || 3,
+                percentualBonusRetencao: fechamento.percentual_bonus_retencao || 3,
+                percentualBonusMeta: fechamento.percentual_bonus_meta || 10,
+                metaVendas: fechamento.meta_vendas || 0,
+              });
+            }
+            setConfigModal(true);
+          }}>
+            <Settings className="mr-2 h-4 w-4" />
+            Configurar
+          </Button>
           <Button onClick={() => calcularMutation.mutate()} disabled={isCalculando}>
             {isCalculando ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -446,37 +687,43 @@ export default function FechamentoEquipe() {
             <Calculator className="h-12 w-12 text-muted-foreground mb-4" />
             <h3 className="text-lg font-medium mb-2">Nenhum fechamento encontrado</h3>
             <p className="text-muted-foreground text-center mb-4">
-              Clique em "Calcular" para gerar o fechamento do mês de{" "}
+              Configure os parâmetros base e clique em "Calcular" para gerar o fechamento do mês de{" "}
               {format(mesReferenciaDate, "MMMM/yyyy", { locale: ptBR })}
             </p>
-            <Button onClick={() => calcularMutation.mutate()} disabled={isCalculando}>
-              {isCalculando ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Calculator className="mr-2 h-4 w-4" />
-              )}
-              Calcular Fechamento
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setConfigModal(true)}>
+                <Settings className="mr-2 h-4 w-4" />
+                Configurar Parâmetros
+              </Button>
+              <Button onClick={() => calcularMutation.mutate()} disabled={isCalculando}>
+                {isCalculando ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Calculator className="mr-2 h-4 w-4" />
+                )}
+                Calcular Fechamento
+              </Button>
+            </div>
           </CardContent>
         </Card>
       ) : (
         <>
-          {/* Métricas do Mês */}
+          {/* Métricas do Mês - Grid expandido */}
           <Card>
             <CardHeader>
               <CardTitle>Métricas do Mês</CardTitle>
               <CardDescription>
-                Dados importados do módulo de comissões - {format(mesReferenciaDate, "MMMM/yyyy", { locale: ptBR })}
+                {format(mesReferenciaDate, "MMMM/yyyy", { locale: ptBR })} - Dados do fechamento de comissões + configuração manual
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid gap-4 md:grid-cols-5">
+              <div className="grid gap-4 md:grid-cols-6">
                 <div className="text-center p-4 bg-muted rounded-lg">
-                  <p className="text-sm text-muted-foreground">Assinaturas Início</p>
+                  <p className="text-sm text-muted-foreground">Clientes Início</p>
                   <p className="text-2xl font-bold">{fechamento.assinaturas_inicio_mes || 0}</p>
                 </div>
                 <div className="text-center p-4 bg-muted rounded-lg">
-                  <p className="text-sm text-muted-foreground">Vendas</p>
+                  <p className="text-sm text-muted-foreground">Vendas Recorrentes</p>
                   <p className="text-2xl font-bold">{fechamento.vendas_mes || 0}</p>
                 </div>
                 <div className="text-center p-4 bg-muted rounded-lg">
@@ -487,9 +734,13 @@ export default function FechamentoEquipe() {
                   <p className="text-sm text-muted-foreground">Churn</p>
                   <p className="text-2xl font-bold">{formatPercent(fechamento.churn_rate)}</p>
                 </div>
-                <div className="text-center p-4 bg-muted rounded-lg">
-                  <p className="text-sm text-muted-foreground">MRR</p>
-                  <p className="text-2xl font-bold">{formatCurrency(fechamento.mrr_mes)}</p>
+                <div className="text-center p-4 bg-cyan-50 dark:bg-cyan-950/30 rounded-lg border border-cyan-200">
+                  <p className="text-sm text-cyan-700 dark:text-cyan-400">MRR Base Comissão</p>
+                  <p className="text-2xl font-bold text-cyan-700 dark:text-cyan-400">{formatCurrency(fechamento.mrr_base_comissao)}</p>
+                </div>
+                <div className="text-center p-4 bg-green-50 dark:bg-green-950/30 rounded-lg border border-green-200">
+                  <p className="text-sm text-green-700 dark:text-green-400">Comissões Vendedores</p>
+                  <p className="text-2xl font-bold text-green-700 dark:text-green-400">{formatCurrency(fechamento.total_comissoes_vendedores)}</p>
                 </div>
               </div>
             </CardContent>
@@ -504,8 +755,8 @@ export default function FechamentoEquipe() {
               <div className="grid gap-4 md:grid-cols-3">
                 <div className={`p-4 rounded-lg border-2 ${
                   fechamento.bonus_churn_liberado 
-                    ? "border-green-500 bg-green-50" 
-                    : "border-red-500 bg-red-50"
+                    ? "border-green-500 bg-green-50 dark:bg-green-950/30" 
+                    : "border-red-500 bg-red-50 dark:bg-red-950/30"
                 }`}>
                   <div className="flex items-center gap-2 mb-2">
                     {fechamento.bonus_churn_liberado ? (
@@ -527,8 +778,8 @@ export default function FechamentoEquipe() {
 
                 <div className={`p-4 rounded-lg border-2 ${
                   fechamento.bonus_retencao_liberado 
-                    ? "border-green-500 bg-green-50" 
-                    : "border-red-500 bg-red-50"
+                    ? "border-green-500 bg-green-50 dark:bg-green-950/30" 
+                    : "border-red-500 bg-red-50 dark:bg-red-950/30"
                 }`}>
                   <div className="flex items-center gap-2 mb-2">
                     {fechamento.bonus_retencao_liberado ? (
@@ -550,8 +801,8 @@ export default function FechamentoEquipe() {
 
                 <div className={`p-4 rounded-lg border-2 ${
                   fechamento.bonus_meta_liberado 
-                    ? "border-green-500 bg-green-50" 
-                    : "border-red-500 bg-red-50"
+                    ? "border-green-500 bg-green-50 dark:bg-green-950/30" 
+                    : "border-red-500 bg-red-50 dark:bg-red-950/30"
                 }`}>
                   <div className="flex items-center gap-2 mb-2">
                     {fechamento.bonus_meta_liberado ? (
@@ -574,102 +825,399 @@ export default function FechamentoEquipe() {
             </CardContent>
           </Card>
 
-          {/* Demonstrativos Individuais */}
-          <Card>
+          {/* Demonstrativos e Ajustes */}
+          <Tabs defaultValue="demonstrativos" className="w-full">
+            <TabsList>
+              <TabsTrigger value="demonstrativos">Demonstrativos Individuais</TabsTrigger>
+              <TabsTrigger value="ajustes">
+                Ajustes Manuais
+                {ajustes.length > 0 && (
+                  <Badge variant="secondary" className="ml-2">{ajustes.length}</Badge>
+                )}
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="demonstrativos">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Users className="h-5 w-5" />
+                    Demonstrativos Individuais
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="rounded-md border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Colaborador</TableHead>
+                          <TableHead className="text-right">Bônus Equipe</TableHead>
+                          <TableHead className="text-right">Serviços</TableHead>
+                          <TableHead className="text-right">Metas Ind.</TableHead>
+                          <TableHead className="text-right">Total</TableHead>
+                          <TableHead className="text-right">Ações</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {colaboradoresFechamento?.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                              Nenhum colaborador encontrado
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          colaboradoresFechamento?.map((colab) => (
+                            <TableRow key={colab.id}>
+                              <TableCell>
+                                <div>
+                                  <p className="font-medium">{colab.nome_colaborador}</p>
+                                  <p className="text-xs text-muted-foreground">{colab.cargo}</p>
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                {formatCurrency(colab.subtotal_bonus_equipe)}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                {formatCurrency(colab.comissao_servicos)}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <div>
+                                  {formatCurrency(colab.total_bonus_metas_individuais)}
+                                  <p className="text-xs text-muted-foreground">
+                                    {colab.qtd_metas_atingidas}/{colab.qtd_metas_individuais} metas
+                                  </p>
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-right font-bold text-green-600">
+                                {formatCurrency(colab.total_a_receber)}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => setDemonstrativoModal({ open: true, colaborador: colab })}
+                                >
+                                  <FileText className="h-4 w-4" />
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="ajustes">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <CardTitle>Ajustes Manuais</CardTitle>
+                  <Button size="sm" onClick={() => setAjusteModal(true)}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Novo Ajuste
+                  </Button>
+                </CardHeader>
+                <CardContent>
+                  {ajustes.length === 0 ? (
+                    <p className="text-center text-muted-foreground py-8">
+                      Nenhum ajuste manual registrado
+                    </p>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Descrição</TableHead>
+                          <TableHead>Colaborador</TableHead>
+                          <TableHead>Tipo</TableHead>
+                          <TableHead className="text-right">Valor</TableHead>
+                          <TableHead className="text-right">Ações</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {ajustes.map((ajuste) => {
+                          const colaborador = todosColaboradores.find(c => c.id === ajuste.colaborador_id);
+                          return (
+                            <TableRow key={ajuste.id}>
+                              <TableCell>{ajuste.descricao}</TableCell>
+                              <TableCell>{colaborador?.nome || "Geral"}</TableCell>
+                              <TableCell>
+                                <Badge variant={ajuste.tipo === "credito" ? "default" : "destructive"}>
+                                  {ajuste.tipo === "credito" ? "Crédito" : "Débito"}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className={`text-right font-medium ${
+                                ajuste.tipo === "credito" ? "text-green-600" : "text-red-600"
+                              }`}>
+                                {ajuste.tipo === "credito" ? "+" : "-"}{formatCurrency(ajuste.valor)}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  onClick={() => deleteAjusteMutation.mutate(ajuste.id)}
+                                >
+                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  )}
+
+                  {ajustes.length > 0 && (
+                    <div className="mt-4 p-4 bg-muted rounded-lg flex justify-between items-center">
+                      <div className="space-x-6">
+                        <span className="text-green-600">Total Créditos: {formatCurrency(totalAjustesCredito)}</span>
+                        <span className="text-red-600">Total Débitos: {formatCurrency(totalAjustesDebito)}</span>
+                      </div>
+                      <div className="font-bold">
+                        Saldo: <span className={totalAjustes >= 0 ? "text-green-600" : "text-red-600"}>
+                          {formatCurrency(totalAjustes)}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
+
+          {/* Resumo Geral */}
+          <Card className="bg-gradient-to-r from-primary/10 to-primary/5 border-primary/20">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Users className="h-5 w-5" />
-                Demonstrativos Individuais
-              </CardTitle>
+              <CardTitle>💰 Resumo Geral do Fechamento</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Colaborador</TableHead>
-                      <TableHead className="text-right">Bônus Equipe</TableHead>
-                      <TableHead className="text-right">Serviços</TableHead>
-                      <TableHead className="text-right">Metas Ind.</TableHead>
-                      <TableHead className="text-right">Total</TableHead>
-                      <TableHead className="text-right">Ações</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {colaboradoresFechamento?.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                          Nenhum colaborador encontrado
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      colaboradoresFechamento?.map((colab) => (
-                        <TableRow key={colab.id}>
-                          <TableCell>
-                            <div>
-                              <p className="font-medium">{colab.nome_colaborador}</p>
-                              <p className="text-xs text-muted-foreground">{colab.cargo}</p>
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            {formatCurrency(colab.subtotal_bonus_equipe)}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            {formatCurrency(colab.comissao_servicos)}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <div>
-                              {formatCurrency(colab.total_bonus_metas_individuais)}
-                              <p className="text-xs text-muted-foreground">
-                                {colab.qtd_metas_atingidas}/{colab.qtd_metas_individuais} metas
-                              </p>
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-right font-bold text-green-600">
-                            {formatCurrency(colab.total_a_receber)}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => setDemonstrativoModal({ open: true, colaborador: colab })}
-                            >
-                              <FileText className="h-4 w-4" />
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-
-              {/* Resumo */}
-              <div className="mt-4 p-4 bg-muted rounded-lg">
-                <h4 className="font-medium mb-2">Resumo Geral</h4>
-                <div className="grid grid-cols-4 gap-4 text-sm">
-                  <div>
-                    <p className="text-muted-foreground">Total Bônus Equipe</p>
-                    <p className="font-medium">{formatCurrency(totais.bonusEquipe)}</p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">Total Serviços</p>
-                    <p className="font-medium">{formatCurrency(totais.servicos)}</p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">Total Metas Ind.</p>
-                    <p className="font-medium">{formatCurrency(totais.metas)}</p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">TOTAL GERAL</p>
-                    <p className="font-bold text-lg text-green-600">{formatCurrency(totais.total)}</p>
-                  </div>
+              <div className="grid grid-cols-2 md:grid-cols-6 gap-4 text-sm">
+                <div className="p-3 bg-background rounded-lg">
+                  <p className="text-muted-foreground">Comissões Vendedores</p>
+                  <p className="font-bold text-lg">{formatCurrency(fechamento.total_comissoes_vendedores)}</p>
+                </div>
+                <div className="p-3 bg-background rounded-lg">
+                  <p className="text-muted-foreground">Bônus Equipe</p>
+                  <p className="font-bold text-lg">{formatCurrency(totais.bonusEquipe)}</p>
+                </div>
+                <div className="p-3 bg-background rounded-lg">
+                  <p className="text-muted-foreground">Serviços</p>
+                  <p className="font-bold text-lg">{formatCurrency(totais.servicos)}</p>
+                </div>
+                <div className="p-3 bg-background rounded-lg">
+                  <p className="text-muted-foreground">Metas Individuais</p>
+                  <p className="font-bold text-lg">{formatCurrency(totais.metas)}</p>
+                </div>
+                <div className="p-3 bg-background rounded-lg">
+                  <p className="text-muted-foreground">Ajustes</p>
+                  <p className={`font-bold text-lg ${totalAjustes >= 0 ? "text-green-600" : "text-red-600"}`}>
+                    {formatCurrency(totalAjustes)}
+                  </p>
+                </div>
+                <div className="p-3 bg-primary text-primary-foreground rounded-lg">
+                  <p className="opacity-80">TOTAL GERAL</p>
+                  <p className="font-bold text-2xl">{formatCurrency(totalGeralComAjustes)}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
         </>
       )}
+
+      {/* Modal Configuração */}
+      <Dialog open={configModal} onOpenChange={setConfigModal}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Configurar Parâmetros do Fechamento</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Clientes no Início do Mês</Label>
+                <Input
+                  type="number"
+                  value={configBase.assinaturasInicioMes}
+                  onChange={(e) => setConfigBase({ ...configBase, assinaturasInicioMes: Number(e.target.value) })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Quantidade de Cancelamentos</Label>
+                <Input
+                  type="number"
+                  value={configBase.cancelamentosMes}
+                  onChange={(e) => setConfigBase({ ...configBase, cancelamentosMes: Number(e.target.value) })}
+                />
+              </div>
+            </div>
+
+            <div className="border-t pt-4">
+              <h4 className="font-medium mb-3">Metas de Churn e Retenção</h4>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Limite Churn (%)</Label>
+                  <Input
+                    type="number"
+                    step="0.1"
+                    value={configBase.limiteChurn}
+                    onChange={(e) => setConfigBase({ ...configBase, limiteChurn: Number(e.target.value) })}
+                  />
+                  <p className="text-xs text-muted-foreground">Bônus liberado se churn &lt; este limite</p>
+                </div>
+                <div className="space-y-2">
+                  <Label>Limite Cancelamentos (%)</Label>
+                  <Input
+                    type="number"
+                    step="0.1"
+                    value={configBase.limiteCancelamentos}
+                    onChange={(e) => setConfigBase({ ...configBase, limiteCancelamentos: Number(e.target.value) })}
+                  />
+                  <p className="text-xs text-muted-foreground">Cancelamentos &lt; % das vendas</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="border-t pt-4">
+              <h4 className="font-medium mb-3">Meta de Vendas</h4>
+              <div className="space-y-2">
+                <Label>Meta de Vendas (quantidade)</Label>
+                <Input
+                  type="number"
+                  value={configBase.metaVendas}
+                  onChange={(e) => setConfigBase({ ...configBase, metaVendas: Number(e.target.value) })}
+                />
+              </div>
+            </div>
+
+            <div className="border-t pt-4">
+              <h4 className="font-medium mb-3">Percentuais de Bônus</h4>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label>% Bônus Churn</Label>
+                  <Input
+                    type="number"
+                    step="0.1"
+                    value={configBase.percentualBonusChurn}
+                    onChange={(e) => setConfigBase({ ...configBase, percentualBonusChurn: Number(e.target.value) })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>% Bônus Retenção</Label>
+                  <Input
+                    type="number"
+                    step="0.1"
+                    value={configBase.percentualBonusRetencao}
+                    onChange={(e) => setConfigBase({ ...configBase, percentualBonusRetencao: Number(e.target.value) })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>% Bônus Meta</Label>
+                  <Input
+                    type="number"
+                    step="0.1"
+                    value={configBase.percentualBonusMeta}
+                    onChange={(e) => setConfigBase({ ...configBase, percentualBonusMeta: Number(e.target.value) })}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {dadosCalculo && (
+              <div className="border-t pt-4 bg-muted p-4 rounded-lg">
+                <h4 className="font-medium mb-3">📊 Dados Importados do Fechamento de Comissões</h4>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div>Vendas Recorrentes: <strong>{dadosCalculo.qtdVendasRecorrentes}</strong></div>
+                  <div>MRR Base Comissão: <strong>{formatCurrency(dadosCalculo.mrrBaseComissao)}</strong></div>
+                  <div>Total Comissões: <strong>{formatCurrency(dadosCalculo.totalComissoesVendedores)}</strong></div>
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfigModal(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={() => salvarConfigMutation.mutate()}>
+              <Save className="h-4 w-4 mr-2" />
+              Salvar Configuração
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal Ajuste */}
+      <Dialog open={ajusteModal} onOpenChange={setAjusteModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Novo Ajuste Manual</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label>Colaborador (opcional)</Label>
+              <Select
+                value={novoAjuste.colaborador_id}
+                onValueChange={(value) => setNovoAjuste({ ...novoAjuste, colaborador_id: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione ou deixe em branco para geral" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Geral (todos)</SelectItem>
+                  {todosColaboradores.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Tipo</Label>
+              <Select
+                value={novoAjuste.tipo}
+                onValueChange={(value: "credito" | "debito") => setNovoAjuste({ ...novoAjuste, tipo: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="credito">Crédito (+)</SelectItem>
+                  <SelectItem value="debito">Débito (-)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Valor</Label>
+              <Input
+                type="number"
+                step="0.01"
+                value={novoAjuste.valor}
+                onChange={(e) => setNovoAjuste({ ...novoAjuste, valor: Number(e.target.value) })}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Descrição</Label>
+              <Textarea
+                value={novoAjuste.descricao}
+                onChange={(e) => setNovoAjuste({ ...novoAjuste, descricao: e.target.value })}
+                placeholder="Descreva o motivo do ajuste..."
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAjusteModal(false)}>
+              Cancelar
+            </Button>
+            <Button 
+              onClick={() => addAjusteMutation.mutate()}
+              disabled={!novoAjuste.descricao || novoAjuste.valor <= 0}
+            >
+              Adicionar Ajuste
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Modal Demonstrativo */}
       <Dialog 
