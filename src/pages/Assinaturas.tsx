@@ -218,6 +218,9 @@ export default function Assinaturas() {
     data_proximo_ciclo: string | null;
     data_fim_ciclo: string | null;
     valor: number;
+    mrr: number;
+    ciclo_dias: number;
+    quantidade_cobrancas: number;
     status: string;
   }> | null>(null);
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
@@ -679,6 +682,58 @@ export default function Assinaturas() {
       return status;
     };
 
+    // Função para calcular ciclo em dias baseado nas datas da Eduzz
+    const calcularCicloDiasEduzz = (
+      dataInicio: string | null,
+      ultimoPagamento: string | null,
+      proximoVencimento: string | null,
+      cobrancasPagas: number
+    ): number => {
+      // Se temos próximo vencimento e último pagamento, calcular diferença
+      if (proximoVencimento && ultimoPagamento) {
+        const prox = new Date(proximoVencimento);
+        const ultimo = new Date(ultimoPagamento);
+        const diffDias = Math.round((prox.getTime() - ultimo.getTime()) / (1000 * 60 * 60 * 24));
+        
+        // Normalizar para ciclos padrão
+        if (diffDias >= 25 && diffDias <= 35) return 30;      // Mensal
+        if (diffDias >= 55 && diffDias <= 65) return 60;      // Bimestral
+        if (diffDias >= 85 && diffDias <= 95) return 90;      // Trimestral
+        if (diffDias >= 175 && diffDias <= 185) return 180;   // Semestral
+        if (diffDias >= 360 && diffDias <= 370) return 365;   // Anual
+        
+        return diffDias > 0 ? diffDias : 30;
+      }
+      
+      // Se temos data início e último pagamento com cobranças >= 2, calcular média
+      if (dataInicio && ultimoPagamento && cobrancasPagas >= 2) {
+        const inicio = new Date(dataInicio);
+        const ultimo = new Date(ultimoPagamento);
+        const diffDias = Math.round((ultimo.getTime() - inicio.getTime()) / (1000 * 60 * 60 * 24));
+        const mediaPorCiclo = diffDias / (cobrancasPagas - 1);
+        
+        // Normalizar para ciclos padrão
+        if (mediaPorCiclo >= 25 && mediaPorCiclo <= 35) return 30;
+        if (mediaPorCiclo >= 55 && mediaPorCiclo <= 65) return 60;
+        if (mediaPorCiclo >= 85 && mediaPorCiclo <= 95) return 90;
+        if (mediaPorCiclo >= 175 && mediaPorCiclo <= 185) return 180;
+        if (mediaPorCiclo >= 360 && mediaPorCiclo <= 370) return 365;
+        
+        return Math.round(mediaPorCiclo) || 30;
+      }
+      
+      // Default: mensal
+      return 30;
+    };
+    
+    // Função para calcular MRR baseado no valor e ciclo
+    const calcularMRREduzz = (valorCobranca: number, cicloDias: number): number => {
+      if (valorCobranca <= 0 || cicloDias <= 0) return 0;
+      
+      // MRR = (Valor da cobrança / ciclo em dias) * 30
+      return (valorCobranca / cicloDias) * 30;
+    };
+
     // Map based on platform
     if (plataforma === "guru") {
       return jsonData.map((row: Record<string, unknown>) => ({
@@ -707,6 +762,78 @@ export default function Assinaturas() {
         parcelamento: parseInt(String(row['parcelamento'] || 1)) || 1,
         cupom: row['cupom'] as string || null,
       })).filter((c: { codigo_assinatura: string }) => c.codigo_assinatura);
+    }
+    
+    // EDUZZ - Tratamento específico
+    if (plataforma === "eduzz") {
+      return jsonData.map((row: Record<string, unknown>) => {
+        // Campos da Eduzz
+        const cobrancasPagas = parseInt(String(row['Cobranças pagas'] || row['cobrancas_pagas'] || 0)) || 0;
+        const valorCobranca = parseValue(row['Valor da cobrança'] as string);
+        const totalPago = parseValue(row['Total pago'] as string);
+        
+        // Datas importantes
+        const dataInicio = parseDate(row['Início em'] as string);
+        const ultimoPagamento = parseDate(row['Último pagamento'] as string);
+        const proximoVencimento = parseDate(row['Próx. Vencimento'] as string);
+        const dataCancelamento = parseDate(row['Cancelamento em'] as string);
+        
+        // Determinar status
+        let status = 'Ativa';
+        if (dataCancelamento) {
+          status = 'Cancelada';
+        } else if (row['Status']) {
+          status = normalizeStatus(row['Status'] as string);
+        }
+        
+        // Calcular ciclo em dias baseado nas datas
+        const cicloDias = calcularCicloDiasEduzz(
+          dataInicio,
+          ultimoPagamento,
+          proximoVencimento,
+          cobrancasPagas
+        );
+        
+        // Calcular MRR
+        const mrr = calcularMRREduzz(valorCobranca, cicloDias);
+        
+        return {
+          codigo_assinatura: String(
+            row['ID da assinatura'] || 
+            row['Código'] || 
+            row['codigo'] || 
+            `eduzz_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+          ),
+          plataforma: 'eduzz',
+          nome_produto: (row['Produto'] || row['Nome do produto']) as string || null,
+          nome_assinatura: (row['Plano'] || row['Nome do plano']) as string || null,
+          nome_oferta: (row['Oferta'] || row['Nome da oferta']) as string || null,
+          nome_contato: (row['Nome'] || row['Cliente'] || row['Nome do cliente']) as string || null,
+          doc_contato: (row['CPF'] || row['CNPJ'] || row['Documento']) as string || null,
+          email_contato: (row['Email'] || row['E-mail']) as string || null,
+          telefone_contato: (row['Telefone'] || row['Celular']) as string || null,
+          valor_assinatura: valorCobranca,
+          valor_liquido: totalPago,
+          ciclo_dias: cicloDias,
+          data_inicio: dataInicio,
+          data_status: ultimoPagamento, // Usar último pagamento como data de status
+          data_cancelamento: dataCancelamento,
+          data_proximo_ciclo: proximoVencimento,
+          data_fim_ciclo: null,
+          status: status,
+          motivo_cancelamento: (row['Motivo cancelamento'] || row['Motivo']) as string || null,
+          cancelado_por: null,
+          forma_pagamento: (row['Forma de pagamento'] || row['Pagamento']) as string || null,
+          quantidade_cobrancas: cobrancasPagas,
+          parcelamento: 1,
+          cupom: (row['Cupom'] || row['Código promocional']) as string || null,
+          mrr: mrr, // MRR calculado
+        };
+      })
+      // IMPORTANTE: Filtrar registros com cobranças pagas = 0
+      .filter((c: { codigo_assinatura: string; quantidade_cobrancas: number }) => 
+        c.codigo_assinatura && c.quantidade_cobrancas > 0
+      );
     }
 
     // Generic mapping for other platforms
@@ -755,17 +882,32 @@ export default function Assinaturas() {
       const contratos = await parseExcelFile(selectedFile, selectedPlataforma);
       
       // Take first 10 records for preview
-      const preview = contratos.slice(0, 10).map((c: Record<string, unknown>) => ({
-        codigo: String(c.codigo_assinatura || '').slice(0, 20),
-        nome: String(c.nome_contato || c.nome_produto || '-').slice(0, 30),
-        data_inicio: c.data_inicio as string | null,
-        data_status: c.data_status as string | null,
-        data_cancelamento: c.data_cancelamento as string | null,
-        data_proximo_ciclo: c.data_proximo_ciclo as string | null,
-        data_fim_ciclo: c.data_fim_ciclo as string | null,
-        valor: c.valor_assinatura as number || 0,
-        status: c.status as string || 'Ativa',
-      }));
+      const preview = contratos.slice(0, 10).map((c: Record<string, unknown>) => {
+        // Para Eduzz, o MRR já vem calculado. Para outras plataformas, calcular baseado no ciclo
+        const cicloDias = (c.ciclo_dias as number) || 30;
+        const valorAssinatura = (c.valor_assinatura as number) || 0;
+        let mrr = c.mrr as number || 0;
+        
+        // Se não tem MRR calculado, calcular baseado no ciclo
+        if (!mrr && valorAssinatura > 0) {
+          mrr = (valorAssinatura / cicloDias) * 30;
+        }
+        
+        return {
+          codigo: String(c.codigo_assinatura || '').slice(0, 20),
+          nome: String(c.nome_contato || c.nome_produto || '-').slice(0, 30),
+          data_inicio: c.data_inicio as string | null,
+          data_status: c.data_status as string | null,
+          data_cancelamento: c.data_cancelamento as string | null,
+          data_proximo_ciclo: c.data_proximo_ciclo as string | null,
+          data_fim_ciclo: c.data_fim_ciclo as string | null,
+          valor: valorAssinatura,
+          mrr: mrr,
+          ciclo_dias: cicloDias,
+          quantidade_cobrancas: (c.quantidade_cobrancas as number) || 0,
+          status: c.status as string || 'Ativa',
+        };
+      });
       
       setPreviewData(preview);
     } catch (error) {
@@ -1875,10 +2017,12 @@ export default function Assinaturas() {
                         <TableHead className="w-[80px]">Código</TableHead>
                         <TableHead>Nome</TableHead>
                         <TableHead className="text-center">Data Início</TableHead>
-                        <TableHead className="text-center">Data Status</TableHead>
-                        <TableHead className="text-center">Próx. Ciclo</TableHead>
-                        <TableHead className="text-center">Fim Ciclo</TableHead>
+                        <TableHead className="text-center">Ult. Pgto/Status</TableHead>
+                        <TableHead className="text-center">Próx. Venc.</TableHead>
                         <TableHead className="text-right">Valor</TableHead>
+                        <TableHead className="text-center">Ciclo</TableHead>
+                        <TableHead className="text-right">MRR</TableHead>
+                        <TableHead className="text-center">Cobr.</TableHead>
                         <TableHead>Status</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -1902,12 +2046,20 @@ export default function Assinaturas() {
                               {item.data_proximo_ciclo || '-'}
                             </Badge>
                           </TableCell>
+                          <TableCell className="text-right font-medium">{formatCurrency(item.valor)}</TableCell>
                           <TableCell className="text-center">
-                            <Badge variant={item.data_fim_ciclo ? "outline" : "secondary"} className="font-mono text-xs">
-                              {item.data_fim_ciclo || '-'}
+                            <Badge variant="outline" className="text-xs">
+                              {getCicloLabel(item.ciclo_dias)}
                             </Badge>
                           </TableCell>
-                          <TableCell className="text-right font-medium">{formatCurrency(item.valor)}</TableCell>
+                          <TableCell className="text-right font-medium text-emerald-600">
+                            {formatCurrency(item.mrr)}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Badge className="bg-blue-100 text-blue-700">
+                              {item.quantidade_cobrancas}
+                            </Badge>
+                          </TableCell>
                           <TableCell>{getStatusBadge(item.status)}</TableCell>
                         </TableRow>
                       ))}
@@ -1919,8 +2071,13 @@ export default function Assinaturas() {
                   <div className="flex items-start gap-2 text-sm text-amber-800">
                     <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
                     <div>
-                      <p className="font-medium">Verifique as datas acima</p>
-                      <p className="text-xs mt-1">Confirme se as datas estão corretas antes de importar. Formato esperado: YYYY-MM-DD</p>
+                      <p className="font-medium">Verifique as datas e cálculos acima</p>
+                      <p className="text-xs mt-1">
+                        {selectedPlataforma === 'eduzz' 
+                          ? 'Eduzz: MRR calculado = (Valor da cobrança / ciclo) × 30. Ciclo detectado pelas datas. Registros com 0 cobranças serão ignorados.'
+                          : 'Confirme se as datas estão corretas antes de importar. Formato esperado: YYYY-MM-DD'
+                        }
+                      </p>
                     </div>
                   </div>
                 </div>
