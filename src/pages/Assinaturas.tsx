@@ -209,6 +209,18 @@ export default function Assinaturas() {
   const [selectedPlataforma, setSelectedPlataforma] = useState<Plataforma>("guru");
   const [isProcessing, setIsProcessing] = useState(false);
   const [activeTab, setActiveTab] = useState("contratos");
+  const [previewData, setPreviewData] = useState<Array<{
+    codigo: string;
+    nome: string;
+    data_inicio: string | null;
+    data_status: string | null;
+    data_cancelamento: string | null;
+    data_proximo_ciclo: string | null;
+    data_fim_ciclo: string | null;
+    valor: number;
+    status: string;
+  }> | null>(null);
+  const [isLoadingPreview, setIsLoadingPreview] = useState(false);
   
   // Filters
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -733,6 +745,40 @@ export default function Assinaturas() {
       };
     }).filter((c: { codigo_assinatura: string, valor_assinatura: number }) => c.codigo_assinatura && c.valor_assinatura > 0);
   }, []);
+
+  // Generate preview from file
+  const generatePreview = useCallback(async () => {
+    if (!selectedFile) return;
+    
+    setIsLoadingPreview(true);
+    try {
+      const contratos = await parseExcelFile(selectedFile, selectedPlataforma);
+      
+      // Take first 10 records for preview
+      const preview = contratos.slice(0, 10).map((c: Record<string, unknown>) => ({
+        codigo: String(c.codigo_assinatura || '').slice(0, 20),
+        nome: String(c.nome_contato || c.nome_produto || '-').slice(0, 30),
+        data_inicio: c.data_inicio as string | null,
+        data_status: c.data_status as string | null,
+        data_cancelamento: c.data_cancelamento as string | null,
+        data_proximo_ciclo: c.data_proximo_ciclo as string | null,
+        data_fim_ciclo: c.data_fim_ciclo as string | null,
+        valor: c.valor_assinatura as number || 0,
+        status: c.status as string || 'Ativa',
+      }));
+      
+      setPreviewData(preview);
+    } catch (error) {
+      console.error('Erro ao gerar preview:', error);
+      toast({
+        title: "Erro ao gerar preview",
+        description: "Não foi possível ler o arquivo. Verifique o formato.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingPreview(false);
+    }
+  }, [selectedFile, selectedPlataforma, parseExcelFile]);
 
   // Import mutation
   const importMutation = useMutation({
@@ -1744,88 +1790,189 @@ export default function Assinaturas() {
         </Tabs>
 
         {/* Import Dialog */}
-        <Dialog open={isImportDialogOpen} onOpenChange={setIsImportDialogOpen}>
-          <DialogContent className="sm:max-w-[500px]">
+        <Dialog open={isImportDialogOpen} onOpenChange={(open) => {
+          setIsImportDialogOpen(open);
+          if (!open) {
+            setPreviewData(null);
+            setSelectedFile(null);
+          }
+        }}>
+          <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-hidden flex flex-col">
             <DialogHeader>
               <DialogTitle>Importar Arquivo de Assinaturas</DialogTitle>
               <DialogDescription>
-                Selecione a plataforma e o arquivo Excel (.xlsx) para importar os contratos.
+                {previewData ? "Verifique as datas antes de confirmar a importação." : "Selecione a plataforma e o arquivo Excel (.xlsx) para importar os contratos."}
               </DialogDescription>
             </DialogHeader>
             
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label>Plataforma</Label>
-                <Select value={selectedPlataforma} onValueChange={(v) => setSelectedPlataforma(v as Plataforma)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="guru">Guru</SelectItem>
-                    <SelectItem value="eduzz">Eduzz</SelectItem>
-                    <SelectItem value="galaxypay">GalaxyPay</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            {!previewData ? (
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label>Plataforma</Label>
+                  <Select value={selectedPlataforma} onValueChange={(v) => setSelectedPlataforma(v as Plataforma)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="guru">Guru</SelectItem>
+                      <SelectItem value="eduzz">Eduzz</SelectItem>
+                      <SelectItem value="galaxypay">GalaxyPay</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
-              <div className="space-y-2">
-                <Label>Arquivo Excel</Label>
-                <div className="border-2 border-dashed rounded-lg p-6 text-center">
-                  {selectedFile ? (
-                    <div className="flex items-center justify-center gap-2">
-                      <FileSpreadsheet className="w-8 h-8 text-emerald-500" />
-                      <div className="text-left">
-                        <p className="font-medium">{selectedFile.name}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {(selectedFile.size / 1024).toFixed(1)} KB
-                        </p>
+                <div className="space-y-2">
+                  <Label>Arquivo Excel</Label>
+                  <div className="border-2 border-dashed rounded-lg p-6 text-center">
+                    {selectedFile ? (
+                      <div className="flex items-center justify-center gap-2">
+                        <FileSpreadsheet className="w-8 h-8 text-emerald-500" />
+                        <div className="text-left">
+                          <p className="font-medium">{selectedFile.name}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {(selectedFile.size / 1024).toFixed(1)} KB
+                          </p>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setSelectedFile(null)}
+                        >
+                          <XCircle className="w-4 h-4" />
+                        </Button>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => setSelectedFile(null)}
-                      >
-                        <XCircle className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  ) : (
-                    <div>
-                      <Upload className="w-10 h-10 mx-auto mb-2 text-muted-foreground" />
-                      <p className="text-sm text-muted-foreground mb-2">
-                        Arraste um arquivo ou clique para selecionar
-                      </p>
-                      <Input
-                        type="file"
-                        accept=".xlsx,.xls"
-                        onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
-                        className="cursor-pointer"
-                      />
-                    </div>
-                  )}
+                    ) : (
+                      <div>
+                        <Upload className="w-10 h-10 mx-auto mb-2 text-muted-foreground" />
+                        <p className="text-sm text-muted-foreground mb-2">
+                          Arraste um arquivo ou clique para selecionar
+                        </p>
+                        <Input
+                          type="file"
+                          accept=".xlsx,.xls"
+                          onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                          className="cursor-pointer"
+                        />
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
+            ) : (
+              <div className="flex-1 overflow-hidden">
+                <div className="mb-3 p-3 bg-primary/10 rounded-lg">
+                  <div className="flex items-center gap-2 text-sm">
+                    <Eye className="w-4 h-4 text-primary" />
+                    <span className="font-medium">Preview dos primeiros 10 registros</span>
+                    <Badge variant="outline">{previewData.length} registros</Badge>
+                  </div>
+                </div>
+                
+                <ScrollArea className="h-[350px] border rounded-lg">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-muted/50">
+                        <TableHead className="w-[80px]">Código</TableHead>
+                        <TableHead>Nome</TableHead>
+                        <TableHead className="text-center">Data Início</TableHead>
+                        <TableHead className="text-center">Data Status</TableHead>
+                        <TableHead className="text-center">Próx. Ciclo</TableHead>
+                        <TableHead className="text-center">Fim Ciclo</TableHead>
+                        <TableHead className="text-right">Valor</TableHead>
+                        <TableHead>Status</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {previewData.map((item, idx) => (
+                        <TableRow key={idx}>
+                          <TableCell className="font-mono text-xs">{item.codigo}</TableCell>
+                          <TableCell className="text-sm">{item.nome}</TableCell>
+                          <TableCell className="text-center">
+                            <Badge variant={item.data_inicio ? "outline" : "secondary"} className="font-mono text-xs">
+                              {item.data_inicio || '-'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Badge variant={item.data_status ? "outline" : "secondary"} className="font-mono text-xs">
+                              {item.data_status || '-'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Badge variant={item.data_proximo_ciclo ? "outline" : "secondary"} className="font-mono text-xs">
+                              {item.data_proximo_ciclo || '-'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Badge variant={item.data_fim_ciclo ? "outline" : "secondary"} className="font-mono text-xs">
+                              {item.data_fim_ciclo || '-'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right font-medium">{formatCurrency(item.valor)}</TableCell>
+                          <TableCell>{getStatusBadge(item.status)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </ScrollArea>
+                
+                <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                  <div className="flex items-start gap-2 text-sm text-amber-800">
+                    <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="font-medium">Verifique as datas acima</p>
+                      <p className="text-xs mt-1">Confirme se as datas estão corretas antes de importar. Formato esperado: YYYY-MM-DD</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsImportDialogOpen(false)}>
-                Cancelar
-              </Button>
-              <Button
-                onClick={() => importMutation.mutate()}
-                disabled={!selectedFile || isProcessing}
-              >
-                {isProcessing ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Processando...
-                  </>
-                ) : (
-                  <>
-                    <Upload className="w-4 h-4 mr-2" />
-                    Importar
-                  </>
-                )}
-              </Button>
+            <DialogFooter className="mt-4">
+              {previewData ? (
+                <>
+                  <Button variant="outline" onClick={() => setPreviewData(null)}>
+                    Voltar
+                  </Button>
+                  <Button
+                    onClick={() => importMutation.mutate()}
+                    disabled={isProcessing}
+                  >
+                    {isProcessing ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Processando...
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle className="w-4 h-4 mr-2" />
+                        Confirmar Importação
+                      </>
+                    )}
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button variant="outline" onClick={() => setIsImportDialogOpen(false)}>
+                    Cancelar
+                  </Button>
+                  <Button
+                    onClick={generatePreview}
+                    disabled={!selectedFile || isLoadingPreview}
+                  >
+                    {isLoadingPreview ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Carregando...
+                      </>
+                    ) : (
+                      <>
+                        <Eye className="w-4 h-4 mr-2" />
+                        Ver Preview
+                      </>
+                    )}
+                  </Button>
+                </>
+              )}
             </DialogFooter>
           </DialogContent>
         </Dialog>
