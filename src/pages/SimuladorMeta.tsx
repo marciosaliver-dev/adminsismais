@@ -42,6 +42,7 @@ import {
   FolderOpen,
 } from "lucide-react";
 import { CenariosSalvosDialog } from "@/components/simulador/CenariosSalvosDialog";
+import { AnaliseIADisplay } from "@/components/simulador/AnaliseIADisplay";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -1142,27 +1143,7 @@ export default function SimuladorMeta() {
                 </div>
               )}
               {aiAnalysis && !isAnalyzing && (
-                <ScrollArea className="h-[500px] pr-4">
-                  <div className="prose prose-sm dark:prose-invert max-w-none">
-                    <div
-                      className="space-y-3"
-                      dangerouslySetInnerHTML={{
-                        __html: aiAnalysis
-                          .replace(/^## 📊/gm, '<h3 class="text-lg font-bold mt-4 mb-2 flex items-center gap-2"><span class="text-xl">📊</span>')
-                          .replace(/^## ✅/gm, '<h3 class="text-lg font-bold mt-4 mb-2 text-green-600 dark:text-green-400 flex items-center gap-2"><span class="text-xl">✅</span>')
-                          .replace(/^## ⚠️/gm, '<h3 class="text-lg font-bold mt-4 mb-2 text-amber-600 dark:text-amber-400 flex items-center gap-2"><span class="text-xl">⚠️</span>')
-                          .replace(/^## 💡/gm, '<h3 class="text-lg font-bold mt-4 mb-2 text-blue-600 dark:text-blue-400 flex items-center gap-2"><span class="text-xl">💡</span>')
-                          .replace(/^## 🎯/gm, '<h3 class="text-lg font-bold mt-4 mb-2 text-purple-600 dark:text-purple-400 flex items-center gap-2"><span class="text-xl">🎯</span>')
-                          .replace(/^## 📈/gm, '<h3 class="text-lg font-bold mt-4 mb-2 text-primary flex items-center gap-2"><span class="text-xl">📈</span>')
-                          .replace(/^## /gm, '<h3 class="text-lg font-bold mt-4 mb-2">')
-                          .replace(/\*\*([^*]+)\*\*/g, '<strong class="text-foreground">$1</strong>')
-                          .replace(/^- /gm, '<div class="flex items-start gap-2 my-1"><span class="text-primary">•</span><span>')
-                          .replace(/\n\n/g, '</span></div><br/>')
-                          .replace(/\n/g, '</span></div>')
-                      }}
-                    />
-                  </div>
-                </ScrollArea>
+                <AnaliseIADisplay analysis={aiAnalysis} />
               )}
             </CardContent>
           </Card>
