@@ -159,11 +159,11 @@ export default function SimuladorMeta() {
   const { data: dadosAssinaturas, isLoading: loadingAssinaturas, refetch: refetchAssinaturas } = useQuery({
     queryKey: ["dados-assinaturas-simulador"],
     queryFn: async () => {
-      // Buscar contratos ativos
+      // Buscar contratos ativos e atrasados (recorrentes)
       const { data: contratos, error } = await supabase
         .from("contratos_assinatura")
         .select("*")
-        .in("status", ["Ativa", "Atrasada", "Aguardando pagamento"]);
+        .in("status", ["Ativa", "Ativo", "Atrasada", "Atrasado", "Aguardando pagamento"]);
 
       if (error) throw error;
 
