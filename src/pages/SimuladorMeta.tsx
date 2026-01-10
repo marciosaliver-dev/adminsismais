@@ -1,5 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,10 +14,9 @@ import { ptBR } from "date-fns/locale";
 import {
   Target,
   TrendingUp,
+  TrendingDown,
   Users,
   DollarSign,
-  RefreshCw,
-  Database,
   CalendarIcon,
   Percent,
   AlertTriangle,
@@ -31,15 +29,11 @@ import {
   ArrowUpRight,
   LineChart as LineChartIcon,
   Clock,
-  Sparkles,
-  Building2,
-  CreditCard,
-  TrendingDown,
-  Activity,
   Megaphone,
   UserPlus,
   Save,
   FolderOpen,
+  Sparkles,
 } from "lucide-react";
 import { CenariosSalvosDialog } from "@/components/simulador/CenariosSalvosDialog";
 import { AnaliseIADisplay } from "@/components/simulador/AnaliseIADisplay";
@@ -153,119 +147,10 @@ export default function SimuladorMeta() {
   const [inputs, setInputs] = useState<SimuladorInputs>(defaultInputs);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState("situacao");
+  const [activeTab, setActiveTab] = useState("meta");
   const [cenariosDialogOpen, setCenariosDialogOpen] = useState(false);
   const [cenariosDialogMode, setCenariosDialogMode] = useState<"save" | "load">("save");
 
-  // Buscar dados reais das assinaturas importadas
-  const { data: dadosAssinaturas, isLoading: loadingAssinaturas, refetch: refetchAssinaturas } = useQuery({
-    queryKey: ["dados-assinaturas-simulador"],
-    queryFn: async () => {
-      // Buscar contratos ativos e atrasados (recorrentes)
-      const { data: contratos, error } = await supabase
-        .from("contratos_assinatura")
-        .select("*")
-        .in("status", ["Ativa", "Ativo", "Atrasada", "Atrasado", "Aguardando pagamento"]);
-
-      if (error) throw error;
-
-      const todosContratos = contratos || [];
-      
-      // Separar por status
-      const contratosAtivos = todosContratos.filter(c => 
-        c.status === "Ativa" || c.status === "Ativo"
-      );
-      const contratosAtrasados = todosContratos.filter(c => 
-        c.status === "Atrasada" || c.status === "Atrasado"
-      );
-      const contratosAguardando = todosContratos.filter(c => 
-        c.status === "Aguardando pagamento"
-      );
-      
-      const qtdAtivos = contratosAtivos.length;
-      const qtdAtrasados = contratosAtrasados.length;
-      const qtdAguardando = contratosAguardando.length;
-      const totalRecorrentes = todosContratos.length;
-      
-      const mrrAtivos = contratosAtivos.reduce((acc, c) => acc + (c.mrr || 0), 0);
-      const mrrAtrasados = contratosAtrasados.reduce((acc, c) => acc + (c.mrr || 0), 0);
-      const mrrAguardando = contratosAguardando.reduce((acc, c) => acc + (c.mrr || 0), 0);
-      const mrrTotal = mrrAtivos + mrrAtrasados + mrrAguardando;
-      
-      const ticketMedio = totalRecorrentes > 0 ? mrrTotal / totalRecorrentes : 0;
-
-      // Calcular churn baseado em cancelamentos do último mês
-      const mesPassado = new Date();
-      mesPassado.setMonth(mesPassado.getMonth() - 1);
-      const { data: cancelados } = await supabase
-        .from("contratos_assinatura")
-        .select("id")
-        .eq("status", "Inativa")
-        .gte("data_cancelamento", mesPassado.toISOString().split("T")[0]);
-
-      const canceladosMes = cancelados?.length || 0;
-      const churnRate = totalRecorrentes > 0 ? (canceladosMes / (totalRecorrentes + canceladosMes)) * 100 : 0;
-
-      // Buscar vendedores ativos
-      const { count: vendedores } = await supabase
-        .from("colaboradores")
-        .select("*", { count: "exact", head: true })
-        .eq("ativo", true)
-        .eq("eh_vendedor_direto", true);
-
-      // Buscar última meta configurada
-      const { data: meta } = await supabase
-        .from("meta_mensal")
-        .select("*")
-        .order("mes_referencia", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      // Distribuição por plataforma
-      const porPlataforma = todosContratos.reduce((acc, c) => {
-        const plat = c.plataforma || "Outro";
-        if (!acc[plat]) acc[plat] = { quantidade: 0, mrr: 0 };
-        acc[plat].quantidade++;
-        acc[plat].mrr += c.mrr || 0;
-        return acc;
-      }, {} as Record<string, { quantidade: number; mrr: number }>);
-
-      return {
-        totalRecorrentes,
-        qtdAtivos,
-        qtdAtrasados,
-        qtdAguardando,
-        mrrTotal,
-        mrrAtivos,
-        mrrAtrasados,
-        mrrAguardando,
-        ticketMedio: Math.round(ticketMedio),
-        churnRate: Math.round(churnRate * 10) / 10,
-        canceladosMes,
-        vendedoresAtuais: vendedores || 1,
-        ltvMedio: meta?.ltv_medio || 12,
-        metaMrr: meta?.meta_mrr || 50000,
-        porPlataforma,
-      };
-    },
-    staleTime: 1000 * 60 * 5,
-  });
-
-  // Auto-preencher inputs quando dados carregarem
-  useEffect(() => {
-    if (dadosAssinaturas) {
-      setInputs(prev => ({
-        ...prev,
-        mrrAtual: dadosAssinaturas.mrrTotal,
-        clientesAtivos: dadosAssinaturas.totalRecorrentes,
-        ticketMedio: dadosAssinaturas.ticketMedio || 100,
-        churnMensal: dadosAssinaturas.churnRate || 5,
-        vendedoresAtuais: dadosAssinaturas.vendedoresAtuais,
-        ltvMeses: dadosAssinaturas.ltvMedio,
-        mrrMeta: dadosAssinaturas.metaMrr,
-      }));
-    }
-  }, [dadosAssinaturas]);
 
   // Cálculos automáticos
   const outputs = useMemo<SimuladorOutputs>(() => {
@@ -486,10 +371,6 @@ export default function SimuladorMeta() {
             <Save className="w-4 h-4 mr-2" />
             Salvar
           </Button>
-          <Button variant="outline" size="sm" onClick={() => refetchAssinaturas()}>
-            <RefreshCw className={cn("w-4 h-4 mr-2", loadingAssinaturas && "animate-spin")} />
-            Atualizar
-          </Button>
           <Button variant="outline" size="sm" onClick={resetar}>
             Resetar
           </Button>
@@ -509,11 +390,7 @@ export default function SimuladorMeta() {
 
       {/* Tabs Principais */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-4 h-auto">
-          <TabsTrigger value="situacao" className="flex flex-col sm:flex-row items-center gap-1 py-2 px-2 sm:px-4">
-            <Building2 className="w-4 h-4" />
-            <span className="text-xs sm:text-sm">Situação Atual</span>
-          </TabsTrigger>
+        <TabsList className="grid w-full grid-cols-3 h-auto">
           <TabsTrigger value="meta" className="flex flex-col sm:flex-row items-center gap-1 py-2 px-2 sm:px-4">
             <Target className="w-4 h-4" />
             <span className="text-xs sm:text-sm">Definir Meta</span>
@@ -528,262 +405,6 @@ export default function SimuladorMeta() {
           </TabsTrigger>
         </TabsList>
 
-        {/* Tab: Situação Atual */}
-        <TabsContent value="situacao" className="mt-6 space-y-6">
-          {loadingAssinaturas ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-8 h-8 animate-spin text-primary" />
-              <span className="ml-3 text-muted-foreground">Carregando dados das assinaturas...</span>
-            </div>
-          ) : (
-            <>
-              {/* Cards de Resumo */}
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                <Card className="bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
-                  <CardContent className="pt-6">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <p className="text-sm text-muted-foreground">MRR Recorrente</p>
-                        <p className="text-3xl font-bold text-primary">
-                          {formatCurrency(dadosAssinaturas?.mrrTotal || 0)}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Ativos + Atrasados
-                        </p>
-                      </div>
-                      <div className="p-3 rounded-lg bg-primary/10">
-                        <DollarSign className="w-6 h-6 text-primary" />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardContent className="pt-6">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <p className="text-sm text-muted-foreground">Assinaturas Recorrentes</p>
-                        <p className="text-3xl font-bold">
-                          {formatNumber(dadosAssinaturas?.totalRecorrentes || 0)}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Ativos + Atrasados
-                        </p>
-                      </div>
-                      <div className="p-3 rounded-lg bg-blue-500/10">
-                        <Users className="w-6 h-6 text-blue-600" />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardContent className="pt-6">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <p className="text-sm text-muted-foreground">Ticket Médio</p>
-                        <p className="text-3xl font-bold">
-                          {formatCurrency(dadosAssinaturas?.ticketMedio || 0)}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Valor médio por assinatura
-                        </p>
-                      </div>
-                      <div className="p-3 rounded-lg bg-emerald-500/10">
-                        <CreditCard className="w-6 h-6 text-emerald-600" />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card className={cn(
-                  (dadosAssinaturas?.churnRate || 0) > 5 && "border-red-200 bg-red-50/50 dark:bg-red-950/10"
-                )}>
-                  <CardContent className="pt-6">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <p className="text-sm text-muted-foreground">Churn Rate</p>
-                        <p className={cn(
-                          "text-3xl font-bold",
-                          (dadosAssinaturas?.churnRate || 0) <= 3 ? "text-green-600" :
-                          (dadosAssinaturas?.churnRate || 0) <= 5 ? "text-amber-600" : "text-red-600"
-                        )}>
-                          {formatPercent(dadosAssinaturas?.churnRate || 0)}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {dadosAssinaturas?.canceladosMes || 0} cancelamentos no mês
-                        </p>
-                      </div>
-                      <div className="p-3 rounded-lg bg-red-500/10">
-                        <TrendingDown className="w-6 h-6 text-red-600" />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* Card Breakdown Ativos vs Atrasados */}
-              <Card className="border-2 border-dashed">
-                <CardHeader className="pb-3">
-                  <CardTitle className="flex items-center gap-2 text-lg">
-                    <Activity className="w-5 h-5 text-primary" />
-                    Detalhamento por Status
-                  </CardTitle>
-                  <CardDescription>Breakdown de contratos Ativos vs Atrasados</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid gap-4 sm:grid-cols-3">
-                    {/* Ativos */}
-                    <div className="p-4 rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800">
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className="w-3 h-3 rounded-full bg-green-500" />
-                        <span className="font-medium text-green-700 dark:text-green-400">Ativos</span>
-                      </div>
-                      <div className="space-y-1">
-                        <p className="text-2xl font-bold text-green-600">
-                          {formatNumber(dadosAssinaturas?.qtdAtivos || 0)}
-                        </p>
-                        <p className="text-sm text-green-600/80">
-                          {formatCurrency(dadosAssinaturas?.mrrAtivos || 0)} MRR
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Atrasados */}
-                    <div className="p-4 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800">
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className="w-3 h-3 rounded-full bg-amber-500" />
-                        <span className="font-medium text-amber-700 dark:text-amber-400">Atrasados</span>
-                      </div>
-                      <div className="space-y-1">
-                        <p className="text-2xl font-bold text-amber-600">
-                          {formatNumber(dadosAssinaturas?.qtdAtrasados || 0)}
-                        </p>
-                        <p className="text-sm text-amber-600/80">
-                          {formatCurrency(dadosAssinaturas?.mrrAtrasados || 0)} MRR
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Aguardando */}
-                    <div className="p-4 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800">
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className="w-3 h-3 rounded-full bg-blue-500" />
-                        <span className="font-medium text-blue-700 dark:text-blue-400">Aguardando</span>
-                      </div>
-                      <div className="space-y-1">
-                        <p className="text-2xl font-bold text-blue-600">
-                          {formatNumber(dadosAssinaturas?.qtdAguardando || 0)}
-                        </p>
-                        <p className="text-sm text-blue-600/80">
-                          {formatCurrency(dadosAssinaturas?.mrrAguardando || 0)} MRR
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Barra visual de proporção */}
-                  <div className="mt-4">
-                    <div className="flex h-3 rounded-full overflow-hidden bg-muted">
-                      {(dadosAssinaturas?.totalRecorrentes || 0) > 0 && (
-                        <>
-                          <div 
-                            className="bg-green-500 transition-all"
-                            style={{ width: `${((dadosAssinaturas?.qtdAtivos || 0) / (dadosAssinaturas?.totalRecorrentes || 1)) * 100}%` }}
-                          />
-                          <div 
-                            className="bg-amber-500 transition-all"
-                            style={{ width: `${((dadosAssinaturas?.qtdAtrasados || 0) / (dadosAssinaturas?.totalRecorrentes || 1)) * 100}%` }}
-                          />
-                          <div 
-                            className="bg-blue-500 transition-all"
-                            style={{ width: `${((dadosAssinaturas?.qtdAguardando || 0) / (dadosAssinaturas?.totalRecorrentes || 1)) * 100}%` }}
-                          />
-                        </>
-                      )}
-                    </div>
-                    <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                      <span>
-                        {((dadosAssinaturas?.qtdAtivos || 0) / Math.max(dadosAssinaturas?.totalRecorrentes || 1, 1) * 100).toFixed(0)}% Ativos
-                      </span>
-                      <span>
-                        {((dadosAssinaturas?.qtdAtrasados || 0) / Math.max(dadosAssinaturas?.totalRecorrentes || 1, 1) * 100).toFixed(0)}% Atrasados
-                      </span>
-                      <span>
-                        {((dadosAssinaturas?.qtdAguardando || 0) / Math.max(dadosAssinaturas?.totalRecorrentes || 1, 1) * 100).toFixed(0)}% Aguardando
-                      </span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Distribuição por Plataforma */}
-              {dadosAssinaturas?.porPlataforma && Object.keys(dadosAssinaturas.porPlataforma).length > 0 && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-lg">
-                      <Activity className="w-5 h-5 text-primary" />
-                      Distribuição por Plataforma
-                    </CardTitle>
-                    <CardDescription>Detalhamento das assinaturas por origem</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                      {Object.entries(dadosAssinaturas.porPlataforma).map(([plataforma, dados]) => (
-                        <div key={plataforma} className="p-4 rounded-lg bg-muted/50 space-y-2">
-                          <div className="flex items-center justify-between">
-                            <span className="font-medium">{plataforma}</span>
-                            <Badge variant="secondary">{dados.quantidade} contratos</Badge>
-                          </div>
-                          <div className="text-2xl font-bold text-primary">
-                            {formatCurrency(dados.mrr)}
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            Ticket: {formatCurrency(dados.quantidade > 0 ? dados.mrr / dados.quantidade : 0)}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Indicadores de Saúde */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-lg">
-                    <Sparkles className="w-5 h-5 text-primary" />
-                    Indicadores de Saúde SaaS
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                    <div className="p-4 rounded-lg bg-muted/50">
-                      <p className="text-sm text-muted-foreground mb-1">LTV Estimado</p>
-                      <p className="text-2xl font-bold">{formatCurrency((dadosAssinaturas?.ticketMedio || 0) * (dadosAssinaturas?.ltvMedio || 12))}</p>
-                      <p className="text-xs text-muted-foreground">Ticket × {dadosAssinaturas?.ltvMedio || 12} meses</p>
-                    </div>
-                    <div className="p-4 rounded-lg bg-muted/50">
-                      <p className="text-sm text-muted-foreground mb-1">ARR Projetado</p>
-                      <p className="text-2xl font-bold text-primary">{formatCurrency((dadosAssinaturas?.mrrTotal || 0) * 12)}</p>
-                      <p className="text-xs text-muted-foreground">MRR × 12 meses</p>
-                    </div>
-                    <div className="p-4 rounded-lg bg-muted/50">
-                      <p className="text-sm text-muted-foreground mb-1">Vendedores</p>
-                      <p className="text-2xl font-bold">{dadosAssinaturas?.vendedoresAtuais || 0}</p>
-                      <p className="text-xs text-muted-foreground">Ativos no time</p>
-                    </div>
-                    <div className="p-4 rounded-lg bg-muted/50">
-                      <p className="text-sm text-muted-foreground mb-1">Meta Configurada</p>
-                      <p className="text-2xl font-bold text-amber-600">{formatCurrency(dadosAssinaturas?.metaMrr || 0)}</p>
-                      <p className="text-xs text-muted-foreground">MRR objetivo</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </>
-          )}
-        </TabsContent>
 
         {/* Tab: Definir Meta */}
         <TabsContent value="meta" className="mt-6 space-y-6">
