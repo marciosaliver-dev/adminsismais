@@ -38,7 +38,10 @@ import {
   Activity,
   Megaphone,
   UserPlus,
+  Save,
+  FolderOpen,
 } from "lucide-react";
+import { CenariosSalvosDialog } from "@/components/simulador/CenariosSalvosDialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -149,6 +152,8 @@ export default function SimuladorMeta() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("situacao");
+  const [cenariosDialogOpen, setCenariosDialogOpen] = useState(false);
+  const [cenariosDialogMode, setCenariosDialogMode] = useState<"save" | "load">("save");
 
   // Buscar dados reais das assinaturas importadas
   const { data: dadosAssinaturas, isLoading: loadingAssinaturas, refetch: refetchAssinaturas } = useQuery({
@@ -394,6 +399,27 @@ export default function SimuladorMeta() {
     }
   };
 
+  const handleLoadCenario = (simulacao: any) => {
+    setInputs({
+      mrrAtual: Number(simulacao.mrr_atual) || 0,
+      mrrMeta: Number(simulacao.mrr_meta) || 50000,
+      dataMeta: simulacao.data_meta ? new Date(simulacao.data_meta) : addMonths(new Date(), 12),
+      ticketMedio: Number(simulacao.ticket_medio) || 100,
+      churnMensal: Number(simulacao.churn_mensal) || 5,
+      taxaConversao: Number(simulacao.taxa_conversao) || 2.5,
+      custoPorLead: Number(simulacao.custo_por_lead) || 5,
+      leadsVendedorMes: Number(simulacao.leads_vendedor_mes) || 300,
+      custoFixoVendedor: Number(simulacao.custo_fixo_vendedor) || 3000,
+      comissaoVenda: Number(simulacao.comissao_venda) || 5,
+      vendedoresAtuais: Number(simulacao.vendedores_atuais) || 1,
+      ltvMeses: Number(simulacao.ltv_meses) || 12,
+      clientesAtivos: Number(simulacao.clientes_ativos) || 0,
+    });
+    if (simulacao.analise_ia) {
+      setAiAnalysis(simulacao.analise_ia);
+    }
+  };
+
   const isViavel = outputs.roi > 0;
 
   return (
@@ -409,7 +435,29 @@ export default function SimuladorMeta() {
             Planeje o crescimento com dados reais das suas assinaturas
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => {
+              setCenariosDialogMode("load");
+              setCenariosDialogOpen(true);
+            }}
+          >
+            <FolderOpen className="w-4 h-4 mr-2" />
+            Carregar
+          </Button>
+          <Button 
+            variant="default" 
+            size="sm" 
+            onClick={() => {
+              setCenariosDialogMode("save");
+              setCenariosDialogOpen(true);
+            }}
+          >
+            <Save className="w-4 h-4 mr-2" />
+            Salvar
+          </Button>
           <Button variant="outline" size="sm" onClick={() => refetchAssinaturas()}>
             <RefreshCw className={cn("w-4 h-4 mr-2", loadingAssinaturas && "animate-spin")} />
             Atualizar
@@ -419,6 +467,17 @@ export default function SimuladorMeta() {
           </Button>
         </div>
       </div>
+
+      {/* Dialog de Cenários */}
+      <CenariosSalvosDialog
+        open={cenariosDialogOpen}
+        onOpenChange={setCenariosDialogOpen}
+        mode={cenariosDialogMode}
+        inputs={inputs}
+        outputs={outputs}
+        aiAnalysis={aiAnalysis}
+        onLoad={handleLoadCenario}
+      />
 
       {/* Tabs Principais */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">

@@ -1104,6 +1104,99 @@ export type Database = {
         }
         Relationships: []
       }
+      simulacoes_meta: {
+        Row: {
+          analise_ia: string | null
+          churn_mensal: number | null
+          clientes_ativos: number | null
+          comissao_venda: number | null
+          created_at: string
+          custo_fixo_vendedor: number | null
+          custo_por_lead: number | null
+          custo_total: number | null
+          data_meta: string | null
+          descricao: string | null
+          id: string
+          leads_necessarios: number | null
+          leads_vendedor_mes: number | null
+          ltv_cac_ratio: number | null
+          ltv_meses: number | null
+          mrr_atual: number | null
+          mrr_meta: number | null
+          nome: string
+          novas_vendas: number | null
+          payback_meses: number | null
+          receita_necessaria: number | null
+          roi: number | null
+          taxa_conversao: number | null
+          ticket_medio: number | null
+          updated_at: string
+          user_id: string
+          vendedores_atuais: number | null
+          vendedores_necessarios: number | null
+        }
+        Insert: {
+          analise_ia?: string | null
+          churn_mensal?: number | null
+          clientes_ativos?: number | null
+          comissao_venda?: number | null
+          created_at?: string
+          custo_fixo_vendedor?: number | null
+          custo_por_lead?: number | null
+          custo_total?: number | null
+          data_meta?: string | null
+          descricao?: string | null
+          id?: string
+          leads_necessarios?: number | null
+          leads_vendedor_mes?: number | null
+          ltv_cac_ratio?: number | null
+          ltv_meses?: number | null
+          mrr_atual?: number | null
+          mrr_meta?: number | null
+          nome: string
+          novas_vendas?: number | null
+          payback_meses?: number | null
+          receita_necessaria?: number | null
+          roi?: number | null
+          taxa_conversao?: number | null
+          ticket_medio?: number | null
+          updated_at?: string
+          user_id: string
+          vendedores_atuais?: number | null
+          vendedores_necessarios?: number | null
+        }
+        Update: {
+          analise_ia?: string | null
+          churn_mensal?: number | null
+          clientes_ativos?: number | null
+          comissao_venda?: number | null
+          created_at?: string
+          custo_fixo_vendedor?: number | null
+          custo_por_lead?: number | null
+          custo_total?: number | null
+          data_meta?: string | null
+          descricao?: string | null
+          id?: string
+          leads_necessarios?: number | null
+          leads_vendedor_mes?: number | null
+          ltv_cac_ratio?: number | null
+          ltv_meses?: number | null
+          mrr_atual?: number | null
+          mrr_meta?: number | null
+          nome?: string
+          novas_vendas?: number | null
+          payback_meses?: number | null
+          receita_necessaria?: number | null
+          roi?: number | null
+          taxa_conversao?: number | null
+          ticket_medio?: number | null
+          updated_at?: string
+          user_id?: string
+          vendedores_atuais?: number | null
+          vendedores_necessarios?: number | null
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
