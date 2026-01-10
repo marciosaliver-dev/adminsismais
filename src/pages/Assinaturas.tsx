@@ -354,12 +354,19 @@ export default function Assinaturas() {
       ? (cancelados.length / dados.length) * 100
       : 0;
     
+    // Combinação de Ativos + Atrasados para indicador principal
+    const assinaturasRecorrentes = ativos.length + atrasados.length;
+    const mrrRecorrente = totalMRR + mrrAtrasados;
+    
     return {
       totalContratos: dados.length,
       contratosAtivos: ativos.length,
       contratosAtrasados: atrasados.length,
       mrrAtrasados,
       totalMRR,
+      // Novos indicadores combinados
+      assinaturasRecorrentes,
+      mrrRecorrente,
       totalLTV,
       ltvMedioMeses: dados.length > 0 ? totalLTVMeses / dados.length : 0,
       ltvMedioValor: dados.length > 0 ? totalLTV / dados.length : 0,
@@ -1098,8 +1105,51 @@ export default function Assinaturas() {
           </Button>
         </div>
 
-        {/* Metrics Cards - 2 rows of 5 */}
+        {/* Indicadores Principais - Ativos + Atrasados */}
         <TooltipProvider delayDuration={200}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Card className="bg-gradient-to-r from-primary/10 to-primary/5 border-primary/30 border-2 cursor-help">
+                  <CardContent className="p-4 flex items-center gap-4">
+                    <div className="p-3 bg-primary/20 rounded-full">
+                      <DollarSign className="w-8 h-8 text-primary" />
+                    </div>
+                    <div>
+                      <div className="text-sm text-muted-foreground font-medium">MRR Recorrente</div>
+                      <p className="text-2xl font-bold text-foreground">{formatCurrency(metrics.mrrRecorrente)}</p>
+                      <p className="text-xs text-muted-foreground">Ativos + Atrasados</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="text-sm">MRR total dos contratos ativos ({formatCurrency(metrics.totalMRR)}) + atrasados ({formatCurrency(metrics.mrrAtrasados)})</p>
+              </TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Card className="bg-gradient-to-r from-primary/10 to-primary/5 border-primary/30 border-2 cursor-help">
+                  <CardContent className="p-4 flex items-center gap-4">
+                    <div className="p-3 bg-primary/20 rounded-full">
+                      <Users className="w-8 h-8 text-primary" />
+                    </div>
+                    <div>
+                      <div className="text-sm text-muted-foreground font-medium">Assinaturas Recorrentes</div>
+                      <p className="text-2xl font-bold text-foreground">{metrics.assinaturasRecorrentes}</p>
+                      <p className="text-xs text-muted-foreground">{metrics.contratosAtivos} ativos + {metrics.contratosAtrasados} atrasados</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="text-sm">Total de assinaturas gerando receita: contratos ativos e em atraso</p>
+              </TooltipContent>
+            </Tooltip>
+          </div>
+
+          {/* Metrics Cards - 2 rows of 5 */}
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
             <Tooltip>
               <TooltipTrigger asChild>
