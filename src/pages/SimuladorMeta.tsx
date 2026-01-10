@@ -167,10 +167,30 @@ export default function SimuladorMeta() {
 
       if (error) throw error;
 
-      const contratosAtivos = contratos || [];
-      const totalAtivos = contratosAtivos.length;
-      const mrrTotal = contratosAtivos.reduce((acc, c) => acc + (c.mrr || 0), 0);
-      const ticketMedio = totalAtivos > 0 ? mrrTotal / totalAtivos : 0;
+      const todosContratos = contratos || [];
+      
+      // Separar por status
+      const contratosAtivos = todosContratos.filter(c => 
+        c.status === "Ativa" || c.status === "Ativo"
+      );
+      const contratosAtrasados = todosContratos.filter(c => 
+        c.status === "Atrasada" || c.status === "Atrasado"
+      );
+      const contratosAguardando = todosContratos.filter(c => 
+        c.status === "Aguardando pagamento"
+      );
+      
+      const qtdAtivos = contratosAtivos.length;
+      const qtdAtrasados = contratosAtrasados.length;
+      const qtdAguardando = contratosAguardando.length;
+      const totalRecorrentes = todosContratos.length;
+      
+      const mrrAtivos = contratosAtivos.reduce((acc, c) => acc + (c.mrr || 0), 0);
+      const mrrAtrasados = contratosAtrasados.reduce((acc, c) => acc + (c.mrr || 0), 0);
+      const mrrAguardando = contratosAguardando.reduce((acc, c) => acc + (c.mrr || 0), 0);
+      const mrrTotal = mrrAtivos + mrrAtrasados + mrrAguardando;
+      
+      const ticketMedio = totalRecorrentes > 0 ? mrrTotal / totalRecorrentes : 0;
 
       // Calcular churn baseado em cancelamentos do último mês
       const mesPassado = new Date();
@@ -182,7 +202,7 @@ export default function SimuladorMeta() {
         .gte("data_cancelamento", mesPassado.toISOString().split("T")[0]);
 
       const canceladosMes = cancelados?.length || 0;
-      const churnRate = totalAtivos > 0 ? (canceladosMes / (totalAtivos + canceladosMes)) * 100 : 0;
+      const churnRate = totalRecorrentes > 0 ? (canceladosMes / (totalRecorrentes + canceladosMes)) * 100 : 0;
 
       // Buscar vendedores ativos
       const { count: vendedores } = await supabase
@@ -200,7 +220,7 @@ export default function SimuladorMeta() {
         .maybeSingle();
 
       // Distribuição por plataforma
-      const porPlataforma = contratosAtivos.reduce((acc, c) => {
+      const porPlataforma = todosContratos.reduce((acc, c) => {
         const plat = c.plataforma || "Outro";
         if (!acc[plat]) acc[plat] = { quantidade: 0, mrr: 0 };
         acc[plat].quantidade++;
@@ -209,8 +229,14 @@ export default function SimuladorMeta() {
       }, {} as Record<string, { quantidade: number; mrr: number }>);
 
       return {
-        totalAtivos,
+        totalRecorrentes,
+        qtdAtivos,
+        qtdAtrasados,
+        qtdAguardando,
         mrrTotal,
+        mrrAtivos,
+        mrrAtrasados,
+        mrrAguardando,
         ticketMedio: Math.round(ticketMedio),
         churnRate: Math.round(churnRate * 10) / 10,
         canceladosMes,
@@ -229,7 +255,7 @@ export default function SimuladorMeta() {
       setInputs(prev => ({
         ...prev,
         mrrAtual: dadosAssinaturas.mrrTotal,
-        clientesAtivos: dadosAssinaturas.totalAtivos,
+        clientesAtivos: dadosAssinaturas.totalRecorrentes,
         ticketMedio: dadosAssinaturas.ticketMedio || 100,
         churnMensal: dadosAssinaturas.churnRate || 5,
         vendedoresAtuais: dadosAssinaturas.vendedoresAtuais,
@@ -515,12 +541,12 @@ export default function SimuladorMeta() {
                   <CardContent className="pt-6">
                     <div className="flex items-start justify-between">
                       <div>
-                        <p className="text-sm text-muted-foreground">MRR Atual</p>
+                        <p className="text-sm text-muted-foreground">MRR Recorrente</p>
                         <p className="text-3xl font-bold text-primary">
                           {formatCurrency(dadosAssinaturas?.mrrTotal || 0)}
                         </p>
                         <p className="text-xs text-muted-foreground mt-1">
-                          Receita Mensal Recorrente
+                          Ativos + Atrasados
                         </p>
                       </div>
                       <div className="p-3 rounded-lg bg-primary/10">
@@ -534,12 +560,12 @@ export default function SimuladorMeta() {
                   <CardContent className="pt-6">
                     <div className="flex items-start justify-between">
                       <div>
-                        <p className="text-sm text-muted-foreground">Clientes Ativos</p>
+                        <p className="text-sm text-muted-foreground">Assinaturas Recorrentes</p>
                         <p className="text-3xl font-bold">
-                          {formatNumber(dadosAssinaturas?.totalAtivos || 0)}
+                          {formatNumber(dadosAssinaturas?.totalRecorrentes || 0)}
                         </p>
                         <p className="text-xs text-muted-foreground mt-1">
-                          Assinaturas ativas
+                          Ativos + Atrasados
                         </p>
                       </div>
                       <div className="p-3 rounded-lg bg-blue-500/10">
@@ -593,6 +619,101 @@ export default function SimuladorMeta() {
                   </CardContent>
                 </Card>
               </div>
+
+              {/* Card Breakdown Ativos vs Atrasados */}
+              <Card className="border-2 border-dashed">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <Activity className="w-5 h-5 text-primary" />
+                    Detalhamento por Status
+                  </CardTitle>
+                  <CardDescription>Breakdown de contratos Ativos vs Atrasados</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid gap-4 sm:grid-cols-3">
+                    {/* Ativos */}
+                    <div className="p-4 rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="w-3 h-3 rounded-full bg-green-500" />
+                        <span className="font-medium text-green-700 dark:text-green-400">Ativos</span>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-2xl font-bold text-green-600">
+                          {formatNumber(dadosAssinaturas?.qtdAtivos || 0)}
+                        </p>
+                        <p className="text-sm text-green-600/80">
+                          {formatCurrency(dadosAssinaturas?.mrrAtivos || 0)} MRR
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Atrasados */}
+                    <div className="p-4 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="w-3 h-3 rounded-full bg-amber-500" />
+                        <span className="font-medium text-amber-700 dark:text-amber-400">Atrasados</span>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-2xl font-bold text-amber-600">
+                          {formatNumber(dadosAssinaturas?.qtdAtrasados || 0)}
+                        </p>
+                        <p className="text-sm text-amber-600/80">
+                          {formatCurrency(dadosAssinaturas?.mrrAtrasados || 0)} MRR
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Aguardando */}
+                    <div className="p-4 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="w-3 h-3 rounded-full bg-blue-500" />
+                        <span className="font-medium text-blue-700 dark:text-blue-400">Aguardando</span>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-2xl font-bold text-blue-600">
+                          {formatNumber(dadosAssinaturas?.qtdAguardando || 0)}
+                        </p>
+                        <p className="text-sm text-blue-600/80">
+                          {formatCurrency(dadosAssinaturas?.mrrAguardando || 0)} MRR
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Barra visual de proporção */}
+                  <div className="mt-4">
+                    <div className="flex h-3 rounded-full overflow-hidden bg-muted">
+                      {(dadosAssinaturas?.totalRecorrentes || 0) > 0 && (
+                        <>
+                          <div 
+                            className="bg-green-500 transition-all"
+                            style={{ width: `${((dadosAssinaturas?.qtdAtivos || 0) / (dadosAssinaturas?.totalRecorrentes || 1)) * 100}%` }}
+                          />
+                          <div 
+                            className="bg-amber-500 transition-all"
+                            style={{ width: `${((dadosAssinaturas?.qtdAtrasados || 0) / (dadosAssinaturas?.totalRecorrentes || 1)) * 100}%` }}
+                          />
+                          <div 
+                            className="bg-blue-500 transition-all"
+                            style={{ width: `${((dadosAssinaturas?.qtdAguardando || 0) / (dadosAssinaturas?.totalRecorrentes || 1)) * 100}%` }}
+                          />
+                        </>
+                      )}
+                    </div>
+                    <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                      <span>
+                        {((dadosAssinaturas?.qtdAtivos || 0) / Math.max(dadosAssinaturas?.totalRecorrentes || 1, 1) * 100).toFixed(0)}% Ativos
+                      </span>
+                      <span>
+                        {((dadosAssinaturas?.qtdAtrasados || 0) / Math.max(dadosAssinaturas?.totalRecorrentes || 1, 1) * 100).toFixed(0)}% Atrasados
+                      </span>
+                      <span>
+                        {((dadosAssinaturas?.qtdAguardando || 0) / Math.max(dadosAssinaturas?.totalRecorrentes || 1, 1) * 100).toFixed(0)}% Aguardando
+                      </span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
 
               {/* Distribuição por Plataforma */}
               {dadosAssinaturas?.porPlataforma && Object.keys(dadosAssinaturas.porPlataforma).length > 0 && (
