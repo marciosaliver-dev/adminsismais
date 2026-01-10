@@ -43,6 +43,7 @@ import {
 } from "lucide-react";
 import { CenariosSalvosDialog } from "@/components/simulador/CenariosSalvosDialog";
 import { AnaliseIADisplay } from "@/components/simulador/AnaliseIADisplay";
+import { ProjecaoMensalEditor } from "@/components/simulador/ProjecaoMensalEditor";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -1042,76 +1043,17 @@ export default function SimuladorMeta() {
             </Card>
           </div>
 
-          {/* Gráfico */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <LineChartIcon className="w-5 h-5 text-primary" />
-                Projeção de MRR
-              </CardTitle>
-              <CardDescription>Crescimento de {formatPercent(outputs.crescimentoMensalMrr)}/mês</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[300px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <ComposedChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                    <defs>
-                      <linearGradient id="mrrGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
-                        <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                    <XAxis dataKey="mes" className="text-xs fill-muted-foreground" tick={{ fontSize: 11 }} tickLine={false} />
-                    <YAxis className="text-xs fill-muted-foreground" tick={{ fontSize: 11 }} tickLine={false} tickFormatter={(value) => `R$ ${(value / 1000).toFixed(0)}k`} />
-                    <RechartsTooltip
-                      contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px" }}
-                      formatter={(value: number, name: string) => [formatCurrency(value), name === "mrrProjetado" ? "MRR Projetado" : "Meta"]}
-                      labelFormatter={(_, payload) => payload?.[0]?.payload?.mesCompleto || ""}
-                    />
-                    <ReferenceLine y={inputs.mrrMeta} stroke="hsl(var(--destructive))" strokeDasharray="5 5" strokeWidth={2} />
-                    <Area type="monotone" dataKey="mrrProjetado" stroke="transparent" fill="url(#mrrGradient)" />
-                    <Line type="monotone" dataKey="mrrProjetado" stroke="hsl(var(--primary))" strokeWidth={3} dot={{ fill: "hsl(var(--primary))", strokeWidth: 0, r: 4 }} />
-                  </ComposedChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Tabela Detalhada */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Projeção Mês a Mês</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ScrollArea className="h-[300px]">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Mês</TableHead>
-                      <TableHead className="text-right">MRR</TableHead>
-                      <TableHead className="text-right">% Meta</TableHead>
-                      <TableHead className="text-right">Novas</TableHead>
-                      <TableHead className="text-right">Churn</TableHead>
-                      <TableHead className="text-right">Clientes</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {chartData.map((row, i) => (
-                      <TableRow key={i} className={cn(row.mrrProjetado >= row.mrrMeta && "bg-green-50/50 dark:bg-green-950/20")}>
-                        <TableCell className="font-medium">{row.mesCompleto}</TableCell>
-                        <TableCell className="text-right font-semibold">{formatCurrency(row.mrrProjetado)}</TableCell>
-                        <TableCell className="text-right">{row.percentualMeta}%</TableCell>
-                        <TableCell className="text-right text-green-600">+{row.novasVendas}</TableCell>
-                        <TableCell className="text-right text-red-500">-{row.churn}</TableCell>
-                        <TableCell className="text-right">{formatNumber(row.clientesAcumulados)}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </ScrollArea>
-            </CardContent>
-          </Card>
+          {/* Projeção Mensal Editável */}
+          <ProjecaoMensalEditor
+            mrrAtual={inputs.mrrAtual}
+            mrrMeta={inputs.mrrMeta}
+            ticketMedio={inputs.ticketMedio}
+            churnMensal={inputs.churnMensal}
+            taxaConversao={inputs.taxaConversao}
+            custoPorLead={inputs.custoPorLead}
+            mesesAteData={outputs.mesesAteData}
+            vendasPorMes={outputs.vendasPorMes}
+          />
         </TabsContent>
 
         {/* Tab: Análise IA */}
