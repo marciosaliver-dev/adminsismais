@@ -1000,7 +1000,12 @@ export default function Assinaturas() {
 
       // Batch upsert contracts (in chunks of 500 to avoid payload limits)
       const BATCH_SIZE = 500;
-      const contratosComImportacao = contratos.map(c => ({ ...c, importacao_id: importacao.id }));
+
+      // OBS: "mrr" é coluna gerada no banco e NÃO pode ser enviada no insert/upsert
+      const contratosComImportacao = contratos.map((c: any) => {
+        const { mrr, ...rest } = c ?? {};
+        return { ...rest, importacao_id: importacao.id };
+      });
       
       for (let i = 0; i < contratosComImportacao.length; i += BATCH_SIZE) {
         const batch = contratosComImportacao.slice(i, i + BATCH_SIZE);
