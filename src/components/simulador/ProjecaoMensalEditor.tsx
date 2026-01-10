@@ -67,6 +67,7 @@ interface ProjecaoMensalEditorProps {
   custoPorLead: number;
   mesesAteData: number;
   vendasPorMes: number;
+  dataInicial?: Date;
   onProjecaoChange?: (projecao: MesProjecao[]) => void;
 }
 
@@ -85,6 +86,7 @@ export function ProjecaoMensalEditor({
   custoPorLead,
   mesesAteData,
   vendasPorMes,
+  dataInicial,
   onProjecaoChange,
 }: ProjecaoMensalEditorProps) {
   const [projecao, setProjecao] = useState<MesProjecao[]>([]);
@@ -99,7 +101,8 @@ export function ProjecaoMensalEditor({
       let faturamentoAcumulado = 0;
       
       for (let i = 0; i <= mesesAteData; i++) {
-        const data = addMonths(new Date(), i);
+        const dataBase = dataInicial || new Date();
+        const data = addMonths(dataBase, i);
         const mrrInicial = mrrAcumulado;
         
         // No mês 0 não há ganhos/perdas ainda
@@ -143,7 +146,7 @@ export function ProjecaoMensalEditor({
     };
     
     setProjecao(gerarProjecaoInicial());
-  }, [mrrAtual, mrrMeta, ticketMedio, churnMensal, taxaConversao, custoPorLead, mesesAteData, vendasPorMes]);
+  }, [mrrAtual, mrrMeta, ticketMedio, churnMensal, taxaConversao, custoPorLead, mesesAteData, vendasPorMes, dataInicial]);
 
   // Recalcular projeção quando um valor é editado
   const recalcularProjecao = (mesEditado: number, campo: keyof MesProjecao, novoValor: number) => {
