@@ -19,7 +19,8 @@ import {
   ChevronDown,
   ChevronUp,
   AlertCircle,
-  CheckCircle2
+  CheckCircle2,
+  UserMinus
 } from "lucide-react";
 import { format, addMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -46,13 +47,15 @@ interface MesProjecao {
   mrrInicial: number;
   metaVendas: number;
   mrrGanho: number;
-  churnPrevisto: number;
+  churnQtd: number; // Quantidade de cancelamentos
+  churnPrevisto: number; // Valor MRR perdido
   mrrFinal: number;
   investimentoAds: number;
   leadsEsperados: number;
   vendasEsperadas: number;
   faturamentoAcumulado: number;
   locked: boolean;
+  churnLocked: boolean; // Se churn foi editado manualmente
 }
 
 interface ProjecaoMensalEditorProps {
@@ -102,8 +105,12 @@ export function ProjecaoMensalEditor({
         // No mês 0 não há ganhos/perdas ainda
         const metaVendasMes = i === 0 ? 0 : vendasPorMes;
         const mrrGanho = metaVendasMes * ticketMedio;
-        const churnPrevisto = i === 0 ? 0 : mrrInicial * (churnMensal / 100);
-        const mrrFinal = mrrInicial + mrrGanho - churnPrevisto;
+        
+        // Calcular churn baseado no percentual e ticket médio
+        const churnMrrPrevisto = i === 0 ? 0 : mrrInicial * (churnMensal / 100);
+        const churnQtdPrevisto = ticketMedio > 0 ? Math.round(churnMrrPrevisto / ticketMedio) : 0;
+        
+        const mrrFinal = mrrInicial + mrrGanho - churnMrrPrevisto;
         
         // Calcular investimento em ads necessário
         const leadsNecessarios = taxaConversao > 0 ? metaVendasMes / (taxaConversao / 100) : 0;
@@ -118,13 +125,15 @@ export function ProjecaoMensalEditor({
           mrrInicial,
           metaVendas: metaVendasMes,
           mrrGanho,
-          churnPrevisto: Math.round(churnPrevisto),
+          churnQtd: churnQtdPrevisto,
+          churnPrevisto: Math.round(churnMrrPrevisto),
           mrrFinal: Math.round(mrrFinal),
           investimentoAds: Math.round(investimentoAds),
           leadsEsperados: Math.round(leadsNecessarios),
           vendasEsperadas: metaVendasMes,
           faturamentoAcumulado: Math.round(faturamentoAcumulado),
           locked: false,
+          churnLocked: false,
         });
         
         mrrAcumulado = mrrFinal;
@@ -162,6 +171,18 @@ export function ProjecaoMensalEditor({
         novaProjecao[mesEditado].mrrGanho = Math.round(vendas) * ticketMedio;
       }
       
+      // Se editou quantidade de churn, calcular MRR churn
+      if (campo === "churnQtd") {
+        novaProjecao[mesEditado].churnPrevisto = novoValor * ticketMedio;
+        novaProjecao[mesEditado].churnLocked = true;
+      }
+      
+      // Se editou MRR churn, calcular quantidade
+      if (campo === "churnPrevisto") {
+        novaProjecao[mesEditado].churnQtd = ticketMedio > 0 ? Math.round(novoValor / ticketMedio) : 0;
+        novaProjecao[mesEditado].churnLocked = true;
+      }
+      
       // Recalcular MRR final e cascata para meses seguintes
       let mrrAcumulado = mesEditado > 0 ? novaProjecao[mesEditado - 1].mrrFinal : mrrAtual;
       let faturamentoAcumulado = mesEditado > 0 ? novaProjecao[mesEditado - 1].faturamentoAcumulado : 0;
@@ -170,7 +191,13 @@ export function ProjecaoMensalEditor({
         if (i > mesEditado && !novaProjecao[i].locked) {
           // Meses não travados usam cálculo automático
           novaProjecao[i].mrrInicial = mrrAcumulado;
-          novaProjecao[i].churnPrevisto = Math.round(mrrAcumulado * (churnMensal / 100));
+          
+          // Se churn não foi editado, recalcular automaticamente
+          if (!novaProjecao[i].churnLocked) {
+            const churnMrrAuto = mrrAcumulado * (churnMensal / 100);
+            novaProjecao[i].churnPrevisto = Math.round(churnMrrAuto);
+            novaProjecao[i].churnQtd = ticketMedio > 0 ? Math.round(churnMrrAuto / ticketMedio) : 0;
+          }
         } else {
           novaProjecao[i].mrrInicial = mrrAcumulado;
         }
@@ -200,10 +227,11 @@ export function ProjecaoMensalEditor({
     setProjecao(prev => {
       const novaProjecao = [...prev];
       novaProjecao[mesIndex].locked = false;
+      novaProjecao[mesIndex].churnLocked = false;
       return novaProjecao;
     });
     // Recalcular tudo do zero
-    const newProjecao = projecao.map((m, i) => ({ ...m, locked: i === mesIndex ? false : m.locked }));
+    const newProjecao = projecao.map((m, i) => ({ ...m, locked: i === mesIndex ? false : m.locked, churnLocked: i === mesIndex ? false : m.churnLocked }));
     setProjecao(newProjecao);
   };
 
@@ -391,7 +419,13 @@ export function ProjecaoMensalEditor({
                       </div>
                     </TableHead>
                     <TableHead className="text-right text-emerald-600">+MRR Ganho</TableHead>
-                    <TableHead className="text-right text-red-500">-Churn</TableHead>
+                    <TableHead className="text-right bg-red-50 dark:bg-red-950/30">
+                      <div className="flex items-center justify-end gap-1">
+                        <UserMinus className="w-3.5 h-3.5 text-red-500" />
+                        Churn Qtd
+                      </div>
+                    </TableHead>
+                    <TableHead className="text-right bg-red-50 dark:bg-red-950/30 text-red-500">-Churn MRR</TableHead>
                     <TableHead className="text-right font-semibold">MRR Final</TableHead>
                     <TableHead className="text-right">Fat. Acum.</TableHead>
                     <TableHead className="w-[50px]"></TableHead>
@@ -404,12 +438,12 @@ export function ProjecaoMensalEditor({
                       className={cn(
                         "transition-colors",
                         mes.mrrFinal >= mrrMeta && "bg-emerald-50/50 dark:bg-emerald-950/20",
-                        mes.locked && "bg-blue-50/50 dark:bg-blue-950/20"
+                        (mes.locked || mes.churnLocked) && "bg-blue-50/50 dark:bg-blue-950/20"
                       )}
                     >
                       <TableCell className="font-medium">
                         <div className="flex items-center gap-2">
-                          {mes.locked && <Lock className="w-3 h-3 text-blue-500" />}
+                          {(mes.locked || mes.churnLocked) && <Lock className="w-3 h-3 text-blue-500" />}
                           {format(mes.data, "MMM/yy", { locale: ptBR })}
                         </div>
                       </TableCell>
@@ -492,9 +526,75 @@ export function ProjecaoMensalEditor({
                       <TableCell className="text-right text-emerald-600 font-medium">
                         {index === 0 ? "-" : `+${formatCurrency(mes.mrrGanho)}`}
                       </TableCell>
-                      <TableCell className="text-right text-red-500">
-                        {index === 0 ? "-" : `-${formatCurrency(mes.churnPrevisto)}`}
+
+                      {/* Churn Quantidade - Editável */}
+                      <TableCell className="text-right bg-red-50/50 dark:bg-red-950/20">
+                        {index === 0 ? (
+                          <span className="text-muted-foreground">-</span>
+                        ) : editingCell?.mes === index && editingCell?.field === "churnQtd" ? (
+                          <Input
+                            type="number"
+                            defaultValue={mes.churnQtd}
+                            className="h-7 w-16 text-right"
+                            autoFocus
+                            onBlur={(e) => handleCellEdit(index, "churnQtd", e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") handleCellEdit(index, "churnQtd", (e.target as HTMLInputElement).value);
+                              if (e.key === "Escape") setEditingCell(null);
+                            }}
+                          />
+                        ) : (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <button
+                                  className="hover:bg-red-100 dark:hover:bg-red-900/50 px-2 py-1 rounded transition-colors flex items-center gap-1 ml-auto text-red-600"
+                                  onClick={() => setEditingCell({ mes: index, field: "churnQtd" })}
+                                >
+                                  <Edit3 className="w-3 h-3 opacity-50" />
+                                  {mes.churnQtd}
+                                </button>
+                              </TooltipTrigger>
+                              <TooltipContent>Clique para editar quantidade de cancelamentos</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
                       </TableCell>
+
+                      {/* Churn MRR - Editável */}
+                      <TableCell className="text-right bg-red-50/50 dark:bg-red-950/20">
+                        {index === 0 ? (
+                          <span className="text-muted-foreground">-</span>
+                        ) : editingCell?.mes === index && editingCell?.field === "churnPrevisto" ? (
+                          <Input
+                            type="number"
+                            defaultValue={mes.churnPrevisto}
+                            className="h-7 w-24 text-right"
+                            autoFocus
+                            onBlur={(e) => handleCellEdit(index, "churnPrevisto", e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") handleCellEdit(index, "churnPrevisto", (e.target as HTMLInputElement).value);
+                              if (e.key === "Escape") setEditingCell(null);
+                            }}
+                          />
+                        ) : (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <button
+                                  className="hover:bg-red-100 dark:hover:bg-red-900/50 px-2 py-1 rounded transition-colors flex items-center gap-1 ml-auto text-red-600 font-medium"
+                                  onClick={() => setEditingCell({ mes: index, field: "churnPrevisto" })}
+                                >
+                                  <Edit3 className="w-3 h-3 opacity-50" />
+                                  -{formatCurrency(mes.churnPrevisto)}
+                                </button>
+                              </TooltipTrigger>
+                              <TooltipContent>Clique para editar MRR perdido</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
+                      </TableCell>
+
                       <TableCell className="text-right font-bold">
                         {formatCurrency(mes.mrrFinal)}
                       </TableCell>
@@ -502,7 +602,7 @@ export function ProjecaoMensalEditor({
                         {formatCurrency(mes.faturamentoAcumulado)}
                       </TableCell>
                       <TableCell>
-                        {mes.locked && index > 0 && (
+                        {(mes.locked || mes.churnLocked) && index > 0 && (
                           <TooltipProvider>
                             <Tooltip>
                               <TooltipTrigger asChild>
