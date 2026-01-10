@@ -58,6 +58,7 @@ import {
 interface SimuladorInputs {
   mrrAtual: number;
   mrrMeta: number;
+  dataInicial: Date | undefined;
   dataMeta: Date | undefined;
   ticketMedio: number;
   churnMensal: number;
@@ -121,6 +122,7 @@ const getBenchmarkStatus = (value: number, benchmark: { excelente?: number; bom:
 const defaultInputs: SimuladorInputs = {
   mrrAtual: 0,
   mrrMeta: 50000,
+  dataInicial: new Date(),
   dataMeta: addMonths(new Date(), 12),
   ticketMedio: 100,
   churnMensal: 5,
@@ -154,8 +156,9 @@ export default function SimuladorMeta() {
 
   // Cálculos automáticos
   const outputs = useMemo<SimuladorOutputs>(() => {
+    const dataBase = inputs.dataInicial || new Date();
     const mesesAteData = inputs.dataMeta 
-      ? Math.max(1, differenceInMonths(inputs.dataMeta, new Date()))
+      ? Math.max(1, differenceInMonths(inputs.dataMeta, dataBase))
       : 12;
 
     const receitaNecessaria = Math.max(0, inputs.mrrMeta - inputs.mrrAtual);
@@ -254,11 +257,12 @@ export default function SimuladorMeta() {
     const vendasMensais = outputs.vendasPorMes;
     const churnRate = inputs.churnMensal / 100;
     const data = [];
+    const dataBase = inputs.dataInicial || new Date();
     
     let clientesAcumulados = inputs.clientesAtivos;
     
     for (let i = 0; i <= meses; i++) {
-      const mesData = addMonths(new Date(), i);
+      const mesData = addMonths(dataBase, i);
       const mrrProjetado = inputs.mrrAtual * Math.pow(1 + taxaCrescimento, i);
       const mrrMeta = inputs.mrrMeta;
       
@@ -279,7 +283,7 @@ export default function SimuladorMeta() {
     }
     
     return data;
-  }, [inputs.mrrAtual, inputs.mrrMeta, inputs.clientesAtivos, inputs.churnMensal, outputs.mesesAteData, outputs.crescimentoMensalMrr, outputs.vendasPorMes]);
+  }, [inputs.mrrAtual, inputs.mrrMeta, inputs.clientesAtivos, inputs.churnMensal, inputs.dataInicial, outputs.mesesAteData, outputs.crescimentoMensalMrr, outputs.vendasPorMes]);
 
   const updateInput = (field: keyof SimuladorInputs, value: number | Date | undefined) => {
     setInputs(prev => ({ ...prev, [field]: value }));
@@ -316,6 +320,7 @@ export default function SimuladorMeta() {
     setInputs({
       mrrAtual: Number(simulacao.mrr_atual) || 0,
       mrrMeta: Number(simulacao.mrr_meta) || 50000,
+      dataInicial: new Date(),
       dataMeta: simulacao.data_meta ? new Date(simulacao.data_meta) : addMonths(new Date(), 12),
       ticketMedio: Number(simulacao.ticket_medio) || 100,
       churnMensal: Number(simulacao.churn_mensal) || 5,
@@ -440,26 +445,48 @@ export default function SimuladorMeta() {
                       />
                     </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label>Data para Atingir</Label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !inputs.dataMeta && "text-muted-foreground")}>
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {inputs.dataMeta ? format(inputs.dataMeta, "dd/MM/yyyy") : "Selecione"}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={inputs.dataMeta}
-                          onSelect={date => updateInput("dataMeta", date)}
-                          disabled={date => date < new Date()}
-                          initialFocus
-                          className="p-3 pointer-events-auto"
-                        />
-                      </PopoverContent>
-                    </Popover>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label>Data Inicial</Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !inputs.dataInicial && "text-muted-foreground")}>
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {inputs.dataInicial ? format(inputs.dataInicial, "dd/MM/yyyy") : "Selecione"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={inputs.dataInicial}
+                            onSelect={date => updateInput("dataInicial", date)}
+                            initialFocus
+                            className="p-3 pointer-events-auto"
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Data para Atingir</Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !inputs.dataMeta && "text-muted-foreground")}>
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {inputs.dataMeta ? format(inputs.dataMeta, "dd/MM/yyyy") : "Selecione"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={inputs.dataMeta}
+                            onSelect={date => updateInput("dataMeta", date)}
+                            disabled={date => inputs.dataInicial ? date < inputs.dataInicial : date < new Date()}
+                            initialFocus
+                            className="p-3 pointer-events-auto"
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
                   </div>
                   {inputs.mrrMeta > inputs.mrrAtual && (
                     <div className="p-3 rounded-lg bg-primary/10 text-sm">
@@ -674,6 +701,7 @@ export default function SimuladorMeta() {
             custoPorLead={inputs.custoPorLead}
             mesesAteData={outputs.mesesAteData}
             vendasPorMes={outputs.vendasPorMes}
+            dataInicial={inputs.dataInicial}
           />
         </TabsContent>
 
