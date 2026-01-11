@@ -52,7 +52,7 @@ const navSections: NavSection[] = [
       { title: "Novo Fechamento", icon: Calculator, href: "/comissoes", permission: "comissoes.criar" },
       { title: "📋 Histórico", icon: History, href: "/comissoes/historico", permission: "comissoes.visualizar" },
       { title: "📊 Relatório Vendas", icon: Receipt, href: "/comissoes/relatorio-vendas", permission: "comissoes.visualizar" },
-      { title: "🎯 Simulador Meta", icon: Target, href: "/comissoes/simulador", permission: "comissoes.visualizar" },
+      { title: "Histórico", icon: Target, href: "/comissoes/simulador", permission: "comissoes.visualizar" },
       { title: "⚙️ Configurações", icon: Settings, href: "/comissoes/configuracoes", permission: "comissoes.configurar" },
     ],
   },
