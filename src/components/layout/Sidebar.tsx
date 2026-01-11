@@ -47,17 +47,17 @@ interface NavSection {
 
 const navSections: NavSection[] = [
   {
-    title: "💰 Comissões",
+    title: "Comissões",
     items: [
       { title: "Novo Fechamento", icon: Calculator, href: "/comissoes", permission: "comissoes.criar" },
-      { title: "📋 Histórico", icon: History, href: "/comissoes/historico", permission: "comissoes.visualizar" },
-      { title: "📊 Relatório Vendas", icon: Receipt, href: "/comissoes/relatorio-vendas", permission: "comissoes.visualizar" },
-      { title: "🎯 Simulador Meta", icon: Target, href: "/comissoes/simulador", permission: "comissoes.visualizar" },
-      { title: "⚙️ Configurações", icon: Settings, href: "/comissoes/configuracoes", permission: "comissoes.configurar" },
+      { title: "Histórico", icon: History, href: "/comissoes/historico", permission: "comissoes.visualizar" },
+      { title: "Relatório Vendas", icon: Receipt, href: "/comissoes/relatorio-vendas", permission: "comissoes.visualizar" },
+      { title: "Simulador Meta", icon: Target, href: "/comissoes/simulador", permission: "comissoes.visualizar" },
+      { title: "Configurações", icon: Settings, href: "/comissoes/configuracoes", permission: "comissoes.configurar" },
     ],
   },
   {
-    title: "👥 Equipe",
+    title: "Equipe",
     items: [
       { title: "Colaboradores", icon: Users, href: "/equipe/colaboradores", permission: "equipe.gerenciar" },
       { title: "Vendas Serviços", icon: Receipt, href: "/equipe/vendas-servicos", permission: "equipe.vendas" },
@@ -68,13 +68,13 @@ const navSections: NavSection[] = [
   {
     title: "Financeiro",
     items: [
-      { title: "📄 Extrato Asaas", icon: FileSpreadsheet, href: "/extrato-asaas", permission: "extrato.visualizar" },
-      { title: "📄 Extrato Eduzz", icon: FileSpreadsheet, href: "/extrato-eduzz", permission: "extrato.visualizar" },
-      { title: "📈 Assinaturas & MRR", icon: TrendingUp, href: "/assinaturas", permission: "extrato.visualizar" },
+      { title: "Extrato Asaas", icon: FileSpreadsheet, href: "/extrato-asaas", permission: "extrato.visualizar" },
+      { title: "Extrato Eduzz", icon: FileSpreadsheet, href: "/extrato-eduzz", permission: "extrato.visualizar" },
+      { title: "Assinaturas & MRR", icon: TrendingUp, href: "/assinaturas", permission: "extrato.visualizar" },
     ],
   },
   {
-    title: "🔒 Administração",
+    title: "Administração",
     requireAdmin: true,
     items: [
       { title: "Gerenciar Usuários", icon: Users, href: "/admin/usuarios", requireAdmin: true },
@@ -89,11 +89,11 @@ const COLLAPSED_KEY = "sidebar-collapsed";
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const { hasPermission, isAdmin, loading } = usePermissions();
   const [expandedSections, setExpandedSections] = useState<string[]>([
-    "💰 Comissões",
-    "👥 Equipe",
+    "Comissões",
+    "Equipe",
     "Financeiro",
-    "🔒 Administração",
-    "⭐ Favoritos",
+    "Administração",
+    "Favoritos",
   ]);
   const [isCollapsed, setIsCollapsed] = useState(() => {
     const saved = localStorage.getItem(COLLAPSED_KEY);
@@ -317,8 +317,8 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                   onClick={() => toggleSection("⭐ Favoritos")}
                   className="flex items-center justify-between w-full text-xs font-semibold text-sidebar-foreground/70 uppercase tracking-wider mb-3 hover:text-sidebar-foreground transition-colors"
                 >
-                  <span className="flex items-center gap-2">⭐ Favoritos</span>
-                  {expandedSections.includes("⭐ Favoritos") ? (
+                  <span className="flex items-center gap-2">Favoritos</span>
+                  {expandedSections.includes("Favoritos") ? (
                     <ChevronDown className="w-4 h-4" />
                   ) : (
                     <ChevronRight className="w-4 h-4" />
@@ -326,7 +326,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                 </button>
               )}
 
-              {(expandedSections.includes("⭐ Favoritos") || isCollapsed) && (
+              {(expandedSections.includes("Favoritos") || isCollapsed) && (
                 <div className="space-y-1">
                   {favoriteItems.map((item) => renderNavItem(item, false))}
                 </div>
