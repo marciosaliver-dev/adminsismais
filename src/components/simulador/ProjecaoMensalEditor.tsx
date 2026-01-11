@@ -456,9 +456,7 @@ export function ProjecaoMensalEditor({
                       
                       {/* Investimento Ads - Editável */}
                       <TableCell className="text-right bg-purple-50/50 dark:bg-purple-950/20">
-                        {index === 0 ? (
-                          <span className="text-muted-foreground">-</span>
-                        ) : editingCell?.mes === index && editingCell?.field === "investimentoAds" ? (
+                        {editingCell?.mes === index && editingCell?.field === "investimentoAds" ? (
                           <Input
                             type="number"
                             defaultValue={mes.investimentoAds}
@@ -489,14 +487,12 @@ export function ProjecaoMensalEditor({
                       </TableCell>
                       
                       <TableCell className="text-right text-muted-foreground">
-                        {index === 0 ? "-" : formatNumber(mes.leadsEsperados)}
+                        {formatNumber(mes.leadsEsperados)}
                       </TableCell>
                       
                       {/* Meta Vendas - Editável */}
                       <TableCell className="text-right bg-emerald-50/50 dark:bg-emerald-950/20">
-                        {index === 0 ? (
-                          <span className="text-muted-foreground">-</span>
-                        ) : editingCell?.mes === index && editingCell?.field === "metaVendas" ? (
+                        {editingCell?.mes === index && editingCell?.field === "metaVendas" ? (
                           <Input
                             type="number"
                             defaultValue={mes.metaVendas}
@@ -527,14 +523,12 @@ export function ProjecaoMensalEditor({
                       </TableCell>
                       
                       <TableCell className="text-right text-emerald-600 font-medium">
-                        {index === 0 ? "-" : `+${formatCurrency(mes.mrrGanho)}`}
+                        {mes.mrrGanho > 0 ? `+${formatCurrency(mes.mrrGanho)}` : formatCurrency(0)}
                       </TableCell>
 
                       {/* Churn Quantidade - Editável */}
                       <TableCell className="text-right bg-red-50/50 dark:bg-red-950/20">
-                        {index === 0 ? (
-                          <span className="text-muted-foreground">-</span>
-                        ) : editingCell?.mes === index && editingCell?.field === "churnQtd" ? (
+                        {editingCell?.mes === index && editingCell?.field === "churnQtd" ? (
                           <Input
                             type="number"
                             defaultValue={mes.churnQtd}
@@ -566,9 +560,7 @@ export function ProjecaoMensalEditor({
 
                       {/* Churn MRR - Editável */}
                       <TableCell className="text-right bg-red-50/50 dark:bg-red-950/20">
-                        {index === 0 ? (
-                          <span className="text-muted-foreground">-</span>
-                        ) : editingCell?.mes === index && editingCell?.field === "churnPrevisto" ? (
+                        {editingCell?.mes === index && editingCell?.field === "churnPrevisto" ? (
                           <Input
                             type="number"
                             defaultValue={mes.churnPrevisto}
