@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -12,7 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, CheckCircle, ChevronRight, ChevronLeft, Clock, TrendingUp, Zap, Star, Rocket, Save, RotateCcw } from "lucide-react";
+import { Loader2, CheckCircle, ChevronRight, ChevronLeft, Clock, TrendingUp, Zap, Star, Rocket, Save, RotateCcw, ImagePlus, X, Image as ImageIcon } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -62,6 +62,7 @@ const formSchema = z.object({
   papel_bom_lider: z.string().min(20, "Obrigatório descrever o papel do líder").optional(),
   
   maior_sonho: z.string().min(20, "Compartilhe seu maior sonho conosco"),
+  fotos_sonhos: z.array(z.string()).optional().default([]),
 }).refine((data) => {
   if (data.satisfacao_trabalho < 8 && (!data.motivo_satisfacao_baixa || data.motivo_satisfacao_baixa.length < 20)) {
     return false;
@@ -80,7 +81,7 @@ const TABS = [
   { id: "rotina", label: "Rotina & Foco", icon: Clock, fields: ["rotina_diaria", "expectativa_empresa", "definicao_sucesso", "sentimento_valorizacao"] },
   { id: "gargalos", label: "Gargalos & Ação", icon: Zap, fields: ["atividades_top5", "ladrao_tempo", "ferramentas_uso", "interdependencias", "start_action", "stop_action", "continue_action", "reclamacao_cliente", "prioridades_setor"] },
   { id: "cultura", label: "Visão & Estratégia", icon: Star, fields: ["visao_papel_10k", "falta_plano_2026", "falta_metas_2025", "score_autonomia", "score_maestria", "score_proposito", "score_financeiro", "score_ambiente"] },
-  { id: "lideranca", label: "Liderança & Finalização", icon: TrendingUp, fields: ["interesse_lideranca", "motivo_lideranca", "papel_bom_lider", "colaborador_nome", "funcao_atual", "satisfacao_trabalho", "motivo_satisfacao_baixa", "talento_oculto", "maior_sonho"] },
+  { id: "lideranca", label: "Liderança & Finalização", icon: TrendingUp, fields: ["interesse_lideranca", "motivo_lideranca", "papel_bom_lider", "colaborador_nome", "funcao_atual", "satisfacao_trabalho", "motivo_satisfacao_baixa", "talento_oculto", "maior_sonho", "fotos_sonhos"] },
 ];
 
 // --- 3. Componente de Rating ---
@@ -129,6 +130,8 @@ export function LevantamentoForm() {
   const [isStarted, setIsStarted] = useState(false);
   const [activeTab, setActiveTab] = useState(TABS[0].id);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const savedData = useMemo(() => {
     try {
@@ -146,12 +149,14 @@ export function LevantamentoForm() {
       funcao_atual: profile?.departamento || "",
       satisfacao_trabalho: 0,
       interesse_lideranca: undefined,
+      fotos_sonhos: [],
     },
   });
 
-  const { control, handleSubmit, formState: { errors, isSubmitting }, trigger, watch, reset } = form;
+  const { control, handleSubmit, formState: { errors, isSubmitting }, trigger, watch, reset, setValue } = form;
   const interesseLideranca = watch("interesse_lideranca");
   const satisfacaoTrabalho = watch("satisfacao_trabalho");
+  const fotosSonhos = watch("fotos_sonhos") || [];
 
   useEffect(() => {
     const subscription = watch((value) => {
@@ -159,6 +164,50 @@ export function LevantamentoForm() {
     });
     return () => subscription.unsubscribe();
   }, [watch]);
+
+  // --- Lógica de Upload de Fotos ---
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setIsUploading(true);
+    const newUrls: string[] = [...fotosSonhos];
+
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Math.random()}.${fileExt}`;
+        const filePath = `${profile?.user_id || 'anon'}/${Date.now()}_${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('sonhos')
+          .upload(filePath, file);
+
+        if (uploadError) throw uploadError;
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('sonhos')
+          .getPublicUrl(filePath);
+
+        newUrls.push(publicUrl);
+      }
+
+      setValue("fotos_sonhos", newUrls, { shouldValidate: true });
+      toast({ title: "📸 Fotos enviadas!", description: "Suas imagens foram adicionadas ao Mural dos Sonhos." });
+    } catch (error) {
+      console.error(error);
+      toast({ title: "❌ Erro no upload", description: "Não foi possível enviar as fotos.", variant: "destructive" });
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const removeFoto = (indexToRemove: number) => {
+    const newUrls = fotosSonhos.filter((_, index) => index !== indexToRemove);
+    setValue("fotos_sonhos", newUrls, { shouldValidate: true });
+  };
 
   const saveMutation = useMutation({
     mutationFn: async (data: FormData) => {
@@ -193,6 +242,7 @@ export function LevantamentoForm() {
         motivo_lideranca: data.motivo_lideranca || null,
         papel_bom_lider: data.papel_bom_lider || null,
         maior_sonho: data.maior_sonho,
+        fotos_sonhos: data.fotos_sonhos,
       };
 
       const { error } = await supabase.from("levantamento_operacional_2024").insert(payload);
@@ -247,6 +297,7 @@ export function LevantamentoForm() {
         funcao_atual: profile?.departamento || "",
         satisfacao_trabalho: 0,
         interesse_lideranca: undefined,
+        fotos_sonhos: [],
       });
       setActiveTab(TABS[0].id);
       toast({ title: "Dados resetados", description: "O formulário foi limpo com sucesso." });
@@ -503,7 +554,7 @@ export function LevantamentoForm() {
                   <p className="font-bold text-foreground text-lg italic bg-primary/10 p-4 rounded-lg">Para que eu possa ajudar a alinhar o crescimento da empresa com o seu crescimento pessoal, eu preciso saber o que faz o seu olho brilhar.</p>
                 </div>
 
-                <div className="space-y-4 pt-6 border-t border-primary/20">
+                <div className="space-y-6 pt-6 border-t border-primary/20">
                   <div className="flex items-start gap-2">
                     <span className="text-3xl mt-1">🌟</span>
                     <div className="space-y-1">
@@ -524,6 +575,54 @@ export function LevantamentoForm() {
                     )}
                   />
                   {errors.maior_sonho && <p className="text-xs text-destructive font-medium">{errors.maior_sonho.message}</p>}
+
+                  {/* --- SEÇÃO DO MURAL DOS SONHOS (FOTOS) --- */}
+                  <div className="space-y-4 pt-4">
+                    <div className="flex items-center gap-2">
+                      <ImageIcon className="w-5 h-5 text-primary" />
+                      <Label className="text-lg font-bold">Mural dos Sonhos (Fotos)</Label>
+                    </div>
+                    <p className="text-sm text-muted-foreground italic">Selecione uma ou várias fotos que representem seus sonhos. Vamos construir um mural inspirador!</p>
+                    
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                      {fotosSonhos.map((url, index) => (
+                        <div key={index} className="relative group aspect-square rounded-xl overflow-hidden border bg-muted shadow-sm">
+                          <img src={url} alt={`Sonho ${index + 1}`} className="w-full h-full object-cover transition-transform group-hover:scale-110" />
+                          <button
+                            type="button"
+                            onClick={() => removeFoto(index)}
+                            className="absolute top-1 right-1 p-1 bg-destructive text-destructive-foreground rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                      
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={isUploading}
+                        className="flex flex-col items-center justify-center aspect-square rounded-xl border-2 border-dashed border-primary/30 bg-primary/5 hover:bg-primary/10 hover:border-primary transition-all gap-2"
+                      >
+                        {isUploading ? (
+                          <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                        ) : (
+                          <>
+                            <ImagePlus className="w-6 h-6 text-primary" />
+                            <span className="text-[10px] sm:text-xs font-medium text-primary">Adicionar Foto</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      className="hidden"
+                      accept="image/*"
+                      multiple
+                      onChange={handleFileSelect}
+                    />
+                  </div>
                 </div>
               </div>
             </TabsContent>
@@ -539,7 +638,7 @@ export function LevantamentoForm() {
               {activeTab !== TABS[TABS.length - 1].id ? (
                 <Button type="button" size="lg" className="rounded-xl px-8 shadow-md" onClick={handleNext}>Próximo <ChevronRight className="ml-2 h-4 w-4" /></Button>
               ) : (
-                <Button type="submit" size="lg" className="bg-primary hover:bg-primary/90 px-10 rounded-xl shadow-lg transition-transform hover:scale-105 active:scale-95" disabled={isSubmitting || saveMutation.isPending}>
+                <Button type="submit" size="lg" className="bg-primary hover:bg-primary/90 px-10 rounded-xl shadow-lg transition-transform hover:scale-105 active:scale-95" disabled={isSubmitting || saveMutation.isPending || isUploading}>
                   {isSubmitting || saveMutation.isPending ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <CheckCircle className="mr-2 h-4 w-4" />} 
                   Enviar Mapeamento
                 </Button>

@@ -772,7 +772,7 @@ export type Database = {
           total_registros?: number | null
         }
         Update: {
-          arquivo_nome?: string
+          arquivo_nome?: string | null
           created_at?: string
           id?: string
           observacao?: string | null
@@ -819,7 +819,7 @@ export type Database = {
           total_registros?: number
         }
         Update: {
-          arquivo_nome?: string
+          arquivo_nome?: string | null
           created_at?: string
           id?: string
           observacao?: string | null
@@ -863,7 +863,7 @@ export type Database = {
           total_vendas?: number | null
         }
         Update: {
-          arquivo_nome?: string
+          arquivo_nome?: string | null
           created_at?: string
           id?: string
           observacao?: string | null
@@ -888,6 +888,7 @@ export type Database = {
           falta_metas_2025: string | null
           falta_plano_2026: string | null
           ferramentas_uso: string
+          fotos_sonhos: string[] | null
           funcao_atual: string | null
           id: string
           interdependencias: string
@@ -922,6 +923,7 @@ export type Database = {
           falta_metas_2025?: string | null
           falta_plano_2026?: string | null
           ferramentas_uso: string
+          fotos_sonhos?: string[] | null
           funcao_atual?: string | null
           id?: string
           interdependencias: string
@@ -956,6 +958,7 @@ export type Database = {
           falta_metas_2025?: string | null
           falta_plano_2026?: string | null
           ferramentas_uso?: string
+          fotos_sonhos?: string[] | null
           funcao_atual?: string | null
           id?: string
           interdependencias?: string
@@ -1268,7 +1271,7 @@ export type Database = {
           churn_mensal?: number | null
           clientes_ativos?: number | null
           comissao_venda?: number | null
-          created_at?: string
+          created_at?: string | null
           custo_fixo_vendedor?: number | null
           custo_por_lead?: number | null
           custo_total?: number | null
@@ -1555,4 +1558,21 @@ export type Enums<
   ? Database[PublicEnumNameOrOptions["schema"]]["Enums"][EnumName]
   : PublicEnumNameOrOptions extends keyof Database["public"]["Enums"]
   ? Database["public"]["Enums"][PublicEnumNameOrOptions]
+  : never
+
+export type CompositeTypes<
+  PublicCompositeTypeNameOrOptions extends
+    | keyof Database["public"]["CompositeTypes"]
+    | { schema: keyof Database },
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+    schema: keyof Database
+  }
+    ? keyof Database[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    : never = never
+> = PublicCompositeTypeNameOrOptions extends {
+  schema: keyof Database
+}
+  ? Database[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof Database["public"]["CompositeTypes"]
+  ? Database["public"]["CompositeTypes"][PublicCompositeTypeNameOrOptions]
   : never
