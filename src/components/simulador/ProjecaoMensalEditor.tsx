@@ -106,23 +106,19 @@ export function ProjecaoMensalEditor({
         const data = addMonths(dataBase, i);
         const mrrInicial = mrrAcumulado;
         
-        let metaVendasMes = vendasPorMes;
-        let mrrGanho = metaVendasMes * ticketMedio;
-        let churnMrrPrevisto = mrrInicial * (churnMensal / 100);
-        let churnQtdPrevisto = ticketMedio > 0 ? Math.round(churnMrrPrevisto / ticketMedio) : 0;
-        let leadsNecessarios = taxaConversao > 0 ? metaVendasMes / (taxaConversao / 100) : 0;
-        let investimentoAds = leadsNecessarios * custoPorLead;
+        // Cálculos baseados na projeção
+        const metaVendasMes = vendasPorMes;
+        const mrrGanho = metaVendasMes * ticketMedio;
         
-        if (i === 0) {
-          // Mês 0: Usa MRR Atual como MRR Inicial, mas zera ganhos/perdas iniciais
-          metaVendasMes = 0;
-          mrrGanho = 0;
-          churnMrrPrevisto = 0;
-          churnQtdPrevisto = 0;
-          investimentoAds = 0;
-          leadsNecessarios = 0;
-        }
+        // Calcular churn baseado no percentual e MRR inicial do mês
+        const churnMrrPrevisto = mrrInicial * (churnMensal / 100);
+        const churnQtdPrevisto = ticketMedio > 0 ? Math.round(churnMrrPrevisto / ticketMedio) : 0;
         
+        // Calcular investimento em ads necessário
+        const leadsNecessarios = taxaConversao > 0 ? metaVendasMes / (taxaConversao / 100) : 0;
+        const investimentoAds = leadsNecessarios * custoPorLead;
+        
+        // Mês 0 (Mês atual) usa os valores calculados
         const mrrFinal = mrrInicial + mrrGanho - churnMrrPrevisto;
         
         faturamentoAcumulado += mrrFinal;
@@ -194,16 +190,10 @@ export function ProjecaoMensalEditor({
       }
       
       // Recalcular MRR final e cascata para meses seguintes
-      let mrrAcumulado = mesEditado > 0 ? novaProjecao[mesEditado - 1].mrrFinal : mrrAtual;
-      let faturamentoAcumulado = mesEditado > 0 ? novaProjecao[mesEditado - 1].faturamentoAcumulado : 0;
+      let mrrAcumulado = mrrAtual;
+      let faturamentoAcumulado = 0;
       
-      // Se o mês editado for o Mês 0, o MRR inicial para o loop deve ser o MRR Atual
-      if (mesEditado === 0) {
-        mrrAcumulado = mrrAtual;
-        faturamentoAcumulado = 0;
-      }
-      
-      for (let i = mesEditado; i < novaProjecao.length; i++) {
+      for (let i = 0; i < novaProjecao.length; i++) {
         
         // O MRR Inicial do mês atual é o MRR Final do mês anterior
         if (i > 0) {
@@ -249,6 +239,8 @@ export function ProjecaoMensalEditor({
           faturamentoAcumulado = novaProjecao[i - 1].faturamentoAcumulado + novaProjecao[i].mrrFinal;
         }
         novaProjecao[i].faturamentoAcumulado = Math.round(faturamentoAcumulado);
+        
+        mrrAcumulado = novaProjecao[i].mrrFinal;
       }
       
       return novaProjecao;
@@ -275,7 +267,7 @@ export function ProjecaoMensalEditor({
 
   // Totais e resumo
   const totais = useMemo(() => {
-    // Agora, o Mês 0 pode ter valores, então incluímos ele nos totais de investimento, ganho e churn
+    // Incluir Mês 0 nos totais de investimento, ganho e churn
     const totalInvestimento = projecao.reduce((acc, m) => acc + m.investimentoAds, 0);
     const totalMrrGanho = projecao.reduce((acc, m) => acc + m.mrrGanho, 0);
     const totalChurn = projecao.reduce((acc, m) => acc + m.churnPrevisto, 0);
