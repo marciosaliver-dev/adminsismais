@@ -106,28 +106,23 @@ export function ProjecaoMensalEditor({
         const data = addMonths(dataBase, i);
         const mrrInicial = mrrAcumulado;
         
-        let metaVendasMes = 0;
-        let mrrGanho = 0;
-        let churnMrrPrevisto = 0;
-        let churnQtdPrevisto = 0;
-        let investimentoAds = 0;
-        let leadsNecessarios = 0;
+        let metaVendasMes = vendasPorMes;
+        let mrrGanho = metaVendasMes * ticketMedio;
+        let churnMrrPrevisto = mrrInicial * (churnMensal / 100);
+        let churnQtdPrevisto = ticketMedio > 0 ? Math.round(churnMrrPrevisto / ticketMedio) : 0;
+        let leadsNecessarios = taxaConversao > 0 ? metaVendasMes / (taxaConversao / 100) : 0;
+        let investimentoAds = leadsNecessarios * custoPorLead;
         
-        if (i > 0) {
-          // Meses de projeção (M1 em diante)
-          metaVendasMes = vendasPorMes;
-          mrrGanho = metaVendasMes * ticketMedio;
-          
-          // Calcular churn baseado no percentual e MRR inicial do mês
-          churnMrrPrevisto = mrrInicial * (churnMensal / 100);
-          churnQtdPrevisto = ticketMedio > 0 ? Math.round(churnMrrPrevisto / ticketMedio) : 0;
-          
-          // Calcular investimento em ads necessário
-          leadsNecessarios = taxaConversao > 0 ? metaVendasMes / (taxaConversao / 100) : 0;
-          investimentoAds = leadsNecessarios * custoPorLead;
+        if (i === 0) {
+          // Mês 0: Usa MRR Atual como MRR Inicial, mas zera ganhos/perdas iniciais
+          metaVendasMes = 0;
+          mrrGanho = 0;
+          churnMrrPrevisto = 0;
+          churnQtdPrevisto = 0;
+          investimentoAds = 0;
+          leadsNecessarios = 0;
         }
         
-        // Mês 0 (Mês atual) tem MRR inicial, mas 0 ganhos/perdas
         const mrrFinal = mrrInicial + mrrGanho - churnMrrPrevisto;
         
         faturamentoAcumulado += mrrFinal;
@@ -202,38 +197,58 @@ export function ProjecaoMensalEditor({
       let mrrAcumulado = mesEditado > 0 ? novaProjecao[mesEditado - 1].mrrFinal : mrrAtual;
       let faturamentoAcumulado = mesEditado > 0 ? novaProjecao[mesEditado - 1].faturamentoAcumulado : 0;
       
+      // Se o mês editado for o Mês 0, o MRR inicial para o loop deve ser o MRR Atual
+      if (mesEditado === 0) {
+        mrrAcumulado = mrrAtual;
+        faturamentoAcumulado = 0;
+      }
+      
       for (let i = mesEditado; i < novaProjecao.length; i++) {
-        // O Mês 0 não deve ter ganhos/perdas, mesmo se editado
-        if (i === 0) {
-          novaProjecao[i].mrrFinal = novaProjecao[i].mrrInicial;
-          novaProjecao[i].faturamentoAcumulado = novaProjecao[i].mrrFinal;
-          mrrAcumulado = novaProjecao[i].mrrFinal;
-          continue;
+        
+        // O MRR Inicial do mês atual é o MRR Final do mês anterior
+        if (i > 0) {
+          novaProjecao[i].mrrInicial = novaProjecao[i - 1].mrrFinal;
+        } else {
+          novaProjecao[i].mrrInicial = mrrAtual;
         }
         
+        // Se o mês não foi editado e não está travado, recalcular automaticamente
         if (i > mesEditado && !novaProjecao[i].locked) {
-          // Meses não travados usam cálculo automático
-          novaProjecao[i].mrrInicial = mrrAcumulado;
+          // Recalcular ganhos (vendas, ads)
+          const metaVendasAuto = vendasPorMes;
+          novaProjecao[i].metaVendas = metaVendasAuto;
+          novaProjecao[i].mrrGanho = metaVendasAuto * ticketMedio;
+          
+          const leadsAuto = taxaConversao > 0 ? metaVendasAuto / (taxaConversao / 100) : 0;
+          novaProjecao[i].leadsEsperados = Math.round(leadsAuto);
+          novaProjecao[i].investimentoAds = Math.round(leadsAuto * custoPorLead);
+          novaProjecao[i].vendasEsperadas = metaVendasAuto;
           
           // Se churn não foi editado, recalcular automaticamente
           if (!novaProjecao[i].churnLocked) {
-            const churnMrrAuto = mrrAcumulado * (churnMensal / 100);
+            const churnMrrAuto = novaProjecao[i].mrrInicial * (churnMensal / 100);
             novaProjecao[i].churnPrevisto = Math.round(churnMrrAuto);
             novaProjecao[i].churnQtd = ticketMedio > 0 ? Math.round(churnMrrAuto / ticketMedio) : 0;
           }
-        } else {
-          // Se for o mês editado ou um mês travado, apenas atualiza o MRR inicial
-          novaProjecao[i].mrrInicial = mrrAcumulado;
+        } else if (i > 0 && i === mesEditado) {
+          // Se for o mês editado, apenas recalcula os valores dependentes (mrrGanho, churnPrevisto)
+          // que já foram atualizados no início da função, e usa o MRR Inicial do mês anterior
+        } else if (i === 0 && i === mesEditado) {
+          // Se for o Mês 0 e foi editado, usa os valores editados
         }
         
+        // Calcular MRR Final
         novaProjecao[i].mrrFinal = Math.round(
           novaProjecao[i].mrrInicial + novaProjecao[i].mrrGanho - novaProjecao[i].churnPrevisto
         );
         
-        faturamentoAcumulado += novaProjecao[i].mrrFinal;
+        // Recalcular Faturamento Acumulado
+        if (i === 0) {
+          faturamentoAcumulado = novaProjecao[i].mrrFinal;
+        } else {
+          faturamentoAcumulado = novaProjecao[i - 1].faturamentoAcumulado + novaProjecao[i].mrrFinal;
+        }
         novaProjecao[i].faturamentoAcumulado = Math.round(faturamentoAcumulado);
-        
-        mrrAcumulado = novaProjecao[i].mrrFinal;
       }
       
       return novaProjecao;
@@ -254,20 +269,17 @@ export function ProjecaoMensalEditor({
       novaProjecao[mesIndex].churnLocked = false;
       return novaProjecao;
     });
-    // Recalcular tudo do zero
-    // Força um recalculo completo chamando recalcularProjecao no mês 1 (ou 0 se for o único)
-    recalcularProjecao(mesIndex > 0 ? 1 : 0, "mrrInicial", projecao[mesIndex > 0 ? 1 : 0].mrrInicial);
+    // Força um recalculo completo a partir do mês 0
+    recalcularProjecao(0, "mrrInicial", mrrAtual);
   };
 
   // Totais e resumo
   const totais = useMemo(() => {
-    // Excluir Mês 0 dos totais de investimento, ganho e churn
-    const projecaoReal = projecao.slice(1);
-    
-    const totalInvestimento = projecaoReal.reduce((acc, m) => acc + m.investimentoAds, 0);
-    const totalMrrGanho = projecaoReal.reduce((acc, m) => acc + m.mrrGanho, 0);
-    const totalChurn = projecaoReal.reduce((acc, m) => acc + m.churnPrevisto, 0);
-    const totalVendas = projecaoReal.reduce((acc, m) => acc + m.vendasEsperadas, 0);
+    // Agora, o Mês 0 pode ter valores, então incluímos ele nos totais de investimento, ganho e churn
+    const totalInvestimento = projecao.reduce((acc, m) => acc + m.investimentoAds, 0);
+    const totalMrrGanho = projecao.reduce((acc, m) => acc + m.mrrGanho, 0);
+    const totalChurn = projecao.reduce((acc, m) => acc + m.churnPrevisto, 0);
+    const totalVendas = projecao.reduce((acc, m) => acc + m.vendasEsperadas, 0);
     
     const mrrFinalProjetado = projecao[projecao.length - 1]?.mrrFinal || 0;
     const faturamentoTotal = projecao[projecao.length - 1]?.faturamentoAcumulado || 0;
@@ -479,9 +491,9 @@ export function ProjecaoMensalEditor({
                         {formatCurrency(mes.mrrInicial)}
                       </TableCell>
                       
-                      {/* Investimento Ads - Editável (apenas M1 em diante) */}
+                      {/* Investimento Ads - Editável (a partir do Mês 0) */}
                       <TableCell className="text-right bg-purple-50/50 dark:bg-purple-950/20">
-                        {index > 0 && editingCell?.mes === index && editingCell?.field === "investimentoAds" ? (
+                        {editingCell?.mes === index && editingCell?.field === "investimentoAds" ? (
                           <Input
                             type="number"
                             defaultValue={mes.investimentoAds}
@@ -500,16 +512,15 @@ export function ProjecaoMensalEditor({
                                 <button
                                   className={cn(
                                     "px-2 py-1 rounded transition-colors flex items-center gap-1 ml-auto",
-                                    index > 0 ? "hover:bg-purple-100 dark:hover:bg-purple-900/50" : "cursor-default"
+                                    "hover:bg-purple-100 dark:hover:bg-purple-900/50"
                                   )}
-                                  onClick={() => index > 0 && setEditingCell({ mes: index, field: "investimentoAds" })}
-                                  disabled={index === 0}
+                                  onClick={() => setEditingCell({ mes: index, field: "investimentoAds" })}
                                 >
-                                  {index > 0 && <Edit3 className="w-3 h-3 opacity-50" />}
+                                  <Edit3 className="w-3 h-3 opacity-50" />
                                   {formatCurrency(mes.investimentoAds)}
                                 </button>
                               </TooltipTrigger>
-                              <TooltipContent>{index > 0 ? "Clique para editar" : "Mês inicial"}</TooltipContent>
+                              <TooltipContent>Clique para editar</TooltipContent>
                             </Tooltip>
                           </TooltipProvider>
                         )}
@@ -519,9 +530,9 @@ export function ProjecaoMensalEditor({
                         {formatNumber(mes.leadsEsperados)}
                       </TableCell>
                       
-                      {/* Meta Vendas - Editável (apenas M1 em diante) */}
+                      {/* Meta Vendas - Editável (a partir do Mês 0) */}
                       <TableCell className="text-right bg-emerald-50/50 dark:bg-emerald-950/20">
-                        {index > 0 && editingCell?.mes === index && editingCell?.field === "metaVendas" ? (
+                        {editingCell?.mes === index && editingCell?.field === "metaVendas" ? (
                           <Input
                             type="number"
                             defaultValue={mes.metaVendas}
@@ -540,16 +551,15 @@ export function ProjecaoMensalEditor({
                                 <button
                                   className={cn(
                                     "px-2 py-1 rounded transition-colors flex items-center gap-1 ml-auto font-medium",
-                                    index > 0 ? "hover:bg-emerald-100 dark:hover:bg-emerald-900/50" : "cursor-default"
+                                    "hover:bg-emerald-100 dark:hover:bg-emerald-900/50"
                                   )}
-                                  onClick={() => index > 0 && setEditingCell({ mes: index, field: "metaVendas" })}
-                                  disabled={index === 0}
+                                  onClick={() => setEditingCell({ mes: index, field: "metaVendas" })}
                                 >
-                                  {index > 0 && <Edit3 className="w-3 h-3 opacity-50" />}
+                                  <Edit3 className="w-3 h-3 opacity-50" />
                                   {mes.metaVendas}
                                 </button>
                               </TooltipTrigger>
-                              <TooltipContent>{index > 0 ? "Clique para editar" : "Mês inicial"}</TooltipContent>
+                              <TooltipContent>Clique para editar</TooltipContent>
                             </Tooltip>
                           </TooltipProvider>
                         )}
@@ -559,9 +569,9 @@ export function ProjecaoMensalEditor({
                         {mes.mrrGanho > 0 ? `+${formatCurrency(mes.mrrGanho)}` : formatCurrency(0)}
                       </TableCell>
 
-                      {/* Churn Quantidade - Editável (apenas M1 em diante) */}
+                      {/* Churn Quantidade - Editável (a partir do Mês 0) */}
                       <TableCell className="text-right bg-red-50/50 dark:bg-red-950/20">
-                        {index > 0 && editingCell?.mes === index && editingCell?.field === "churnQtd" ? (
+                        {editingCell?.mes === index && editingCell?.field === "churnQtd" ? (
                           <Input
                             type="number"
                             defaultValue={mes.churnQtd}
@@ -580,24 +590,23 @@ export function ProjecaoMensalEditor({
                                 <button
                                   className={cn(
                                     "px-2 py-1 rounded transition-colors flex items-center gap-1 ml-auto text-red-600",
-                                    index > 0 ? "hover:bg-red-100 dark:hover:bg-red-900/50" : "cursor-default"
+                                    "hover:bg-red-100 dark:hover:bg-red-900/50"
                                   )}
-                                  onClick={() => index > 0 && setEditingCell({ mes: index, field: "churnQtd" })}
-                                  disabled={index === 0}
+                                  onClick={() => setEditingCell({ mes: index, field: "churnQtd" })}
                                 >
-                                  {index > 0 && <Edit3 className="w-3 h-3 opacity-50" />}
+                                  <Edit3 className="w-3 h-3 opacity-50" />
                                   {mes.churnQtd}
                                 </button>
                               </TooltipTrigger>
-                              <TooltipContent>{index > 0 ? "Clique para editar quantidade de cancelamentos" : "Mês inicial"}</TooltipContent>
+                              <TooltipContent>Clique para editar quantidade de cancelamentos</TooltipContent>
                             </Tooltip>
                           </TooltipProvider>
                         )}
                       </TableCell>
 
-                      {/* Churn MRR - Editável (apenas M1 em diante) */}
+                      {/* Churn MRR - Editável (a partir do Mês 0) */}
                       <TableCell className="text-right bg-red-50/50 dark:bg-red-950/20">
-                        {index > 0 && editingCell?.mes === index && editingCell?.field === "churnPrevisto" ? (
+                        {editingCell?.mes === index && editingCell?.field === "churnPrevisto" ? (
                           <Input
                             type="number"
                             defaultValue={mes.churnPrevisto}
@@ -616,16 +625,15 @@ export function ProjecaoMensalEditor({
                                 <button
                                   className={cn(
                                     "px-2 py-1 rounded transition-colors flex items-center gap-1 ml-auto text-red-600 font-medium",
-                                    index > 0 ? "hover:bg-red-100 dark:hover:bg-red-900/50" : "cursor-default"
+                                    "hover:bg-red-100 dark:hover:bg-red-900/50"
                                   )}
-                                  onClick={() => index > 0 && setEditingCell({ mes: index, field: "churnPrevisto" })}
-                                  disabled={index === 0}
+                                  onClick={() => setEditingCell({ mes: index, field: "churnPrevisto" })}
                                 >
-                                  {index > 0 && <Edit3 className="w-3 h-3 opacity-50" />}
+                                  <Edit3 className="w-3 h-3 opacity-50" />
                                   -{formatCurrency(mes.churnPrevisto)}
                                 </button>
                               </TooltipTrigger>
-                              <TooltipContent>{index > 0 ? "Clique para editar MRR perdido" : "Mês inicial"}</TooltipContent>
+                              <TooltipContent>Clique para editar MRR perdido</TooltipContent>
                             </Tooltip>
                           </TooltipProvider>
                         )}
@@ -638,7 +646,7 @@ export function ProjecaoMensalEditor({
                         {formatCurrency(mes.faturamentoAcumulado)}
                       </TableCell>
                       <TableCell>
-                        {(mes.locked || mes.churnLocked) && index > 0 && (
+                        {(mes.locked || mes.churnLocked) && (
                           <TooltipProvider>
                             <Tooltip>
                               <TooltipTrigger asChild>
