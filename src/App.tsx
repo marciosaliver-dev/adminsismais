@@ -26,7 +26,7 @@ import SimuladorMeta from "./pages/SimuladorMeta";
 import Assinaturas from "./pages/Assinaturas";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
-import LevantamentoOperacional from "./pages/LevantamentoOperacional"; // Importando a nova página
+import LevantamentoOperacional from "./pages/LevantamentoOperacional"; // Importando a página
 
 const queryClient = new QueryClient();
 
@@ -41,6 +41,9 @@ const App = () => (
             {/* Public routes */}
             <Route path="/auth" element={<Auth />} />
             <Route path="/lancar-venda" element={<LancarVendaPublica />} />
+            
+            {/* Nova Rota Pública de Levantamento */}
+            <Route path="/levantamento-10k" element={<LevantamentoOperacional />} />
             
             {/* Redirect root to comissoes */}
             <Route path="/" element={<Navigate to="/comissoes" replace />} />
@@ -194,18 +197,6 @@ const App = () => (
                 <ProtectedRoute>
                   <Layout>
                     <FechamentoEquipe />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-            
-            {/* Nova Rota de Levantamento */}
-            <Route
-              path="/levantamento-10k"
-              element={
-                <ProtectedRoute>
-                  <Layout>
-                    <LevantamentoOperacional />
                   </Layout>
                 </ProtectedRoute>
               }
