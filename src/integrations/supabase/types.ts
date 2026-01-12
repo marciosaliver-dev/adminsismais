@@ -7,132 +7,116 @@ export type Json =
   | Json[]
 
 export type Database = {
-  crm: {
+  public: {
     Tables: {
       levantamento_operacional_2024: {
         Row: {
-          atividades_top5: string
-          colaborador_nome: string
-          continue_action: string
-          created_at: string
-          definicao_sucesso: string | null
-          expectativa_empresa: string | null
-          falta_metas_2025: string | null
-          falta_plano_2026: string | null
-          ferramentas_uso: string
-          fotos_sonhos: string[] | null
-          funcao_atual: string | null
           id: string
-          interdependencias: string
-          interesse_lideranca: boolean
-          ladrao_tempo: string
-          maior_sonho: string
-          motivo_lideranca: string | null
-          motivo_satisfacao_baixa: string | null
-          papel_bom_lider: string | null
-          prioridades_setor: string | null
-          reclamacao_cliente: string
-          rotina_diaria: string | null
+          colaborador_nome: string
+          funcao_atual: string | null
           satisfacao_trabalho: number | null
-          score_ambiente: number
-          score_autonomia: number
-          score_financeiro: number
-          score_maestria: number
-          score_proposito: number
-          sentimento_valorizacao: string | null
-          start_action: string
-          stop_action: string
+          motivo_satisfacao_baixa: string | null
           talento_oculto: string | null
-          visao_papel_10k: string
+          rotina_diaria: string | null
+          expectativa_empresa: string | null
+          definicao_sucesso: string | null
+          sentimento_valorizacao: string | null
+          atividades_top5: string | null
+          ladrao_tempo: string | null
+          ferramentas_uso: string | null
+          interdependencias: string | null
+          start_action: string | null
+          stop_action: string | null
+          continue_action: string | null
+          reclamacao_cliente: string | null
+          prioridades_setor: string | null
+          visao_papel_10k: string | null
+          falta_plano_2026: string | null
+          falta_metas_2025: string | null
+          score_autonomia: number | null
+          score_maestria: number | null
+          score_proposito: number | null
+          score_financeiro: number | null
+          score_ambiente: number | null
+          interesse_lideranca: boolean | null
+          motivo_lideranca: string | null
+          papel_bom_lider: string | null
+          maior_sonho: string | null
+          fotos_sonhos: string[] | null
+          created_at: string
         }
         Insert: {
-          atividades_top5: string
-          colaborador_nome: string
-          continue_action: string
-          created_at?: string
-          definicao_sucesso?: string | null
-          expectativa_empresa?: string | null
-          falta_metas_2025?: string | null
-          falta_plano_2026?: string | null
-          ferramentas_uso: string
-          fotos_sonhos?: string[] | null
-          funcao_atual?: string | null
           id?: string
-          interdependencias: string
-          interesse_lideranca: boolean
-          ladrao_tempo: string
-          maior_sonho: string
-          motivo_lideranca?: string | null
-          motivo_satisfacao_baixa?: string | null
-          papel_bom_lider?: string | null
-          prioridades_setor?: string | null
-          reclamacao_cliente: string
-          rotina_diaria?: string | null
+          colaborador_nome: string
+          funcao_atual?: string | null
           satisfacao_trabalho?: number | null
-          score_ambiente: number
-          score_autonomia: number
-          score_financeiro: number
-          score_maestria: number
-          score_proposito: number
-          sentimento_valorizacao?: string | null
-          start_action: string
-          stop_action: string
+          motivo_satisfacao_baixa?: string | null
           talento_oculto?: string | null
-          visao_papel_10k: string
+          rotina_diaria?: string | null
+          expectativa_empresa?: string | null
+          definicao_sucesso?: string | null
+          sentimento_valorizacao?: string | null
+          atividades_top5?: string | null
+          ladrao_tempo?: string | null
+          ferramentas_uso?: string | null
+          interdependencias?: string | null
+          start_action?: string | null
+          stop_action?: string | null
+          continue_action?: string | null
+          reclamacao_cliente?: string | null
+          prioridades_setor?: string | null
+          visao_papel_10k?: string | null
+          falta_plano_2026?: string | null
+          falta_metas_2025?: string | null
+          score_autonomia?: number | null
+          score_maestria?: number | null
+          score_proposito?: number | null
+          score_financeiro?: number | null
+          score_ambiente?: number | null
+          interesse_lideranca?: boolean | null
+          motivo_lideranca?: string | null
+          papel_bom_lider?: string | null
+          maior_sonho?: string | null
+          fotos_sonhos?: string[] | null
+          created_at?: string
         }
         Update: {
-          atividades_top5?: string
-          colaborador_nome?: string
-          continue_action?: string
-          created_at?: string
-          definicao_sucesso?: string | null
-          expectativa_empresa?: string | null
-          falta_metas_2025?: string | null
-          falta_plano_2026?: string | null
-          ferramentas_uso?: string
-          fotos_sonhos?: string[] | null
-          funcao_atual?: string | null
           id?: string
-          interdependencias?: string
-          interesse_lideranca?: boolean
-          ladrao_tempo?: string
-          maior_sonho?: string
-          motivo_lideranca?: string | null
-          motivo_satisfacao_baixa?: string | null
-          papel_bom_lider?: string | null
-          prioridades_setor?: string | null
-          reclamacao_cliente?: string
-          rotina_diaria?: string | null
+          colaborador_nome?: string
+          funcao_atual?: string | null
           satisfacao_trabalho?: number | null
-          score_ambiente?: number
-          score_autonomia?: number
-          score_financeiro?: number
-          score_maestria?: number
-          score_proposito?: number
-          sentimento_valorizacao?: string | null
-          start_action?: string
-          stop_action?: string
+          motivo_satisfacao_baixa?: string | null
           talento_oculto?: string | null
-          visao_papel_10k?: string
+          rotina_diaria?: string | null
+          expectativa_empresa?: string | null
+          definicao_sucesso?: string | null
+          sentimento_valorizacao?: string | null
+          atividades_top5?: string | null
+          ladrao_tempo?: string | null
+          ferramentas_uso?: string | null
+          interdependencias?: string | null
+          start_action?: string | null
+          stop_action?: string | null
+          continue_action?: string | null
+          reclamacao_cliente?: string | null
+          prioridades_setor?: string | null
+          visao_papel_10k?: string | null
+          falta_plano_2026?: string | null
+          falta_metas_2025?: string | null
+          score_autonomia?: number | null
+          score_maestria?: number | null
+          score_proposito?: number | null
+          score_financeiro?: number | null
+          score_ambiente?: number | null
+          interesse_lideranca?: boolean | null
+          motivo_lideranca?: string | null
+          papel_bom_lider?: string | null
+          maior_sonho?: string | null
+          fotos_sonhos?: string[] | null
+          created_at?: string
         }
         Relationships: []
       }
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      [_ in never]: never
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
-  public: {
-    Tables: {
       ajuste_comissao: {
         Row: {
           created_at: string
