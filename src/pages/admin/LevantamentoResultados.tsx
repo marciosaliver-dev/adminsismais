@@ -29,7 +29,6 @@ export default function LevantamentoResultados() {
     queryKey: ["levantamento-resultados"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .schema('crm')
         .from("levantamento_operacional_2024")
         .select("*")
         .order("created_at", { ascending: false });

@@ -241,9 +241,7 @@ export function LevantamentoForm() {
         fotos_sonhos: data.fotos_sonhos,
       };
 
-      // Apontando explicitamente para o schema 'crm'
       const { error } = await supabase
-        .schema('crm')
         .from("levantamento_operacional_2024")
         .insert(payload);
         
@@ -256,7 +254,7 @@ export function LevantamentoForm() {
     },
     onError: (error) => {
       console.error(error);
-      toast({ title: "❌ Erro ao salvar", description: "Tente novamente mais tarde. Certifique-se de que o schema CRM está configurado.", variant: "destructive" });
+      toast({ title: "❌ Erro ao salvar", description: "Tente novamente mais tarde.", variant: "destructive" });
     },
   });
 
