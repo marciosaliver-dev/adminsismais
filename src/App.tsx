@@ -43,14 +43,10 @@ const App = () => (
             {/* Public routes */}
             <Route path="/auth" element={<Auth />} />
             
-            {/* Forms focus routes (Public, but uses Layout) */}
+            {/* Forms focus routes (Public, No Layout) */}
             <Route
               path="/levantamento-10k"
-              element={
-                <Layout>
-                  <LevantamentoOperacional />
-                </Layout>
-              }
+              element={<LevantamentoOperacional />}
             />
             
             {/* Protected routes with Layout */}
