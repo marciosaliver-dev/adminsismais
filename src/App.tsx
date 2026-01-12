@@ -27,6 +27,8 @@ import Assinaturas from "./pages/Assinaturas";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import LevantamentoOperacional from "./pages/LevantamentoOperacional";
+import LevantamentoResultados from "./pages/admin/LevantamentoResultados";
+import Dashboard from "./pages/Dashboard";
 
 const queryClient = new QueryClient();
 
@@ -41,10 +43,19 @@ const App = () => (
             {/* Public routes */}
             <Route path="/auth" element={<Auth />} />
             
-            {/* Redirect root to comissoes */}
-            <Route path="/" element={<Navigate to="/comissoes" replace />} />
+            {/* Protected routes with Layout */}
+            <Route
+              path="/"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <Dashboard />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
             
-            {/* Protected internal forms (No Sidebar Layout for focus) */}
+            {/* Forms focus routes (No Sidebar) */}
             <Route
               path="/lancar-venda"
               element={
@@ -62,7 +73,39 @@ const App = () => (
               }
             />
 
-            {/* Protected routes with Layout */}
+            {/* Admin Management */}
+            <Route
+              path="/admin/usuarios"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <GerenciarUsuarios />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/permissoes"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <GerenciarPermissoes />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/levantamento-resultados"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <LevantamentoResultados />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Commissions Module */}
             <Route
               path="/comissoes"
               element={
@@ -124,6 +167,7 @@ const App = () => (
               }
             />
             
+            {/* Financial Module */}
             <Route
               path="/extrato-asaas"
               element={
@@ -174,6 +218,8 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
+
+            {/* Team Module */}
             <Route
               path="/equipe/colaboradores"
               element={
@@ -210,27 +256,6 @@ const App = () => (
                 <ProtectedRoute>
                   <Layout>
                     <FechamentoEquipe />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-            
-            <Route
-              path="/admin/usuarios"
-              element={
-                <ProtectedRoute>
-                  <Layout>
-                    <GerenciarUsuarios />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/admin/permissoes"
-              element={
-                <ProtectedRoute>
-                  <Layout>
-                    <GerenciarPermissoes />
                   </Layout>
                 </ProtectedRoute>
               }

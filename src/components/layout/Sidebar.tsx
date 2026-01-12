@@ -18,6 +18,9 @@ import {
   ClipboardList,
   Star,
   Search,
+  LayoutDashboard,
+  BarChart3,
+  Rocket
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,6 +49,13 @@ interface NavSection {
 }
 
 const navSections: NavSection[] = [
+  {
+    title: "Geral",
+    items: [
+      { title: "Dashboard", icon: LayoutDashboard, href: "/" },
+      { title: "Levantamento 10K", icon: Rocket, href: "/levantamento-10k" },
+    ],
+  },
   {
     title: "Comissões",
     items: [
@@ -79,6 +89,7 @@ const navSections: NavSection[] = [
     items: [
       { title: "Gerenciar Usuários", icon: Users, href: "/admin/usuarios", requireAdmin: true },
       { title: "Permissões", icon: Lock, href: "/admin/permissoes", requireAdmin: true },
+      { title: "Resultados 10K", icon: BarChart3, href: "/admin/levantamento-resultados", requireAdmin: true },
     ],
   },
 ];
@@ -89,6 +100,7 @@ const COLLAPSED_KEY = "sidebar-collapsed";
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const { hasPermission, isAdmin, loading } = usePermissions();
   const [expandedSections, setExpandedSections] = useState<string[]>([
+    "Geral",
     "Comissões",
     "Equipe",
     "Financeiro",
@@ -146,17 +158,14 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     return section.items.some(canViewItem);
   };
 
-  // Get all visible items for favorites and search
   const allVisibleItems = navSections.flatMap((section) =>
     section.items.filter(canViewItem)
   );
 
-  // Get favorite items
   const favoriteItems = allVisibleItems.filter((item) =>
     favorites.includes(item.href)
   );
 
-  // Filter items by search
   const filteredSections = searchQuery
     ? navSections.map((section) => ({
         ...section,
@@ -232,7 +241,6 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
   return (
     <>
-      {/* Mobile Overlay */}
       {isOpen && (
         <div
           className="fixed inset-0 bg-black/50 z-40 lg:hidden"
@@ -240,7 +248,6 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
         />
       )}
 
-      {/* Sidebar */}
       <aside
         className={cn(
           "fixed left-0 top-0 z-50 h-full bg-sidebar border-r border-sidebar-border transition-all duration-300 lg:translate-x-0",
@@ -248,7 +255,6 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
           isCollapsed ? "w-16" : "w-64"
         )}
       >
-        {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-sidebar-border">
           {!isCollapsed && (
             <div className="flex items-center gap-2">
@@ -286,7 +292,6 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
           </Button>
         </div>
 
-        {/* Search */}
         {!isCollapsed && (
           <div className="p-3 border-b border-sidebar-border">
             <div className="relative">
@@ -301,7 +306,6 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
           </div>
         )}
 
-        {/* Navigation */}
         <nav
           className={cn(
             "overflow-y-auto",
@@ -309,15 +313,14 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             "space-y-4 h-[calc(100vh-8rem)]"
           )}
         >
-          {/* Favorites Section */}
           {favoriteItems.length > 0 && !searchQuery && (
             <div>
               {!isCollapsed && (
                 <button
-                  onClick={() => toggleSection("⭐ Favoritos")}
+                  onClick={() => toggleSection("Favoritos")}
                   className="flex items-center justify-between w-full text-xs font-semibold text-sidebar-foreground/70 uppercase tracking-wider mb-3 hover:text-sidebar-foreground transition-colors"
                 >
-                  <span className="flex items-center gap-2">Favoritos</span>
+                  <span className="flex items-center gap-2">⭐ Favoritos</span>
                   {expandedSections.includes("Favoritos") ? (
                     <ChevronDown className="w-4 h-4" />
                   ) : (
@@ -336,7 +339,6 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             </div>
           )}
 
-          {/* Regular Sections */}
           {filteredSections.map((section) => {
             if (!canViewSection(section)) return null;
 
