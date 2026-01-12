@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -14,12 +15,14 @@ import {
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Loader2, CheckCircle, Receipt } from "lucide-react";
+import { Loader2, CheckCircle, Receipt, ArrowLeft } from "lucide-react";
 import { format, startOfMonth, parse } from "date-fns";
+import { Link } from "react-router-dom";
 
 interface Colaborador {
   id: string;
   nome: string;
+  email: string | null;
   eh_vendedor_direto: boolean | null;
 }
 
@@ -61,6 +64,7 @@ const initialFormState: VendaForm = {
 };
 
 export default function LancarVendaPublica() {
+  const { profile } = useAuth();
   const [formData, setFormData] = useState<VendaForm>(initialFormState);
   const [submitted, setSubmitted] = useState(false);
 
@@ -68,11 +72,11 @@ export default function LancarVendaPublica() {
   const mesReferenciaDate = startOfMonth(parse(mesReferencia, "yyyy-MM", new Date()));
 
   const { data: colaboradores, isLoading: loadingColaboradores } = useQuery({
-    queryKey: ["colaboradores-publico"],
+    queryKey: ["colaboradores-formulario"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("colaboradores")
-        .select("id, nome, eh_vendedor_direto")
+        .select("id, nome, email, eh_vendedor_direto")
         .eq("ativo", true)
         .order("nome");
 
@@ -80,6 +84,16 @@ export default function LancarVendaPublica() {
       return data as Colaborador[];
     },
   });
+
+  // Auto-select based on logged-in profile email
+  useEffect(() => {
+    if (colaboradores && profile?.email && !formData.colaborador_id) {
+      const match = colaboradores.find(c => c.email?.toLowerCase() === profile.email.toLowerCase());
+      if (match) {
+        setFormData(prev => ({ ...prev, colaborador_id: match.id }));
+      }
+    }
+  }, [colaboradores, profile, formData.colaborador_id]);
 
   const createMutation = useMutation({
     mutationFn: async (data: VendaForm) => {
@@ -116,7 +130,8 @@ export default function LancarVendaPublica() {
   };
 
   const handleNovo = () => {
-    setFormData(initialFormState);
+    // Keep the colaborador_id on reset for convenience
+    setFormData({ ...initialFormState, colaborador_id: formData.colaborador_id });
     setSubmitted(false);
   };
 
@@ -141,9 +156,14 @@ export default function LancarVendaPublica() {
             <p className="text-muted-foreground">
               Sua venda foi enviada para aprovação. Você receberá a confirmação em breve.
             </p>
-            <Button onClick={handleNovo} className="mt-4">
-              Lançar Nova Venda
-            </Button>
+            <div className="flex flex-col gap-2">
+              <Button onClick={handleNovo} className="mt-4">
+                Lançar Nova Venda
+              </Button>
+              <Button variant="ghost" asChild>
+                <Link to="/">Voltar ao Dashboard</Link>
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -151,7 +171,13 @@ export default function LancarVendaPublica() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-cyan-50 to-blue-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-cyan-50 to-blue-100 dark:from-gray-900 dark:to-gray-800 flex flex-col items-center justify-center p-4">
+      <div className="w-full max-w-lg mb-4 flex justify-start">
+        <Button variant="ghost" asChild className="gap-2">
+          <Link to="/"><ArrowLeft className="w-4 h-4" /> Voltar</Link>
+        </Button>
+      </div>
+      
       <Card className="w-full max-w-lg">
         <CardHeader className="text-center border-b pb-6">
           <div className="mx-auto w-14 h-14 rounded-full bg-cyan-100 flex items-center justify-center mb-4">
@@ -165,13 +191,13 @@ export default function LancarVendaPublica() {
         <CardContent className="pt-6">
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-2">
-              <Label htmlFor="colaborador">Seu Nome *</Label>
+              <Label htmlFor="colaborador">Responsável pela Venda *</Label>
               <Select
                 value={formData.colaborador_id}
                 onValueChange={(value) => setFormData({ ...formData, colaborador_id: value })}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Selecione seu nome" />
+                  <SelectValue placeholder="Selecione o colaborador" />
                 </SelectTrigger>
                 <SelectContent>
                   {loadingColaboradores ? (

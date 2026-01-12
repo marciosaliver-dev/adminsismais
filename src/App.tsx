@@ -26,7 +26,7 @@ import SimuladorMeta from "./pages/SimuladorMeta";
 import Assinaturas from "./pages/Assinaturas";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
-import LevantamentoOperacional from "./pages/LevantamentoOperacional"; // Importando a página
+import LevantamentoOperacional from "./pages/LevantamentoOperacional";
 
 const queryClient = new QueryClient();
 
@@ -40,15 +40,29 @@ const App = () => (
           <Routes>
             {/* Public routes */}
             <Route path="/auth" element={<Auth />} />
-            <Route path="/lancar-venda" element={<LancarVendaPublica />} />
-            
-            {/* Nova Rota Pública de Levantamento */}
-            <Route path="/levantamento-10k" element={<LevantamentoOperacional />} />
             
             {/* Redirect root to comissoes */}
             <Route path="/" element={<Navigate to="/comissoes" replace />} />
             
-            {/* Protected routes - Comissões */}
+            {/* Protected internal forms (No Sidebar Layout for focus) */}
+            <Route
+              path="/lancar-venda"
+              element={
+                <ProtectedRoute>
+                  <LancarVendaPublica />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/levantamento-10k"
+              element={
+                <ProtectedRoute>
+                  <LevantamentoOperacional />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Protected routes with Layout */}
             <Route
               path="/comissoes"
               element={
@@ -110,7 +124,6 @@ const App = () => (
               }
             />
             
-            {/* Protected routes - Extrato Asaas */}
             <Route
               path="/extrato-asaas"
               element={
@@ -202,7 +215,6 @@ const App = () => (
               }
             />
             
-            {/* Protected routes - Admin */}
             <Route
               path="/admin/usuarios"
               element={
@@ -224,7 +236,6 @@ const App = () => (
               }
             />
             
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>
