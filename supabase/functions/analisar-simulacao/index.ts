@@ -1,4 +1,5 @@
-/// <reference types="https://esm.sh/@supabase/functions-js/src/edge-runtime.d.ts" />
+// @ts-nocheck
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -37,6 +38,29 @@ Deno.serve(async (req) => {
   }
 
   try {
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: 'No authorization header' }), { 
+        status: 401, 
+        headers: { ...corsHeaders, "Content-Type": "application/json" } 
+      })
+    }
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+    
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    
+    if (authError || !user) {
+      console.error("[analisar-simulacao] Unauthorized access attempt", { authError });
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), { 
+        status: 401, 
+        headers: { ...corsHeaders, "Content-Type": "application/json" } 
+      });
+    }
+
     const data: SimuladorData = await req.json();
     
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
@@ -109,7 +133,7 @@ Breve análise da viabilidade da meta com base nos dados
 
 Seja objetivo, use dados concretos e sugira ações práticas. Responda em português do Brasil.`;
 
-    console.log("Calling Lovable AI Gateway for sales simulation analysis...");
+    console.log("[analisar-simulacao] Calling Lovable AI Gateway for sales simulation analysis...");
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -136,7 +160,7 @@ Seja objetivo, use dados concretos e sugira ações práticas. Responda em portu
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("AI Gateway error:", errorText);
+      console.error("[analisar-simulacao] AI Gateway error:", errorText);
       throw new Error(`AI Gateway error: ${response.status}`);
     }
 
@@ -147,7 +171,7 @@ Seja objetivo, use dados concretos e sugira ações práticas. Responda em portu
       throw new Error("No analysis returned from AI");
     }
 
-    console.log("Analysis generated successfully");
+    console.log("[analisar-simulacao] Analysis generated successfully");
 
     return new Response(
       JSON.stringify({ analysis }),
@@ -156,7 +180,7 @@ Seja objetivo, use dados concretos e sugira ações práticas. Responda em portu
 
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
-    console.error("Error in analisar-simulacao:", errorMessage);
+    console.error("[analisar-simulacao] Error:", errorMessage);
     return new Response(
       JSON.stringify({ error: errorMessage }),
       { 

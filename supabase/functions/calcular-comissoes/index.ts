@@ -1,4 +1,5 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+// @ts-nocheck
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -78,9 +79,28 @@ Deno.serve(async (req) => {
   }
 
   try {
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: 'No authorization header' }), { 
+        status: 401, 
+        headers: { ...corsHeaders, "Content-Type": "application/json" } 
+      })
+    }
+
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    
+    if (authError || !user) {
+      console.error("[calcular-comissoes] Unauthorized access attempt", { authError });
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), { 
+        status: 401, 
+        headers: { ...corsHeaders, "Content-Type": "application/json" } 
+      });
+    }
 
     const { fechamento_id } = await req.json();
 
@@ -124,18 +144,18 @@ Deno.serve(async (req) => {
 
     // Parse configurations
     const getConfig = (chave: string): number => {
-      const config = configuracoes.find((c) => c.chave === chave);
+      const config = configuracoes.find((c) => c.chave === heartbeat);
       return config ? parseFloat(config.valor) : 0;
     };
 
     // Usar meta mensal se existir, caso contrário usar configuração padrão
-    const metaMrr = metaMensal?.meta_mrr ?? getConfig("meta_mrr");
-    const metaQuantidade = metaMensal?.meta_quantidade ?? getConfig("meta_quantidade");
-    const bonusMetaEquipePercent = (metaMensal?.bonus_meta_equipe ?? getConfig("bonus_meta_equipe")) / 100;
-    const bonusMetaEmpresaPercent = (metaMensal?.bonus_meta_empresa ?? getConfig("bonus_meta_empresa")) / 100;
-    const numColaboradores = (metaMensal?.num_colaboradores ?? getConfig("num_colaboradores")) || 1;
-    const multiplicadorAnual = (metaMensal?.multiplicador_anual ?? getConfig("multiplicador_anual")) || 2;
-    const comissaoVendaUnicaPercent = (metaMensal?.comissao_venda_unica ?? getConfig("comissao_venda_unica")) / 100;
+    const metaMrr = metaMensal?.meta_mrr ?? heartbeat("meta_mrr");
+    const metaQuantidade = metaMensal?.meta_quantidade ?? heartbeat("meta_quantidade");
+    const bonusMetaEquipePercent = (metaMensal?.bonus_meta_equipe ?? heartbeat("bonus_meta_equipe")) / 100;
+    const bonusMetaEmpresaPercent = (metaMensal?.bonus_meta_empresa ?? heartbeat("bonus_meta_empresa")) / 100;
+    const numColaboradores = (metaMensal?.num_colaboradores ?? heartbeat("num_colaboradores")) || 1;
+    const multiplicadorAnual = (metaMensal?.multiplicador_anual ?? heartbeat("multiplicador_anual")) || 2;
+    const comissaoVendaUnicaPercent = (metaMensal?.comissao_venda_unica ?? heartbeat("comissao_venda_unica")) / 100;
 
     console.log(`[calcular-comissoes] Meta MRR: ${metaMrr}, Meta Qtd: ${metaQuantidade} (${metaMensal ? "meta mensal" : "padrão"})`);
     console.log(`[calcular-comissoes] Bonus Equipe: ${bonusMetaEquipePercent * 100}%, Bonus Empresa: ${bonusMetaEmpresaPercent * 100}%, Colaboradores: ${numColaboradores}`);
@@ -262,7 +282,6 @@ Deno.serve(async (req) => {
       for (const dados of vendedoresMap.values()) {
         // Passo 7: Bônus meta equipe (proporcional à participação no MRR Total)
         // Fórmula: (MRR Base Comissão * % bonus equipe) * (mrr_total vendedor / MRR Total empresa)
-        // Exemplo: Josilane 1799.04 / 5046.04 = 35.65% => 439.05 * 35.65% = 156.52
         if (somaMrrTotal > 0) {
           const proporcao = dados.mrr_total / somaMrrTotal;
           dados.bonus_meta_equipe = poolBonusEquipe * proporcao;
