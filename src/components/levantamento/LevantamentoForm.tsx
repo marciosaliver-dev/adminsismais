@@ -9,7 +9,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Loader2, CheckCircle, AlertCircle, ChevronRight, ChevronLeft, User, List, Lightbulb, Star } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Loader2, CheckCircle, ChevronRight, ChevronLeft, User, List, Lightbulb, Star, Clock, TrendingUp, Zap } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -19,9 +20,22 @@ import type { TablesInsert } from "@/integrations/supabase/types";
 
 // --- 1. Schema de Validação (Zod) ---
 const scoreSchema = z.coerce.number().min(1, "Obrigatório").max(5, "Obrigatório");
+const satisfacaoSchema = z.coerce.number().min(0, "Obrigatório").max(10, "Obrigatório");
 
 const formSchema = z.object({
+  // Finalização
   colaborador_nome: z.string().min(2, "Nome é obrigatório"),
+  funcao_atual: z.string().min(2, "Função é obrigatória"),
+  satisfacao_trabalho: satisfacaoSchema,
+  talento_oculto: z.string().max(255).optional(),
+  
+  // Rotina & Foco
+  rotina_diaria: z.string().min(20, "Descreva sua rotina diária"),
+  expectativa_empresa: z.string().min(20, "Descreva o que a empresa espera do seu trabalho"),
+  definicao_sucesso: z.string().min(20, "Defina o que é cumprir bem o seu trabalho"),
+  sentimento_valorizacao: z.string().min(20, "Descreva se e por que você se sente valorizado"),
+
+  // Gargalos & Ação
   atividades_top5: z.string().min(20, "Detalhe suas 5 principais atividades"),
   ladrao_tempo: z.string().min(20, "Descreva o principal ladrão de tempo"),
   ferramentas_uso: z.string().min(5, "Liste as ferramentas que você usa"),
@@ -30,13 +44,37 @@ const formSchema = z.object({
   stop_action: z.string().min(10, "O que devemos parar de fazer?"),
   continue_action: z.string().min(10, "O que devemos manter?"),
   reclamacao_cliente: z.string().min(10, "Qual a maior reclamação?"),
+  prioridades_setor: z.string().min(20, "Liste 5 prioridades para o seu setor"),
+
+  // Visão & Cultura
   visao_papel_10k: z.string().min(20, "Descreva seu papel no cenário 10K"),
   score_autonomia: scoreSchema,
   score_maestria: scoreSchema,
   score_proposito: scoreSchema,
   score_financeiro: scoreSchema,
   score_ambiente: scoreSchema,
-  talento_oculto: z.string().max(255).optional(),
+  
+  // Liderança
+  interesse_lideranca: z.enum(["sim", "nao"], { required_error: "Obrigatório" }),
+  motivo_lideranca: z.string().min(20, "Obrigatório detalhar o motivo").optional(),
+  papel_bom_lider: z.string().min(20, "Obrigatório descrever o papel do líder").optional(),
+}).superRefine((data, ctx) => {
+  if (data.interesse_lideranca === "sim") {
+    if (!data.motivo_lideranca || data.motivo_lideranca.length < 20) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Detalhe o motivo do seu interesse em liderança.",
+        path: ["motivo_lideranca"],
+      });
+    }
+    if (!data.papel_bom_lider || data.papel_bom_lider.length < 20) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Descreva o papel de um bom líder.",
+        path: ["papel_bom_lider"],
+      });
+    }
+  }
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -44,10 +82,10 @@ type LevantamentoInsert = TablesInsert<"levantamento_operacional_2024">;
 
 // --- 2. Configuração das Abas ---
 const TABS = [
-  { id: "operacional", label: "Raio-X Operacional", icon: List, fields: ["atividades_top5", "ladrao_tempo", "ferramentas_uso", "interdependencias"] },
-  { id: "diagnostico", label: "Diagnóstico S/S/C", icon: Lightbulb, fields: ["start_action", "stop_action", "continue_action", "reclamacao_cliente"] },
+  { id: "rotina", label: "Rotina & Foco", icon: Clock, fields: ["rotina_diaria", "expectativa_empresa", "definicao_sucesso", "sentimento_valorizacao"] },
+  { id: "gargalos", label: "Gargalos & Ação", icon: Zap, fields: ["atividades_top5", "ladrao_tempo", "ferramentas_uso", "interdependencias", "start_action", "stop_action", "continue_action", "reclamacao_cliente", "prioridades_setor"] },
   { id: "cultura", label: "Visão & Cultura", icon: Star, fields: ["visao_papel_10k", "score_autonomia", "score_maestria", "score_proposito", "score_financeiro", "score_ambiente"] },
-  { id: "finalizacao", label: "Finalização", icon: User, fields: ["colaborador_nome", "talento_oculto"] },
+  { id: "lideranca", label: "Liderança & Finalização", icon: TrendingUp, fields: ["interesse_lideranca", "motivo_lideranca", "papel_bom_lider", "colaborador_nome", "funcao_atual", "satisfacao_trabalho", "talento_oculto"] },
 ];
 
 // --- 3. Componente de Rating (1-5) ---
@@ -105,6 +143,12 @@ export function LevantamentoForm() {
     resolver: zodResolver(formSchema),
     defaultValues: useMemo(() => ({
       colaborador_nome: profile?.nome || "",
+      funcao_atual: profile?.departamento || "",
+      satisfacao_trabalho: 0,
+      rotina_diaria: "",
+      expectativa_empresa: "",
+      definicao_sucesso: "",
+      sentimento_valorizacao: "",
       atividades_top5: "",
       ladrao_tempo: "",
       ferramentas_uso: "",
@@ -113,6 +157,7 @@ export function LevantamentoForm() {
       stop_action: "",
       continue_action: "",
       reclamacao_cliente: "",
+      prioridades_setor: "",
       visao_papel_10k: "",
       score_autonomia: 0,
       score_maestria: 0,
@@ -120,20 +165,33 @@ export function LevantamentoForm() {
       score_financeiro: 0,
       score_ambiente: 0,
       talento_oculto: "",
+      interesse_lideranca: undefined as any, // Zod handles enum validation
+      motivo_lideranca: "",
+      papel_bom_lider: "",
     }), [profile]),
   });
 
-  const { control, handleSubmit, formState: { errors, isSubmitting }, trigger, getValues, setValue } = form;
+  const { control, handleSubmit, formState: { errors, isSubmitting }, trigger, getValues, setValue, watch } = form;
+  const interesseLideranca = watch("interesse_lideranca");
 
-  // Preencher nome do colaborador automaticamente
+  // Preencher nome e função automaticamente
   if (profile?.nome && getValues("colaborador_nome") === "") {
     setValue("colaborador_nome", profile.nome);
+  }
+  if (profile?.departamento && getValues("funcao_atual") === "") {
+    setValue("funcao_atual", profile.departamento);
   }
 
   const saveMutation = useMutation({
     mutationFn: async (data: FormData) => {
       const payload: LevantamentoInsert = {
           colaborador_nome: data.colaborador_nome,
+          funcao_atual: data.funcao_atual,
+          satisfacao_trabalho: data.satisfacao_trabalho,
+          rotina_diaria: data.rotina_diaria,
+          expectativa_empresa: data.expectativa_empresa,
+          definicao_sucesso: data.definicao_sucesso,
+          sentimento_valorizacao: data.sentimento_valorizacao,
           atividades_top5: data.atividades_top5,
           ladrao_tempo: data.ladrao_tempo,
           ferramentas_uso: data.ferramentas_uso,
@@ -142,6 +200,7 @@ export function LevantamentoForm() {
           stop_action: data.stop_action,
           continue_action: data.continue_action,
           reclamacao_cliente: data.reclamacao_cliente,
+          prioridades_setor: data.prioridades_setor,
           visao_papel_10k: data.visao_papel_10k,
           score_autonomia: data.score_autonomia,
           score_maestria: data.score_maestria,
@@ -149,6 +208,9 @@ export function LevantamentoForm() {
           score_financeiro: data.score_financeiro,
           score_ambiente: data.score_ambiente,
           talento_oculto: data.talento_oculto || null,
+          interesse_lideranca: data.interesse_lideranca === "sim",
+          motivo_lideranca: data.motivo_lideranca || null,
+          papel_bom_lider: data.papel_bom_lider || null,
       };
 
       const { error } = await supabase
@@ -245,12 +307,85 @@ export function LevantamentoForm() {
           </TabsList>
 
           <form onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-6">
-            {/* Seção 1: Raio-X Operacional */}
-            <TabsContent value="operacional" className="mt-0 space-y-6">
-              <h3 className="text-xl font-semibold border-b pb-2">Seção 1: Raio-X Operacional</h3>
+            {/* Seção 1: Rotina & Foco */}
+            <TabsContent value="rotina" className="mt-0 space-y-6">
+              <h3 className="text-xl font-semibold border-b pb-2">Seção 1: Rotina & Foco</h3>
               
               <div className="space-y-2">
-                <Label htmlFor="atividades_top5">1. A Lista dos 5 (Principais atividades) *</Label>
+                <Label htmlFor="rotina_diaria">1. Rotina Diária (Descreva seu dia) *</Label>
+                <Controller
+                  name="rotina_diaria"
+                  control={control}
+                  render={({ field }) => (
+                    <Textarea
+                      {...field}
+                      rows={4}
+                      placeholder="Descreva sua rotina desde o momento que chega até o momento que vai embora."
+                      className={cn(errors.rotina_diaria && "border-destructive")}
+                    />
+                  )}
+                />
+                {errors.rotina_diaria && <p className="text-xs text-destructive">{errors.rotina_diaria.message}</p>}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="expectativa_empresa">2. Expectativa da Empresa *</Label>
+                <Controller
+                  name="expectativa_empresa"
+                  control={control}
+                  render={({ field }) => (
+                    <Textarea
+                      {...field}
+                      rows={4}
+                      placeholder="Na sua visão, o que a empresa espera do seu trabalho?"
+                      className={cn(errors.expectativa_empresa && "border-destructive")}
+                    />
+                  )}
+                />
+                {errors.expectativa_empresa && <p className="text-xs text-destructive">{errors.expectativa_empresa.message}</p>}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="definicao_sucesso">3. Definição de Sucesso *</Label>
+                <Controller
+                  name="definicao_sucesso"
+                  control={control}
+                  render={({ field }) => (
+                    <Textarea
+                      {...field}
+                      rows={4}
+                      placeholder="Para você, o que define se você está cumprindo bem o seu trabalho na empresa?"
+                      className={cn(errors.definicao_sucesso && "border-destructive")}
+                    />
+                  )}
+                />
+                {errors.definicao_sucesso && <p className="text-xs text-destructive">{errors.definicao_sucesso.message}</p>}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="sentimento_valorizacao">4. Sentimento de Valorização *</Label>
+                <Controller
+                  name="sentimento_valorizacao"
+                  control={control}
+                  render={({ field }) => (
+                    <Textarea
+                      {...field}
+                      rows={4}
+                      placeholder="Você se sente valorizado? Por quê? (Se sim, o que te faz sentir valorizado? Se não, o que falta?)"
+                      className={cn(errors.sentimento_valorizacao && "border-destructive")}
+                    />
+                  )}
+                />
+                {errors.sentimento_valorizacao && <p className="text-xs text-destructive">{errors.sentimento_valorizacao.message}</p>}
+              </div>
+            </TabsContent>
+
+            {/* Seção 2: Gargalos & Ação */}
+            <TabsContent value="gargalos" className="mt-0 space-y-6">
+              <h3 className="text-xl font-semibold border-b pb-2">Seção 2: Gargalos & Ação</h3>
+              
+              <div className="space-y-2">
+                <Label htmlFor="atividades_top5">5. A Lista dos 5 (Principais atividades) *</Label>
                 <Controller
                   name="atividades_top5"
                   control={control}
@@ -267,7 +402,7 @@ export function LevantamentoForm() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="ladrao_tempo">2. O "Ladrão de Tempo" (Tarefas manuais) *</Label>
+                <Label htmlFor="ladrao_tempo">6. O "Ladrão de Tempo" (Tarefas manuais) *</Label>
                 <Controller
                   name="ladrao_tempo"
                   control={control}
@@ -284,7 +419,7 @@ export function LevantamentoForm() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="ferramentas_uso">3. O Kit de Ferramentas (Softwares abertos) *</Label>
+                <Label htmlFor="ferramentas_uso">7. O Kit de Ferramentas (Softwares abertos) *</Label>
                 <Controller
                   name="ferramentas_uso"
                   control={control}
@@ -300,7 +435,7 @@ export function LevantamentoForm() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="interdependencias">4. Interdependências (Quem depende de você?) *</Label>
+                <Label htmlFor="interdependencias">8. Interdependências (Quem depende de você?) *</Label>
                 <Controller
                   name="interdependencias"
                   control={control}
@@ -315,14 +450,9 @@ export function LevantamentoForm() {
                 />
                 {errors.interdependencias && <p className="text-xs text-destructive">{errors.interdependencias.message}</p>}
               </div>
-            </TabsContent>
-
-            {/* Seção 2: Diagnóstico */}
-            <TabsContent value="diagnostico" className="mt-0 space-y-6">
-              <h3 className="text-xl font-semibold border-b pb-2">Seção 2: Diagnóstico (Start/Stop/Continue)</h3>
               
               <div className="space-y-2">
-                <Label htmlFor="start_action">5. START (O que devemos começar a fazer?) *</Label>
+                <Label htmlFor="start_action">9. START (O que devemos começar a fazer?) *</Label>
                 <Controller
                   name="start_action"
                   control={control}
@@ -339,7 +469,7 @@ export function LevantamentoForm() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="stop_action">5. STOP (O que devemos parar de fazer?) *</Label>
+                <Label htmlFor="stop_action">10. STOP (O que devemos parar de fazer?) *</Label>
                 <Controller
                   name="stop_action"
                   control={control}
@@ -356,7 +486,7 @@ export function LevantamentoForm() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="continue_action">5. CONTINUE (O que devemos manter?) *</Label>
+                <Label htmlFor="continue_action">11. CONTINUE (O que devemos manter?) *</Label>
                 <Controller
                   name="continue_action"
                   control={control}
@@ -373,7 +503,7 @@ export function LevantamentoForm() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="reclamacao_cliente">6. A Voz do Cliente (Maior reclamação) *</Label>
+                <Label htmlFor="reclamacao_cliente">12. A Voz do Cliente (Maior reclamação) *</Label>
                 <Controller
                   name="reclamacao_cliente"
                   control={control}
@@ -388,6 +518,23 @@ export function LevantamentoForm() {
                 />
                 {errors.reclamacao_cliente && <p className="text-xs text-destructive">{errors.reclamacao_cliente.message}</p>}
               </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="prioridades_setor">13. 5 Prioridades do Setor *</Label>
+                <Controller
+                  name="prioridades_setor"
+                  control={control}
+                  render={({ field }) => (
+                    <Textarea
+                      {...field}
+                      rows={4}
+                      placeholder="Liste 5 prioridades que devemos focar no seu setor para atingir 10K clientes."
+                      className={cn(errors.prioridades_setor && "border-destructive")}
+                    />
+                  )}
+                />
+                {errors.prioridades_setor && <p className="text-xs text-destructive">{errors.prioridades_setor.message}</p>}
+              </div>
             </TabsContent>
 
             {/* Seção 3: Visão & Cultura */}
@@ -395,7 +542,7 @@ export function LevantamentoForm() {
               <h3 className="text-xl font-semibold border-b pb-2">Seção 3: Visão & Cultura</h3>
               
               <div className="space-y-2">
-                <Label htmlFor="visao_papel_10k">7. O Cenário 10K (Seu papel no futuro) *</Label>
+                <Label htmlFor="visao_papel_10k">14. O Cenário 10K (Seu papel no futuro) *</Label>
                 <Controller
                   name="visao_papel_10k"
                   control={control}
@@ -411,7 +558,7 @@ export function LevantamentoForm() {
                 {errors.visao_papel_10k && <p className="text-xs text-destructive">{errors.visao_papel_10k.message}</p>}
               </div>
 
-              <h4 className="font-semibold pt-4">8. Importância (De 1 a 5) *</h4>
+              <h4 className="font-semibold pt-4">15. Importância (De 1 a 5) *</h4>
               <p className="text-sm text-muted-foreground mb-4">
                 Quão importante é cada um desses fatores para sua satisfação e motivação no trabalho?
               </p>
@@ -448,28 +595,137 @@ export function LevantamentoForm() {
               />
             </TabsContent>
 
-            {/* Seção 4: Finalização */}
-            <TabsContent value="finalizacao" className="mt-0 space-y-6">
-              <h3 className="text-xl font-semibold border-b pb-2">Seção 4: Finalização</h3>
+            {/* Seção 4: Liderança & Finalização */}
+            <TabsContent value="lideranca" className="mt-0 space-y-6">
+              <h3 className="text-xl font-semibold border-b pb-2">Seção 4: Liderança & Finalização</h3>
               
-              <div className="space-y-2">
-                <Label htmlFor="colaborador_nome">Nome do Colaborador *</Label>
+              <div className="space-y-4 p-4 border rounded-lg bg-primary/5">
+                <h4 className="font-semibold">16. Interesse em Liderança *</h4>
                 <Controller
-                  name="colaborador_nome"
+                  name="interesse_lideranca"
                   control={control}
                   render={({ field }) => (
-                    <Input
-                      {...field}
-                      placeholder="Seu nome completo"
-                      className={cn(errors.colaborador_nome && "border-destructive")}
-                    />
+                    <RadioGroup
+                      onValueChange={field.onChange}
+                      value={field.value}
+                      className="flex gap-8"
+                    >
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="sim" id="lider-sim" />
+                        <Label htmlFor="lider-sim">Sim, tenho interesse</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="nao" id="lider-nao" />
+                        <Label htmlFor="lider-nao">Não tenho interesse</Label>
+                      </div>
+                    </RadioGroup>
                   )}
                 />
-                {errors.colaborador_nome && <p className="text-xs text-destructive">{errors.colaborador_nome.message}</p>}
+                {errors.interesse_lideranca && <p className="text-xs text-destructive">{errors.interesse_lideranca.message}</p>}
+              </div>
+
+              {(interesseLideranca === "sim" || interesseLideranca === "nao") && (
+                <div className="space-y-2">
+                  <Label htmlFor="motivo_lideranca">17. Motivo (Por que sim/não?) *</Label>
+                  <Controller
+                    name="motivo_lideranca"
+                    control={control}
+                    render={({ field }) => (
+                      <Textarea
+                        {...field}
+                        rows={4}
+                        placeholder={interesseLideranca === "sim" ? "Descreva por que você tem interesse em ser líder." : "Descreva por que você não tem interesse em ser líder."}
+                        className={cn(errors.motivo_lideranca && "border-destructive")}
+                      />
+                    )}
+                  />
+                  {errors.motivo_lideranca && <p className="text-xs text-destructive">{errors.motivo_lideranca.message}</p>}
+                </div>
+              )}
+
+              {interesseLideranca === "sim" && (
+                <div className="space-y-2">
+                  <Label htmlFor="papel_bom_lider">18. Papel do Bom Líder *</Label>
+                  <Controller
+                    name="papel_bom_lider"
+                    control={control}
+                    render={({ field }) => (
+                      <Textarea
+                        {...field}
+                        rows={4}
+                        placeholder="Na sua visão, qual é o papel de um bom líder na Sismais?"
+                        className={cn(errors.papel_bom_lider && "border-destructive")}
+                      />
+                    )}
+                  />
+                  {errors.papel_bom_lider && <p className="text-xs text-destructive">{errors.papel_bom_lider.message}</p>}
+                </div>
+              )}
+
+              <h4 className="font-semibold pt-4 border-t">19. Dados Pessoais e Satisfação</h4>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="colaborador_nome">Nome do Colaborador *</Label>
+                  <Controller
+                    name="colaborador_nome"
+                    control={control}
+                    render={({ field }) => (
+                      <Input
+                        {...field}
+                        placeholder="Seu nome completo"
+                        className={cn(errors.colaborador_nome && "border-destructive")}
+                      />
+                    )}
+                  />
+                  {errors.colaborador_nome && <p className="text-xs text-destructive">{errors.colaborador_nome.message}</p>}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="funcao_atual">Função Atual *</Label>
+                  <Controller
+                    name="funcao_atual"
+                    control={control}
+                    render={({ field }) => (
+                      <Input
+                        {...field}
+                        placeholder="Ex: Analista de Suporte"
+                        className={cn(errors.funcao_atual && "border-destructive")}
+                      />
+                    )}
+                  />
+                  {errors.funcao_atual && <p className="text-xs text-destructive">{errors.funcao_atual.message}</p>}
+                </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="talento_oculto">9. A Pergunta de Ouro (Habilidade não usada)</Label>
+                <Label htmlFor="satisfacao_trabalho">20. Satisfação com o Trabalho (0 a 10) *</Label>
+                <Controller
+                  name="satisfacao_trabalho"
+                  control={control}
+                  render={({ field }) => (
+                    <Select
+                      onValueChange={(value) => field.onChange(parseInt(value))}
+                      value={field.value?.toString() || ""}
+                    >
+                      <SelectTrigger className={cn(errors.satisfacao_trabalho && "border-destructive")}>
+                        <SelectValue placeholder="Selecione um valor de 0 a 10" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Array.from({ length: 11 }, (_, i) => i).map((score) => (
+                          <SelectItem key={score} value={score.toString()}>
+                            {score} - {score <= 3 ? "Muito Insatisfeito" : score <= 7 ? "Neutro" : "Muito Satisfeito"}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+                {errors.satisfacao_trabalho && <p className="text-xs text-destructive">{errors.satisfacao_trabalho.message}</p>}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="talento_oculto">21. A Pergunta de Ouro (Habilidade não usada)</Label>
                 <Controller
                   name="talento_oculto"
                   control={control}

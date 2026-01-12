@@ -890,16 +890,26 @@ export type Database = {
           colaborador_nome: string
           continue_action: string
           created_at: string
+          definicao_sucesso: string | null
+          expectativa_empresa: string | null
           ferramentas_uso: string
+          funcao_atual: string | null
           id: string
           interdependencias: string
+          interesse_lideranca: boolean | null
           ladrao_tempo: string
+          motivo_lideranca: string | null
+          papel_bom_lider: string | null
+          prioridades_setor: string | null
           reclamacao_cliente: string
+          rotina_diaria: string | null
+          satisfacao_trabalho: number | null
           score_ambiente: number
           score_autonomia: number
           score_financeiro: number
           score_maestria: number
           score_proposito: number
+          sentimento_valorizacao: string | null
           start_action: string
           stop_action: string
           talento_oculto: string | null
@@ -910,16 +920,26 @@ export type Database = {
           colaborador_nome: string
           continue_action: string
           created_at?: string
+          definicao_sucesso?: string | null
+          expectativa_empresa?: string | null
           ferramentas_uso: string
+          funcao_atual?: string | null
           id?: string
           interdependencias: string
+          interesse_lideranca?: boolean | null
           ladrao_tempo: string
+          motivo_lideranca?: string | null
+          papel_bom_lider?: string | null
+          prioridades_setor?: string | null
           reclamacao_cliente: string
+          rotina_diaria?: string | null
+          satisfacao_trabalho?: number | null
           score_ambiente: number
           score_autonomia: number
           score_financeiro: number
           score_maestria: number
           score_proposito: number
+          sentimento_valorizacao?: string | null
           start_action: string
           stop_action: string
           talento_oculto?: string | null
@@ -930,16 +950,26 @@ export type Database = {
           colaborador_nome?: string
           continue_action?: string
           created_at?: string
+          definicao_sucesso?: string | null
+          expectativa_empresa?: string | null
           ferramentas_uso?: string
+          funcao_atual?: string | null
           id?: string
           interdependencias?: string
+          interesse_lideranca?: boolean | null
           ladrao_tempo?: string
+          motivo_lideranca?: string | null
+          papel_bom_lider?: string | null
+          prioridades_setor?: string | null
           reclamacao_cliente?: string
+          rotina_diaria?: string | null
+          satisfacao_trabalho?: number | null
           score_ambiente?: number
           score_autonomia?: number
           score_financeiro?: number
           score_maestria?: number
           score_proposito?: number
+          sentimento_valorizacao?: string | null
           start_action?: string
           stop_action?: string
           talento_oculto?: string | null
