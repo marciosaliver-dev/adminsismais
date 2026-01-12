@@ -43,6 +43,16 @@ const App = () => (
             {/* Public routes */}
             <Route path="/auth" element={<Auth />} />
             
+            {/* Forms focus routes (Public, but uses Layout) */}
+            <Route
+              path="/levantamento-10k"
+              element={
+                <Layout>
+                  <LevantamentoOperacional />
+                </Layout>
+              }
+            />
+            
             {/* Protected routes with Layout */}
             <Route
               path="/"
@@ -55,22 +65,12 @@ const App = () => (
               }
             />
             
-            {/* Forms focus routes (No Sidebar) */}
+            {/* Forms focus routes (Protected, No Sidebar) */}
             <Route
               path="/lancar-venda"
               element={
                 <ProtectedRoute>
                   <LancarVendaPublica />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/levantamento-10k"
-              element={
-                <ProtectedRoute>
-                  <Layout>
-                    <LevantamentoOperacional />
-                  </Layout>
                 </ProtectedRoute>
               }
             />
