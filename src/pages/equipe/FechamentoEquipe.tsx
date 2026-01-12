@@ -4,7 +4,6 @@ import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import {
   Table,
@@ -20,37 +19,23 @@ import {
   Calculator,
   Loader2,
   Users,
-  TrendingDown,
-  Target,
-  DollarSign,
-  CheckCircle,
-  XCircle,
   AlertCircle,
   FileText,
   RefreshCw,
-  Plus,
-  Trash2,
   Settings,
-  Save,
+  CheckCircle, // Adicionado
+  XCircle, // Adicionado
 } from "lucide-react";
 import { format, startOfMonth, parse } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { FechamentoConfigModal } from "@/components/equipe/FechamentoConfigModal";
+import { FechamentoAjusteModal } from "@/components/equipe/FechamentoAjusteModal";
+import { FechamentoAjustesList } from "@/components/equipe/FechamentoAjustesList";
+import { FechamentoDemonstrativoModal } from "@/components/equipe/FechamentoDemonstrativoModal";
+import { gerarDemonstrativoHTML } from "@/lib/fechamentoEquipeUtils";
+
+// --- Interfaces (Mantidas aqui para centralizar a tipagem complexa) ---
 
 interface FechamentoEquipe {
   id: string;
@@ -129,6 +114,37 @@ interface ConfiguracaoBase {
   metaVendas: number;
 }
 
+interface MetaMensal {
+  assinaturas_inicio_mes: number | null;
+  limite_churn: number | null;
+  limite_cancelamentos: number | null;
+  percentual_bonus_churn: number | null;
+  percentual_bonus_retencao: number | null;
+  bonus_meta_equipe: number | null;
+  meta_quantidade: number | null;
+  colaboradores_bonus_meta: string[] | null;
+}
+
+interface DadosCalculo {
+  colaboradores: Colaborador[] | null;
+  todosColaboradoresAtivos: Colaborador[] | null;
+  colaboradoresBonusMeta: Colaborador[] | null;
+  meta: MetaMensal | null;
+  fechamentoComissao: {
+    id: string;
+    total_mrr: number | null;
+    total_vendas: number | null;
+    meta_batida: boolean;
+  } | null;
+  vendasServicos: any[];
+  metasIndividuais: any[];
+  mrrBaseComissao: number;
+  totalComissoesVendedores: number;
+  qtdVendasRecorrentes: number;
+}
+
+// --- Componente Principal ---
+
 export default function FechamentoEquipe() {
   const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
@@ -160,7 +176,8 @@ export default function FechamentoEquipe() {
 
   const mesReferenciaDate = startOfMonth(parse(mesReferencia, "yyyy-MM", new Date()));
 
-  // Buscar fechamento existente
+  // --- Data Fetching ---
+
   const { data: fechamento, isLoading: isLoadingFechamento, refetch: refetchFechamento } = useQuery({
     queryKey: ["fechamento-equipe", mesReferencia],
     queryFn: async () => {
@@ -175,7 +192,6 @@ export default function FechamentoEquipe() {
     },
   });
 
-  // Buscar colaboradores do fechamento
   const { data: colaboradoresFechamento, refetch: refetchColaboradores } = useQuery({
     queryKey: ["fechamento-colaboradores", fechamento?.id],
     queryFn: async () => {
@@ -192,7 +208,6 @@ export default function FechamentoEquipe() {
     enabled: !!fechamento?.id,
   });
 
-  // Buscar ajustes manuais
   const { data: ajustes = [], refetch: refetchAjustes } = useQuery({
     queryKey: ["ajustes-fechamento-equipe", fechamento?.id],
     queryFn: async () => {
@@ -209,7 +224,6 @@ export default function FechamentoEquipe() {
     enabled: !!fechamento?.id,
   });
 
-  // Buscar todos colaboradores para o select de ajuste
   const { data: todosColaboradores = [] } = useQuery({
     queryKey: ["colaboradores-ativos"],
     queryFn: async () => {
@@ -223,7 +237,6 @@ export default function FechamentoEquipe() {
     },
   });
 
-  // Buscar dados para cálculo
   const { data: dadosCalculo } = useQuery({
     queryKey: ["dados-calculo-fechamento", mesReferencia],
     queryFn: async () => {
@@ -308,20 +321,19 @@ export default function FechamentoEquipe() {
       return {
         colaboradores: colaboradores as Colaborador[] || [],
         todosColaboradoresAtivos: todosColaboradoresAtivos as Colaborador[] || [],
-        colaboradoresBonusMeta,
-        meta,
-        fechamentoComissao,
+        colaboradoresBonusMeta: colaboradoresBonusMeta as Colaborador[] || [],
+        meta: meta as MetaMensal | null,
+        fechamentoComissao: fechamentoComissao as DadosCalculo['fechamentoComissao'],
         vendasServicos: vendasServicos || [],
         metasIndividuais: metasIndividuais || [],
         mrrBaseComissao,
         totalComissoesVendedores,
         qtdVendasRecorrentes,
-      };
+      } as DadosCalculo;
     },
   });
 
-  // Atualizar configBase quando fechamento ou meta mudar
-  // Prioridade: meta_mensal primeiro, depois fechamento existente
+  // Update configBase when data changes
   useEffect(() => {
     const meta = dadosCalculo?.meta;
     setConfigBase({
@@ -334,13 +346,15 @@ export default function FechamentoEquipe() {
       percentualBonusMeta: meta?.bonus_meta_equipe || fechamento?.percentual_bonus_meta || 10,
       metaVendas: meta?.meta_quantidade || fechamento?.meta_vendas || 0,
     });
-  }, [fechamento, dadosCalculo?.meta]);
+  }, [fechamento, dadosCalculo]);
 
-  // Mutation para salvar configuração
+  // --- Mutations ---
+
   const salvarConfigMutation = useMutation({
     mutationFn: async () => {
+      // Logic to save config (omitted for brevity, already in FechamentoConfigModal)
+      // ... (implementation details remain the same)
       if (!fechamento?.id) {
-        // Criar fechamento primeiro
         const { data, error } = await supabase
           .from("fechamento_equipe")
           .insert({
@@ -387,7 +401,6 @@ export default function FechamentoEquipe() {
     },
   });
 
-  // Mutation para adicionar ajuste
   const addAjusteMutation = useMutation({
     mutationFn: async () => {
       if (!fechamento?.id) throw new Error("Fechamento não encontrado");
@@ -411,7 +424,6 @@ export default function FechamentoEquipe() {
     },
   });
 
-  // Mutation para deletar ajuste
   const deleteAjusteMutation = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("ajuste_fechamento_equipe").delete().eq("id", id);
@@ -423,16 +435,13 @@ export default function FechamentoEquipe() {
     },
   });
 
-  // Mutation para calcular fechamento
   const calcularMutation = useMutation({
     mutationFn: async () => {
       setIsCalculando(true);
 
-      // Verificar se existe fechamento de comissão
       if (!dadosCalculo?.fechamentoComissao?.id) {
         throw new Error("Não existe fechamento de comissão para este mês. Importe as vendas primeiro.");
       }
-
       if (!dadosCalculo?.colaboradores?.length) {
         throw new Error("Nenhum colaborador participante encontrado");
       }
@@ -444,8 +453,6 @@ export default function FechamentoEquipe() {
       const vendasServicos = dadosCalculo.vendasServicos;
       const metasIndividuais = dadosCalculo.metasIndividuais;
 
-      // Prioridade para dados de fechamento: 1) meta_mensal, 2) configBase manual, 3) fechamento existente, 4) padrão
-      // Usar valores da meta_mensal como fonte primária
       const assinaturasInicioMes = meta?.assinaturas_inicio_mes || configBase.assinaturasInicioMes || fechamento?.assinaturas_inicio_mes || 0;
       const cancelamentosMes = configBase.cancelamentosMes || fechamento?.cancelamentos_mes || 0;
       const vendasMes = dadosCalculo.qtdVendasRecorrentes || 0;
@@ -454,31 +461,20 @@ export default function FechamentoEquipe() {
       const totalComissoesVendedores = dadosCalculo.totalComissoesVendedores || 0;
       const metaVendas = meta?.meta_quantidade || configBase.metaVendas || fechamento?.meta_vendas || 0;
 
-      // Usar limites da meta_mensal como fonte primária
       const limiteChurn = meta?.limite_churn || configBase.limiteChurn || 5;
       const limiteCancelamentos = meta?.limite_cancelamentos || configBase.limiteCancelamentos || 50;
       const percentualBonusChurn = meta?.percentual_bonus_churn || configBase.percentualBonusChurn || 3;
       const percentualBonusRetencao = meta?.percentual_bonus_retencao || configBase.percentualBonusRetencao || 3;
       const percentualBonusMeta = meta?.bonus_meta_equipe || configBase.percentualBonusMeta || 10;
 
-      // Cálculos
-      const churnRate = assinaturasInicioMes > 0 
-        ? (cancelamentosMes / assinaturasInicioMes) * 100 
-        : 0;
-      const taxaCancelamentos = vendasMes > 0 
-        ? (cancelamentosMes / vendasMes) * 100 
-        : 0;
-      const percentualMeta = metaVendas > 0 
-        ? (vendasMes / metaVendas) * 100 
-        : 0;
+      const churnRate = assinaturasInicioMes > 0 ? (cancelamentosMes / assinaturasInicioMes) * 100 : 0;
+      const taxaCancelamentos = vendasMes > 0 ? (cancelamentosMes / vendasMes) * 100 : 0;
+      const percentualMeta = metaVendas > 0 ? (vendasMes / metaVendas) * 100 : 0;
 
-      // Verificar bônus
       const bonusChurnLiberado = churnRate < limiteChurn;
       const bonusRetencaoLiberado = taxaCancelamentos < limiteCancelamentos;
       const bonusMetaLiberado = percentualMeta >= 100;
 
-      // Valores de bônus - Bônus de Meta dividido entre colaboradores definidos na meta ou todos os ativos
-      // IMPORTANTE: Bônus é calculado com base no MRR Base Comissão (não MRR Total)
       const colaboradoresBonusMeta = dadosCalculo.colaboradoresBonusMeta || todosColaboradoresAtivos;
       const totalColaboradoresParaBonusMeta = colaboradoresBonusMeta.length;
       const valorBonusMetaTotal = bonusMetaLiberado ? mrrBaseComissao * (percentualBonusMeta / 100) : 0;
@@ -486,7 +482,6 @@ export default function FechamentoEquipe() {
         ? valorBonusMetaTotal / totalColaboradoresParaBonusMeta 
         : 0;
 
-      // Criar ou atualizar fechamento_equipe
       const fechamentoData = {
         mes_referencia: format(mesReferenciaDate, "yyyy-MM-dd"),
         assinaturas_inicio_mes: assinaturasInicioMes,
@@ -517,48 +512,26 @@ export default function FechamentoEquipe() {
       let fechamentoId: string;
 
       if (fechamento?.id) {
-        // Atualizar existente
-        const { error } = await supabase
-          .from("fechamento_equipe")
-          .update(fechamentoData)
-          .eq("id", fechamento.id);
+        const { error } = await supabase.from("fechamento_equipe").update(fechamentoData).eq("id", fechamento.id);
         if (error) throw error;
         fechamentoId = fechamento.id;
-
-        // Limpar colaboradores anteriores
-        await supabase
-          .from("fechamento_colaborador")
-          .delete()
-          .eq("fechamento_equipe_id", fechamento.id);
+        await supabase.from("fechamento_colaborador").delete().eq("fechamento_equipe_id", fechamento.id);
       } else {
-        // Criar novo
-        const { data, error } = await supabase
-          .from("fechamento_equipe")
-          .insert(fechamentoData)
-          .select("id")
-          .single();
+        const { data, error } = await supabase.from("fechamento_equipe").insert(fechamentoData).select("id").single();
         if (error) throw error;
         fechamentoId = data.id;
       }
 
-      // Calcular e inserir fechamento de cada colaborador
       for (const colab of colaboradores) {
-        // Bônus de equipe
-        const bonusChurn = bonusChurnLiberado 
-          ? colab.salario_base * (percentualBonusChurn / 100) 
-          : 0;
-        const bonusRetencao = bonusRetencaoLiberado 
-          ? colab.salario_base * (percentualBonusRetencao / 100) 
-          : 0;
+        const bonusChurn = bonusChurnLiberado ? colab.salario_base * (percentualBonusChurn / 100) : 0;
+        const bonusRetencao = bonusRetencaoLiberado ? colab.salario_base * (percentualBonusRetencao / 100) : 0;
         const bonusMetaEquipe = bonusMetaLiberado ? valorBonusMetaIndividual : 0;
         const subtotalBonusEquipe = bonusChurn + bonusRetencao + bonusMetaEquipe;
 
-        // Comissão sobre serviços
         const vendasColaborador = vendasServicos.filter(v => v.colaborador_id === colab.id);
         const totalVendasServicos = vendasColaborador.reduce((sum, v) => sum + v.valor_servico, 0);
         const comissaoServicos = totalVendasServicos * ((colab.percentual_comissao || 10) / 100);
 
-        // Metas individuais
         const metasColab = metasIndividuais.filter(m => m.colaborador_id === colab.id);
         const metasAtingidas = metasColab.filter(m => m.atingida);
         const totalBonusMetas = metasAtingidas.reduce((sum, m) => {
@@ -569,10 +542,8 @@ export default function FechamentoEquipe() {
           return sum + m.valor_bonus;
         }, 0);
 
-        // Total
         const totalAReceber = subtotalBonusEquipe + comissaoServicos + totalBonusMetas;
 
-        // Gerar HTML do demonstrativo
         const relatorioHtml = gerarDemonstrativoHTML({
           nome: colab.nome,
           cargo: colab.cargo,
@@ -596,8 +567,8 @@ export default function FechamentoEquipe() {
           totalAReceber,
           mrrBaseComissao,
           percentualBonusMeta,
-          percentualBonusChurn, // Adicionado
-          percentualBonusRetencao, // Adicionado
+          percentualBonusChurn,
+          percentualBonusRetencao,
         });
 
         await supabase.from("fechamento_colaborador").insert({
@@ -639,6 +610,8 @@ export default function FechamentoEquipe() {
     },
   });
 
+  // --- Utility Functions ---
+
   const formatCurrency = (value: number | null) => {
     return new Intl.NumberFormat("pt-BR", {
       style: "currency",
@@ -650,7 +623,8 @@ export default function FechamentoEquipe() {
     return `${(value || 0).toFixed(1)}%`;
   };
 
-  // Calcular totais com ajustes
+  // --- Totals Calculation ---
+
   const totalAjustesCredito = ajustes.filter(a => a.tipo === "credito").reduce((sum, a) => sum + a.valor, 0);
   const totalAjustesDebito = ajustes.filter(a => a.tipo === "debito").reduce((sum, a) => sum + a.valor, 0);
   const totalAjustes = totalAjustesCredito - totalAjustesDebito;
@@ -685,21 +659,7 @@ export default function FechamentoEquipe() {
           />
           {dadosCalculo?.fechamentoComissao?.id && (
             <>
-              <Button variant="outline" onClick={() => {
-                if (fechamento) {
-                  setConfigBase({
-                    assinaturasInicioMes: fechamento.assinaturas_inicio_mes || 0,
-                    cancelamentosMes: fechamento.cancelamentos_mes || 0,
-                    limiteChurn: fechamento.limite_churn || 5,
-                    limiteCancelamentos: fechamento.limite_cancelamentos || 50,
-                    percentualBonusChurn: fechamento.percentual_bonus_churn || 3,
-                    percentualBonusRetencao: fechamento.percentual_bonus_retencao || 3,
-                    percentualBonusMeta: fechamento.percentual_bonus_meta || 10,
-                    metaVendas: fechamento.meta_vendas || 0,
-                  });
-                }
-                setConfigModal(true);
-              }}>
+              <Button variant="outline" onClick={() => setConfigModal(true)}>
                 <Settings className="mr-2 h-4 w-4" />
                 Configurar
               </Button>
@@ -721,7 +681,6 @@ export default function FechamentoEquipe() {
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
       ) : !dadosCalculo?.fechamentoComissao?.id ? (
-        // Não existe fechamento de comissão para o mês
         <Card className="border-amber-200 bg-amber-50/50 dark:bg-amber-950/20 dark:border-amber-800">
           <CardContent className="flex flex-col items-center justify-center py-12">
             <AlertCircle className="h-12 w-12 text-amber-500 mb-4" />
@@ -1001,78 +960,12 @@ export default function FechamentoEquipe() {
             </TabsContent>
 
             <TabsContent value="ajustes">
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <CardTitle>Ajustes Manuais</CardTitle>
-                  <Button size="sm" onClick={() => setAjusteModal(true)}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Novo Ajuste
-                  </Button>
-                </CardHeader>
-                <CardContent>
-                  {ajustes.length === 0 ? (
-                    <p className="text-center text-muted-foreground py-8">
-                      Nenhum ajuste manual registrado
-                    </p>
-                  ) : (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Descrição</TableHead>
-                          <TableHead>Colaborador</TableHead>
-                          <TableHead>Tipo</TableHead>
-                          <TableHead className="text-right">Valor</TableHead>
-                          <TableHead className="text-right">Ações</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {ajustes.map((ajuste) => {
-                          const colaborador = todosColaboradores.find(c => c.id === ajuste.colaborador_id);
-                          return (
-                            <TableRow key={ajuste.id}>
-                              <TableCell>{ajuste.descricao}</TableCell>
-                              <TableCell>{colaborador?.nome || "Geral"}</TableCell>
-                              <TableCell>
-                                <Badge variant={ajuste.tipo === "credito" ? "default" : "destructive"}>
-                                  {ajuste.tipo === "credito" ? "Crédito" : "Débito"}
-                                </Badge>
-                              </TableCell>
-                              <TableCell className={`text-right font-medium ${
-                                ajuste.tipo === "credito" ? "text-green-600" : "text-red-600"
-                              }`}>
-                                {ajuste.tipo === "credito" ? "+" : "-"}{formatCurrency(ajuste.valor)}
-                              </TableCell>
-                              <TableCell className="text-right">
-                                <Button
-                                  size="icon"
-                                  variant="ghost"
-                                  onClick={() => deleteAjusteMutation.mutate(ajuste.id)}
-                                >
-                                  <Trash2 className="h-4 w-4 text-destructive" />
-                                </Button>
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
-                  )}
-
-                  {ajustes.length > 0 && (
-                    <div className="mt-4 p-4 bg-muted rounded-lg flex justify-between items-center">
-                      <div className="space-x-6">
-                        <span className="text-green-600">Total Créditos: {formatCurrency(totalAjustesCredito)}</span>
-                        <span className="text-red-600">Total Débitos: {formatCurrency(totalAjustesDebito)}</span>
-                      </div>
-                      <div className="font-bold">
-                        Saldo: <span className={totalAjustes >= 0 ? "text-green-600" : "text-red-600"}>
-                          {formatCurrency(totalAjustes)}
-                        </span>
-                      </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+              <FechamentoAjustesList
+                ajustes={ajustes}
+                todosColaboradores={todosColaboradores as any}
+                onAddAjuste={() => setAjusteModal(true)}
+                deleteAjusteMutation={deleteAjusteMutation as any}
+              />
             </TabsContent>
           </Tabs>
 
@@ -1116,375 +1009,32 @@ export default function FechamentoEquipe() {
       )}
 
       {/* Modal Configuração */}
-      <Dialog open={configModal} onOpenChange={setConfigModal}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Configurar Parâmetros do Fechamento</DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            {dadosCalculo?.meta && (
-              <div className="bg-primary/10 border border-primary/20 p-3 rounded-lg">
-                <p className="text-sm">
-                  <strong>💡 Parâmetros carregados da Meta Mensal</strong>
-                  <br />
-                  <span className="text-muted-foreground">
-                    Estes valores foram definidos em Configurações &gt; Metas Mensais. 
-                    Você pode sobrescrevê-los aqui para este fechamento específico.
-                  </span>
-                </p>
-              </div>
-            )}
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Clientes no Início do Mês</Label>
-                <Input
-                  type="number"
-                  value={configBase.assinaturasInicioMes}
-                  onChange={(e) => setConfigBase({ ...configBase, assinaturasInicioMes: Number(e.target.value) })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Quantidade de Cancelamentos</Label>
-                <Input
-                  type="number"
-                  value={configBase.cancelamentosMes}
-                  onChange={(e) => setConfigBase({ ...configBase, cancelamentosMes: Number(e.target.value) })}
-                />
-              </div>
-            </div>
-
-            <div className="border-t pt-4">
-              <h4 className="font-medium mb-3">Metas de Churn e Retenção</h4>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Limite Churn (%)</Label>
-                  <Input
-                    type="number"
-                    step="0.1"
-                    value={configBase.limiteChurn}
-                    onChange={(e) => setConfigBase({ ...configBase, limiteChurn: Number(e.target.value) })}
-                  />
-                  <p className="text-xs text-muted-foreground">Bônus liberado se churn &lt; este limite</p>
-                </div>
-                <div className="space-y-2">
-                  <Label>Limite Cancelamentos (%)</Label>
-                  <Input
-                    type="number"
-                    step="0.1"
-                    value={configBase.limiteCancelamentos}
-                    onChange={(e) => setConfigBase({ ...configBase, limiteCancelamentos: Number(e.target.value) })}
-                  />
-                  <p className="text-xs text-muted-foreground">Cancelamentos &lt; % das vendas</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="border-t pt-4">
-              <h4 className="font-medium mb-3">Meta de Vendas</h4>
-              <div className="space-y-2">
-                <Label>Meta de Vendas (quantidade)</Label>
-                <Input
-                  type="number"
-                  value={configBase.metaVendas}
-                  onChange={(e) => setConfigBase({ ...configBase, metaVendas: Number(e.target.value) })}
-                />
-              </div>
-            </div>
-
-            <div className="border-t pt-4">
-              <h4 className="font-medium mb-3">Percentuais de Bônus</h4>
-              <div className="grid grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label>% Bônus Churn</Label>
-                  <Input
-                    type="number"
-                    step="0.1"
-                    value={configBase.percentualBonusChurn}
-                    onChange={(e) => setConfigBase({ ...configBase, percentualBonusChurn: Number(e.target.value) })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>% Bônus Retenção</Label>
-                  <Input
-                    type="number"
-                    step="0.1"
-                    value={configBase.percentualBonusRetencao}
-                    onChange={(e) => setConfigBase({ ...configBase, percentualBonusRetencao: Number(e.target.value) })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>% Bônus Meta</Label>
-                  <Input
-                    type="number"
-                    step="0.1"
-                    value={configBase.percentualBonusMeta}
-                    onChange={(e) => setConfigBase({ ...configBase, percentualBonusMeta: Number(e.target.value) })}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {dadosCalculo && (
-              <div className="border-t pt-4 bg-muted p-4 rounded-lg">
-                <h4 className="font-medium mb-3">📊 Dados Importados do Fechamento de Comissões</h4>
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  <div>Vendas Recorrentes: <strong>{dadosCalculo.qtdVendasRecorrentes}</strong></div>
-                  <div>MRR Base Comissão: <strong>{formatCurrency(dadosCalculo.mrrBaseComissao)}</strong></div>
-                  <div>Total Comissões: <strong>{formatCurrency(dadosCalculo.totalComissoesVendedores)}</strong></div>
-                </div>
-              </div>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setConfigModal(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={() => salvarConfigMutation.mutate()}>
-              <Save className="h-4 w-4 mr-2" />
-              Salvar Configuração
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <FechamentoConfigModal
+        open={configModal}
+        onOpenChange={setConfigModal}
+        configBase={configBase}
+        setConfigBase={setConfigBase}
+        dadosCalculo={dadosCalculo}
+        fechamento={fechamento}
+        salvarConfigMutation={salvarConfigMutation}
+      />
 
       {/* Modal Ajuste */}
-      <Dialog open={ajusteModal} onOpenChange={setAjusteModal}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Novo Ajuste Manual</DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="space-y-2">
-              <Label>Colaborador (opcional)</Label>
-              <Select
-                value={novoAjuste.colaborador_id || "_geral_"}
-                onValueChange={(value) => setNovoAjuste({ ...novoAjuste, colaborador_id: value === "_geral_" ? "" : value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione ou deixe em branco para geral" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="_geral_">Geral (todos)</SelectItem>
-                  {todosColaboradores.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Tipo</Label>
-              <Select
-                value={novoAjuste.tipo}
-                onValueChange={(value: "credito" | "debito") => setNovoAjuste({ ...novoAjuste, tipo: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="credito">Crédito (+)</SelectItem>
-                  <SelectItem value="debito">Débito (-)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Valor</Label>
-              <Input
-                type="number"
-                step="0.01"
-                value={novoAjuste.valor}
-                onChange={(e) => setNovoAjuste({ ...novoAjuste, valor: Number(e.target.value) })}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Descrição</Label>
-              <Textarea
-                value={novoAjuste.descricao}
-                onChange={(e) => setNovoAjuste({ ...novoAjuste, descricao: e.target.value })}
-                placeholder="Descreva o motivo do ajuste..."
-                rows={3}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setAjusteModal(false)}>
-              Cancelar
-            </Button>
-            <Button 
-              onClick={() => addAjusteMutation.mutate()}
-              disabled={!novoAjuste.descricao || novoAjuste.valor <= 0}
-            >
-              Adicionar Ajuste
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <FechamentoAjusteModal
+        open={ajusteModal}
+        onOpenChange={setAjusteModal}
+        novoAjuste={novoAjuste}
+        setNovoAjuste={setNovoAjuste}
+        todosColaboradores={todosColaboradores as any}
+        addAjusteMutation={addAjusteMutation}
+      />
 
       {/* Modal Demonstrativo */}
-      <Dialog 
-        open={demonstrativoModal.open} 
+      <FechamentoDemonstrativoModal
+        open={demonstrativoModal.open}
         onOpenChange={(open) => setDemonstrativoModal({ open, colaborador: null })}
-      >
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
-              Demonstrativo - {demonstrativoModal.colaborador?.nome_colaborador}
-            </DialogTitle>
-          </DialogHeader>
-          {demonstrativoModal.colaborador?.relatorio_html && (
-            <div 
-              className="prose prose-sm max-w-none"
-              dangerouslySetInnerHTML={{ __html: demonstrativoModal.colaborador.relatorio_html }}
-            />
-          )}
-        </DialogContent>
-      </Dialog>
+        colaborador={demonstrativoModal.colaborador}
+      />
     </div>
   );
-}
-
-// Função para gerar HTML do demonstrativo
-function gerarDemonstrativoHTML(dados: {
-  nome: string;
-  cargo: string | null;
-  salarioBase: number;
-  mesReferencia: string;
-  churnRate: number;
-  taxaCancelamentos: number;
-  percentualMeta: number;
-  bonusChurnLiberado: boolean;
-  bonusRetencaoLiberado: boolean;
-  bonusMetaLiberado: boolean;
-  bonusChurn: number;
-  bonusRetencao: number;
-  bonusMetaEquipe: number;
-  subtotalBonusEquipe: number;
-  vendasServicos: any[];
-  percentualComissao: number;
-  comissaoServicos: number;
-  metasAtingidas: any[];
-  totalBonusMetas: number;
-  totalAReceber: number;
-  mrrBaseComissao: number;
-  percentualBonusMeta: number;
-  percentualBonusChurn: number; // Adicionado
-  percentualBonusRetencao: number; // Adicionado
-}) {
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-    }).format(value);
-  };
-
-  return `
-    <div style="font-family: Arial, sans-serif; padding: 20px;">
-      <div style="text-align: center; margin-bottom: 20px;">
-        <h2 style="margin: 0;">DEMONSTRATIVO DE FECHAMENTO</h2>
-        <p style="margin: 5px 0; text-transform: capitalize;">${dados.mesReferencia}</p>
-      </div>
-
-      <div style="margin-bottom: 20px; padding: 10px; background: #f5f5f5; border-radius: 8px;">
-        <p style="margin: 5px 0;"><strong>Colaborador:</strong> ${dados.nome}</p>
-        <p style="margin: 5px 0;"><strong>Cargo:</strong> ${dados.cargo || '-'}</p>
-        <p style="margin: 5px 0;"><strong>Salário Base:</strong> ${formatCurrency(dados.salarioBase)}</p>
-      </div>
-
-      <div style="margin-bottom: 20px;">
-        <h3 style="border-bottom: 2px solid #333; padding-bottom: 5px;">📊 INDICADORES DO MÊS</h3>
-        <p>Churn Rate: ${dados.churnRate.toFixed(1)}% ${dados.bonusChurnLiberado ? '✅' : '❌'}</p>
-        <p>Taxa Retenção (Cancel/Vendas): ${dados.taxaCancelamentos.toFixed(1)}% ${dados.bonusRetencaoLiberado ? '✅' : '❌'}</p>
-        <p>Meta de Vendas: ${dados.percentualMeta.toFixed(0)}% ${dados.bonusMetaLiberado ? '✅' : '❌'}</p>
-      </div>
-
-      <div style="margin-bottom: 20px;">
-        <h3 style="border-bottom: 2px solid #333; padding-bottom: 5px;">💰 BÔNUS DE EQUIPE</h3>
-        <div style="margin-bottom: 10px; padding: 8px; background: #e3f2fd; border-radius: 4px;">
-          <p style="margin: 0; font-size: 12px; color: #1565c0;"><strong>MRR Base Comissão:</strong> ${formatCurrency(dados.mrrBaseComissao)}</p>
-        </div>
-        <table style="width: 100%; border-collapse: collapse;">
-          <tr>
-            <td style="padding: 5px 0;">Bônus Churn (${dados.percentualBonusChurn}% do salário)</td>
-            <td style="text-align: right;">${formatCurrency(dados.bonusChurn)}</td>
-          </tr>
-          <tr>
-            <td style="padding: 5px 0;">Bônus Retenção (${dados.percentualBonusRetencao}% do salário)</td>
-            <td style="text-align: right;">${formatCurrency(dados.bonusRetencao)}</td>
-          </tr>
-          <tr>
-            <td style="padding: 5px 0;">Bônus Meta (${dados.percentualBonusMeta}% MRR Base - rateado)</td>
-            <td style="text-align: right;">${formatCurrency(dados.bonusMetaEquipe)}</td>
-          </tr>
-          <tr style="font-weight: bold; border-top: 1px solid #ccc;">
-            <td style="padding: 5px 0;">Subtotal Bônus Equipe:</td>
-            <td style="text-align: right;">${formatCurrency(dados.subtotalBonusEquipe)}</td>
-          </tr>
-        </table>
-      </div>
-
-      ${dados.vendasServicos.length > 0 ? `
-      <div style="margin-bottom: 20px;">
-        <h3 style="border-bottom: 2px solid #333; padding-bottom: 5px;">🛠️ COMISSÃO SOBRE SERVIÇOS (${dados.percentualComissao}%)</h3>
-        <p style="margin-bottom: 10px; font-size: 13px; color: #666;">
-          Valor Total de Serviços Vendidos: <strong>${formatCurrency(dados.vendasServicos.reduce((sum: number, v: any) => sum + v.valor_servico, 0))}</strong>
-        </p>
-        <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
-          <thead>
-            <tr style="background: #f5f5f5;">
-              <th style="padding: 8px; text-align: left; border-bottom: 1px solid #ddd;">Cliente</th>
-              <th style="padding: 8px; text-align: left; border-bottom: 1px solid #ddd;">Serviço</th>
-              <th style="padding: 8px; text-align: right; border-bottom: 1px solid #ddd;">Valor</th>
-              <th style="padding: 8px; text-align: right; border-bottom: 1px solid #ddd;">Comissão</th>
-            </tr>
-          </thead>
-          <tbody>
-          ${dados.vendasServicos.map((v: any) => `
-            <tr>
-              <td style="padding: 6px 8px; border-bottom: 1px solid #eee;">${v.cliente || '-'}</td>
-              <td style="padding: 6px 8px; border-bottom: 1px solid #eee;">${v.descricao_servico || '-'}</td>
-              <td style="padding: 6px 8px; text-align: right; border-bottom: 1px solid #eee;">${formatCurrency(v.valor_servico)}</td>
-              <td style="padding: 6px 8px; text-align: right; border-bottom: 1px solid #eee;">${formatCurrency(v.valor_servico * (dados.percentualComissao / 100))}</td>
-            </tr>
-          `).join('')}
-          </tbody>
-          <tfoot>
-            <tr style="font-weight: bold; background: #e8f5e9;">
-              <td colspan="3" style="padding: 8px;">Subtotal Comissão Serviços:</td>
-              <td style="text-align: right; padding: 8px;">${formatCurrency(dados.comissaoServicos)}</td>
-            </tr>
-          </tfoot>
-        </table>
-      </div>
-      ` : ''}
-
-      ${dados.metasAtingidas.length > 0 ? `
-      <div style="margin-bottom: 20px;">
-        <h3 style="border-bottom: 2px solid #333; padding-bottom: 5px;">🎯 METAS INDIVIDUAIS</h3>
-        <table style="width: 100%; border-collapse: collapse;">
-          ${dados.metasAtingidas.map(m => `
-            <tr>
-              <td style="padding: 5px 0;">✅ Meta atingida</td>
-              <td style="text-align: right;">${formatCurrency(m.valor_bonus)}</td>
-            </tr>
-          `).join('')}
-          <tr style="font-weight: bold; border-top: 1px solid #ccc;">
-            <td style="padding: 5px 0;">Subtotal Metas:</td>
-            <td style="text-align: right;">${formatCurrency(dados.totalBonusMetas)}</td>
-          </tr>
-        </table>
-      </div>
-      ` : ''}
-
-      <div style="margin-top: 30px; padding: 15px; background: #e8f5e9; border-radius: 8px; text-align: center;">
-        <h2 style="margin: 0; color: #2e7d32;">TOTAL A RECEBER: ${formatCurrency(dados.totalAReceber)}</h2>
-      </div>
-
-      <p style="text-align: center; margin-top: 20px; color: #666; font-size: 12px;">
-        Gerado em: ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}
-      </p>
-    </div>
-  `;
 }
