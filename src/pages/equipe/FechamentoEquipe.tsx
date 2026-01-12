@@ -596,6 +596,8 @@ export default function FechamentoEquipe() {
           totalAReceber,
           mrrBaseComissao,
           percentualBonusMeta,
+          percentualBonusChurn, // Adicionado
+          percentualBonusRetencao, // Adicionado
         });
 
         await supabase.from("fechamento_colaborador").insert({
@@ -1303,6 +1305,7 @@ export default function FechamentoEquipe() {
                 value={novoAjuste.descricao}
                 onChange={(e) => setNovoAjuste({ ...novoAjuste, descricao: e.target.value })}
                 placeholder="Descreva o motivo do ajuste..."
+                rows={3}
               />
             </div>
           </div>
@@ -1367,6 +1370,8 @@ function gerarDemonstrativoHTML(dados: {
   totalAReceber: number;
   mrrBaseComissao: number;
   percentualBonusMeta: number;
+  percentualBonusChurn: number; // Adicionado
+  percentualBonusRetencao: number; // Adicionado
 }) {
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -1402,11 +1407,11 @@ function gerarDemonstrativoHTML(dados: {
         </div>
         <table style="width: 100%; border-collapse: collapse;">
           <tr>
-            <td style="padding: 5px 0;">Bônus Churn (3% do salário)</td>
+            <td style="padding: 5px 0;">Bônus Churn (${dados.percentualBonusChurn}% do salário)</td>
             <td style="text-align: right;">${formatCurrency(dados.bonusChurn)}</td>
           </tr>
           <tr>
-            <td style="padding: 5px 0;">Bônus Retenção (3% do salário)</td>
+            <td style="padding: 5px 0;">Bônus Retenção (${dados.percentualBonusRetencao}% do salário)</td>
             <td style="text-align: right;">${formatCurrency(dados.bonusRetencao)}</td>
           </tr>
           <tr>
@@ -1424,7 +1429,7 @@ function gerarDemonstrativoHTML(dados: {
       <div style="margin-bottom: 20px;">
         <h3 style="border-bottom: 2px solid #333; padding-bottom: 5px;">🛠️ COMISSÃO SOBRE SERVIÇOS (${dados.percentualComissao}%)</h3>
         <p style="margin-bottom: 10px; font-size: 13px; color: #666;">
-          Total em Vendas de Serviços: <strong>${formatCurrency(dados.vendasServicos.reduce((sum: number, v: any) => sum + v.valor_servico, 0))}</strong>
+          Valor Total de Serviços Vendidos: <strong>${formatCurrency(dados.vendasServicos.reduce((sum: number, v: any) => sum + v.valor_servico, 0))}</strong>
         </p>
         <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
           <thead>
