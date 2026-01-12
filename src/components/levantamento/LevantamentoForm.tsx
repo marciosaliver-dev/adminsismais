@@ -356,7 +356,7 @@ export function LevantamentoForm() {
            </Button>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="pb-20 sm:pb-4"> {/* Adiciona padding inferior para a barra fixa */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="grid w-full grid-cols-4 h-auto bg-muted/50 p-1 rounded-xl">
             {TABS.map(t => (
@@ -662,22 +662,53 @@ export function LevantamentoForm() {
               </div>
             </TabsContent>
 
-            <div className="flex justify-between pt-8 border-t gap-4">
-              <div className="flex gap-2">
-                <Button type="button" variant="outline" size="lg" className="rounded-xl px-8" onClick={handlePrev} disabled={activeTab === TABS[0].id}><ChevronLeft className="mr-2 h-4 w-4" /> Anterior</Button>
-                <Button type="button" variant="ghost" size="lg" className="rounded-xl px-4 text-primary hover:bg-primary/10" onClick={handleSaveDraft}>
-                  <Save className="w-4 h-4 mr-1" /> Salvar Rascunho
-                </Button>
+            {/* Fixed Navigation Bar for Mobile */}
+            <div className="fixed bottom-0 left-0 right-0 bg-card border-t p-3 shadow-2xl sm:relative sm:p-0 sm:shadow-none sm:border-t-0">
+              <div className="flex justify-between pt-0 gap-4">
+                <div className="flex gap-2 w-full sm:w-auto">
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    size="lg" 
+                    className="rounded-xl px-4 w-full sm:w-auto" 
+                    onClick={handlePrev} 
+                    disabled={activeTab === TABS[0].id}
+                  >
+                    <ChevronLeft className="mr-2 h-4 w-4" /> 
+                    Anterior
+                  </Button>
+                  <Button 
+                    type="button" 
+                    variant="ghost" 
+                    size="lg" 
+                    className="rounded-xl px-4 text-primary hover:bg-primary/10 hidden sm:flex" 
+                    onClick={handleSaveDraft}
+                  >
+                    <Save className="w-4 h-4 mr-1" /> Salvar Rascunho
+                  </Button>
+                </div>
+                
+                {activeTab !== TABS[TABS.length - 1].id ? (
+                  <Button 
+                    type="button" 
+                    size="lg" 
+                    className="bg-primary hover:bg-primary/90 px-8 rounded-xl shadow-md w-full sm:w-auto" 
+                    onClick={handleNext}
+                  >
+                    Próximo <ChevronRight className="ml-2 h-4 w-4" />
+                  </Button>
+                ) : (
+                  <Button 
+                    type="submit" 
+                    size="lg" 
+                    className="bg-primary hover:bg-primary/90 px-10 rounded-xl shadow-lg transition-transform hover:scale-105 active:scale-95 w-full sm:w-auto" 
+                    disabled={isSubmitting || saveMutation.isPending || isUploading}
+                  >
+                    {isSubmitting || saveMutation.isPending ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <CheckCircle className="mr-2 h-4 w-4" />} 
+                    Enviar Mapeamento
+                  </Button>
+                )}
               </div>
-              
-              {activeTab !== TABS[TABS.length - 1].id ? (
-                <Button type="button" size="lg" className="rounded-xl px-8 shadow-md" onClick={handleNext}>Próximo <ChevronRight className="ml-2 h-4 w-4" /></Button>
-              ) : (
-                <Button type="submit" size="lg" className="bg-primary hover:bg-primary/90 px-10 rounded-xl shadow-lg transition-transform hover:scale-105 active:scale-95" disabled={isSubmitting || saveMutation.isPending || isUploading}>
-                  {isSubmitting || saveMutation.isPending ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <CheckCircle className="mr-2 h-4 w-4" />} 
-                  Enviar Mapeamento
-                </Button>
-              )}
             </div>
           </form>
         </Tabs>
