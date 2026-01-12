@@ -30,6 +30,7 @@ const formSchema = z.object({
   colaborador_nome: z.string().min(2, "Nome é obrigatório"),
   funcao_atual: z.string().min(2, "Função é obrigatória"),
   satisfacao_trabalho: satisfacaoSchema,
+  motivo_satisfacao_baixa: z.string().optional(),
   talento_oculto: z.string().max(255).optional(),
   
   rotina_diaria: z.string().min(20, "Descreva sua rotina diária"),
@@ -61,6 +62,14 @@ const formSchema = z.object({
   papel_bom_lider: z.string().min(20, "Obrigatório descrever o papel do líder").optional(),
   
   maior_sonho: z.string().min(20, "Compartilhe seu maior sonho conosco"),
+}).refine((data) => {
+  if (data.satisfacao_trabalho < 8 && (!data.motivo_satisfacao_baixa || data.motivo_satisfacao_baixa.length < 20)) {
+    return false;
+  }
+  return true;
+}, {
+  message: "Por favor, detalhe o motivo da sua insatisfação (mínimo 20 caracteres)",
+  path: ["motivo_satisfacao_baixa"],
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -71,7 +80,7 @@ const TABS = [
   { id: "rotina", label: "Rotina & Foco", icon: Clock, fields: ["rotina_diaria", "expectativa_empresa", "definicao_sucesso", "sentimento_valorizacao"] },
   { id: "gargalos", label: "Gargalos & Ação", icon: Zap, fields: ["atividades_top5", "ladrao_tempo", "ferramentas_uso", "interdependencias", "start_action", "stop_action", "continue_action", "reclamacao_cliente", "prioridades_setor"] },
   { id: "cultura", label: "Visão & Estratégia", icon: Star, fields: ["visao_papel_10k", "falta_plano_2026", "falta_metas_2025", "score_autonomia", "score_maestria", "score_proposito", "score_financeiro", "score_ambiente"] },
-  { id: "lideranca", label: "Liderança & Finalização", icon: TrendingUp, fields: ["interesse_lideranca", "motivo_lideranca", "papel_bom_lider", "colaborador_nome", "funcao_atual", "satisfacao_trabalho", "talento_oculto", "maior_sonho"] },
+  { id: "lideranca", label: "Liderança & Finalização", icon: TrendingUp, fields: ["interesse_lideranca", "motivo_lideranca", "papel_bom_lider", "colaborador_nome", "funcao_atual", "satisfacao_trabalho", "motivo_satisfacao_baixa", "talento_oculto", "maior_sonho"] },
 ];
 
 // --- 3. Componente de Rating ---
@@ -142,6 +151,7 @@ export function LevantamentoForm() {
 
   const { control, handleSubmit, formState: { errors, isSubmitting }, trigger, watch, reset } = form;
   const interesseLideranca = watch("interesse_lideranca");
+  const satisfacaoTrabalho = watch("satisfacao_trabalho");
 
   useEffect(() => {
     const subscription = watch((value) => {
@@ -156,6 +166,7 @@ export function LevantamentoForm() {
         colaborador_nome: data.colaborador_nome,
         funcao_atual: data.funcao_atual,
         satisfacao_trabalho: data.satisfacao_trabalho,
+        motivo_satisfacao_baixa: data.motivo_satisfacao_baixa || null,
         talento_oculto: data.talento_oculto || null,
         rotina_diaria: data.rotina_diaria,
         expectativa_empresa: data.expectativa_empresa,
@@ -456,6 +467,21 @@ export function LevantamentoForm() {
                   </Select>
                 )} />
                 {errors.satisfacao_trabalho && <p className="text-xs text-destructive">{errors.satisfacao_trabalho.message}</p>}
+                
+                {/* Pergunta Condicional: Motivo de insatisfação */}
+                {satisfacaoTrabalho !== undefined && satisfacaoTrabalho < 8 && (
+                   <div className="mt-4 p-4 border-2 border-amber-200 bg-amber-50 rounded-xl space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                     <QuestionField 
+                        label="Por que você deu essa nota? O que poderíamos fazer para que sua satisfação chegasse a 10?"
+                        hint="Sua sinceridade é fundamental para podermos agir e melhorar seu dia a dia."
+                        name="motivo_satisfacao_baixa"
+                        control={control}
+                        error={errors.motivo_satisfacao_baixa}
+                        placeholder="Descreva aqui os motivos e suas sugestões de melhoria..."
+                        rows={4}
+                     />
+                   </div>
+                )}
               </div>
               <div className="space-y-2">
                 <Label className="font-bold text-base">18. A Pergunta de Ouro: Algum talento seu não está sendo usado hoje?</Label>

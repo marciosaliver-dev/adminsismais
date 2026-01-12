@@ -895,6 +895,7 @@ export type Database = {
           ladrao_tempo: string
           maior_sonho: string | null
           motivo_lideranca: string | null
+          motivo_satisfacao_baixa: string | null
           papel_bom_lider: string | null
           prioridades_setor: string | null
           reclamacao_cliente: string
@@ -928,6 +929,7 @@ export type Database = {
           ladrao_tempo: string
           maior_sonho?: string | null
           motivo_lideranca?: string | null
+          motivo_satisfacao_baixa?: string | null
           papel_bom_lider?: string | null
           prioridades_setor?: string | null
           reclamacao_cliente: string
@@ -961,6 +963,7 @@ export type Database = {
           ladrao_tempo?: string
           maior_sonho?: string | null
           motivo_lideranca?: string | null
+          motivo_satisfacao_baixa?: string | null
           papel_bom_lider?: string | null
           prioridades_setor?: string | null
           reclamacao_cliente?: string
