@@ -272,7 +272,7 @@ export default function FechamentoEquipe() {
       // Buscar vendas de serviços aprovadas
       const { data: vendasServicos } = await supabase
         .from("vendas_servicos")
-        .select("colaborador_id, valor_servico")
+        .select("colaborador_id, valor_servico, cliente, descricao_servico")
         .eq("mes_referencia", format(mesReferenciaDate, "yyyy-MM-dd"))
         .eq("status", "aprovado");
 
@@ -849,7 +849,9 @@ export default function FechamentoEquipe() {
                     <span className="font-medium">Bônus Retenção</span>
                   </div>
                   <p className="text-sm">
-                    Cancelamentos &lt;{fechamento.limite_cancelamentos}% das vendas
+                    Taxa Cancelamentos: {fechamento.vendas_mes && fechamento.vendas_mes > 0 
+                      ? ((fechamento.cancelamentos_mes || 0) / fechamento.vendas_mes * 100).toFixed(1) 
+                      : "0"}% (limite: &lt;{fechamento.limite_cancelamentos}%)
                   </p>
                   <p className="text-sm font-medium mt-1">
                     {fechamento.bonus_retencao_liberado 
@@ -1389,6 +1391,7 @@ function gerarDemonstrativoHTML(dados: {
       <div style="margin-bottom: 20px;">
         <h3 style="border-bottom: 2px solid #333; padding-bottom: 5px;">📊 INDICADORES DO MÊS</h3>
         <p>Churn Rate: ${dados.churnRate.toFixed(1)}% ${dados.bonusChurnLiberado ? '✅' : '❌'}</p>
+        <p>Taxa Retenção (Cancel/Vendas): ${dados.taxaCancelamentos.toFixed(1)}% ${dados.bonusRetencaoLiberado ? '✅' : '❌'}</p>
         <p>Meta de Vendas: ${dados.percentualMeta.toFixed(0)}% ${dados.bonusMetaLiberado ? '✅' : '❌'}</p>
       </div>
 
@@ -1419,18 +1422,35 @@ function gerarDemonstrativoHTML(dados: {
 
       ${dados.vendasServicos.length > 0 ? `
       <div style="margin-bottom: 20px;">
-        <h3 style="border-bottom: 2px solid #333; padding-bottom: 5px;">🛠️ COMISSÃO SOBRE SERVIÇOS</h3>
-        <table style="width: 100%; border-collapse: collapse;">
-          ${dados.vendasServicos.map(v => `
+        <h3 style="border-bottom: 2px solid #333; padding-bottom: 5px;">🛠️ COMISSÃO SOBRE SERVIÇOS (${dados.percentualComissao}%)</h3>
+        <p style="margin-bottom: 10px; font-size: 13px; color: #666;">
+          Total em Vendas de Serviços: <strong>${formatCurrency(dados.vendasServicos.reduce((sum: number, v: any) => sum + v.valor_servico, 0))}</strong>
+        </p>
+        <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+          <thead>
+            <tr style="background: #f5f5f5;">
+              <th style="padding: 8px; text-align: left; border-bottom: 1px solid #ddd;">Cliente</th>
+              <th style="padding: 8px; text-align: left; border-bottom: 1px solid #ddd;">Serviço</th>
+              <th style="padding: 8px; text-align: right; border-bottom: 1px solid #ddd;">Valor</th>
+              <th style="padding: 8px; text-align: right; border-bottom: 1px solid #ddd;">Comissão</th>
+            </tr>
+          </thead>
+          <tbody>
+          ${dados.vendasServicos.map((v: any) => `
             <tr>
-              <td style="padding: 5px 0;">Serviço (${dados.percentualComissao}%)</td>
-              <td style="text-align: right;">${formatCurrency(v.valor_servico * (dados.percentualComissao / 100))}</td>
+              <td style="padding: 6px 8px; border-bottom: 1px solid #eee;">${v.cliente || '-'}</td>
+              <td style="padding: 6px 8px; border-bottom: 1px solid #eee;">${v.descricao_servico || '-'}</td>
+              <td style="padding: 6px 8px; text-align: right; border-bottom: 1px solid #eee;">${formatCurrency(v.valor_servico)}</td>
+              <td style="padding: 6px 8px; text-align: right; border-bottom: 1px solid #eee;">${formatCurrency(v.valor_servico * (dados.percentualComissao / 100))}</td>
             </tr>
           `).join('')}
-          <tr style="font-weight: bold; border-top: 1px solid #ccc;">
-            <td style="padding: 5px 0;">Subtotal Serviços:</td>
-            <td style="text-align: right;">${formatCurrency(dados.comissaoServicos)}</td>
-          </tr>
+          </tbody>
+          <tfoot>
+            <tr style="font-weight: bold; background: #e8f5e9;">
+              <td colspan="3" style="padding: 8px;">Subtotal Comissão Serviços:</td>
+              <td style="text-align: right; padding: 8px;">${formatCurrency(dados.comissaoServicos)}</td>
+            </tr>
+          </tfoot>
         </table>
       </div>
       ` : ''}
