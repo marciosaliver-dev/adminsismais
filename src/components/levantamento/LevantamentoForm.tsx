@@ -203,7 +203,7 @@ export function LevantamentoForm() {
       </div>
       <CardContent className="p-8 space-y-6">
         <div className="prose prose-slate dark:prose-invert max-w-none">
-          <p>Estamos iniciando a jornada para levar a Sismais de 100 para 10.000 clientes. Para chegar lá, não podemos apenas trabalhar mais; precisamos trabalhar melhor.</p>
+          <p>Estamos iniciando a jornada para levar a Sismais de 1.400 para 10.000 clientes. Para chegar lá, não podemos apenas trabalhar mais; precisamos trabalhar melhor.</p>
           <p>Este formulário não é uma avaliação de desempenho. É um <strong>mapeamento estratégico</strong>. Queremos entender a realidade do seu dia a dia — o que te motiva, o que te atrapalha e onde estão os gargalos que você vê e nós não vemos.</p>
           <div className="bg-muted p-4 rounded-lg">
             <p className="font-bold mb-2">O pacto de transparência:</p>
