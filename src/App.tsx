@@ -26,6 +26,7 @@ import SimuladorMeta from "./pages/SimuladorMeta";
 import Assinaturas from "./pages/Assinaturas";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
+import LevantamentoOperacional from "./pages/LevantamentoOperacional"; // Importando a nova página
 
 const queryClient = new QueryClient();
 
@@ -151,7 +152,9 @@ const App = () => (
               path="/assinaturas"
               element={
                 <ProtectedRoute>
-                  <Assinaturas />
+                  <Layout>
+                    <Assinaturas />
+                  </Layout>
                 </ProtectedRoute>
               }
             />
@@ -191,6 +194,18 @@ const App = () => (
                 <ProtectedRoute>
                   <Layout>
                     <FechamentoEquipe />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            
+            {/* Nova Rota de Levantamento */}
+            <Route
+              path="/levantamento-10k"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <LevantamentoOperacional />
                   </Layout>
                 </ProtectedRoute>
               }

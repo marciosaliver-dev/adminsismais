@@ -884,6 +884,69 @@ export type Database = {
         }
         Relationships: []
       }
+      levantamento_operacional_2024: {
+        Row: {
+          atividades_top5: string
+          colaborador_nome: string
+          continue_action: string
+          created_at: string
+          ferramentas_uso: string
+          id: string
+          interdependencias: string
+          ladrao_tempo: string
+          reclamacao_cliente: string
+          score_ambiente: number
+          score_autonomia: number
+          score_financeiro: number
+          score_maestria: number
+          score_proposito: number
+          start_action: string
+          stop_action: string
+          talento_oculto: string | null
+          visao_papel_10k: string
+        }
+        Insert: {
+          atividades_top5: string
+          colaborador_nome: string
+          continue_action: string
+          created_at?: string
+          ferramentas_uso: string
+          id?: string
+          interdependencias: string
+          ladrao_tempo: string
+          reclamacao_cliente: string
+          score_ambiente: number
+          score_autonomia: number
+          score_financeiro: number
+          score_maestria: number
+          score_proposito: number
+          start_action: string
+          stop_action: string
+          talento_oculto?: string | null
+          visao_papel_10k: string
+        }
+        Update: {
+          atividades_top5?: string
+          colaborador_nome?: string
+          continue_action?: string
+          created_at?: string
+          ferramentas_uso?: string
+          id?: string
+          interdependencias?: string
+          ladrao_tempo?: string
+          reclamacao_cliente?: string
+          score_ambiente?: number
+          score_autonomia?: number
+          score_financeiro?: number
+          score_maestria?: number
+          score_proposito?: number
+          start_action?: string
+          stop_action?: string
+          talento_oculto?: string | null
+          visao_papel_10k?: string
+        }
+        Relationships: []
+      }
       meta_mensal: {
         Row: {
           assinaturas_inicio_mes: number | null
