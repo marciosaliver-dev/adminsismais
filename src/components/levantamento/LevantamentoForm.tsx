@@ -26,6 +26,9 @@ const STORAGE_KEY = "sismais-10k-form-data";
 const scoreSchema = z.coerce.number().min(1, "Obrigatório").max(5, "Obrigatório");
 const satisfacaoSchema = z.coerce.number().min(0, "Obrigatório").max(10, "Obrigatório");
 
+// Mensagem padrão para respostas muito curtas
+const minMsg = "Sua resposta é muito curta. Detalhe um pouco mais.";
+
 const formSchema = z.object({
   colaborador_nome: z.string().min(2, "Nome é obrigatório"),
   funcao_atual: z.string().min(2, "Função é obrigatória"),
@@ -33,24 +36,24 @@ const formSchema = z.object({
   motivo_satisfacao_baixa: z.string().optional(),
   talento_oculto: z.string().max(255).optional(),
   
-  rotina_diaria: z.string().min(20, "Descreva sua rotina diária"),
-  expectativa_empresa: z.string().min(20, "Descreva o que a empresa espera do seu trabalho"),
-  definicao_sucesso: z.string().min(20, "Defina o que é cumprir bem o seu trabalho"),
-  sentimento_valorizacao: z.string().min(20, "Descreva se e por que você se sente valorizado"),
+  rotina_diaria: z.string().min(10, minMsg),
+  expectativa_empresa: z.string().min(10, minMsg),
+  definicao_sucesso: z.string().min(10, minMsg),
+  sentimento_valorizacao: z.string().min(10, minMsg),
 
-  atividades_top5: z.string().min(20, "Detalhe suas 5 principais atividades"),
-  ladrao_tempo: z.string().min(20, "Descreva o principal ladrão de tempo"),
-  ferramentas_uso: z.string().min(5, "Liste as ferramentas que você usa"),
-  interdependencias: z.string().min(20, "Descreva suas interdependências"),
-  start_action: z.string().min(10, "O que devemos começar a fazer?"),
-  stop_action: z.string().min(10, "O que devemos parar de fazer?"),
-  continue_action: z.string().min(10, "O que devemos manter?"),
-  reclamacao_cliente: z.string().min(10, "Qual a maior reclamação?"),
-  prioridades_setor: z.string().min(20, "Liste 5 prioridades para o seu setor"),
+  atividades_top5: z.string().min(10, minMsg),
+  ladrao_tempo: z.string().min(10, minMsg),
+  ferramentas_uso: z.string().min(5, "Informe as ferramentas que você utiliza"),
+  interdependencias: z.string().min(10, minMsg),
+  start_action: z.string().min(5, "Conte o que deveríamos começar"),
+  stop_action: z.string().min(5, "Conte o que deveríamos parar"),
+  continue_action: z.string().min(5, "Conte o que deveríamos manter"),
+  reclamacao_cliente: z.string().min(5, "Conte a maior reclamação"),
+  prioridades_setor: z.string().min(10, minMsg),
 
-  visao_papel_10k: z.string().min(20, "Descreva seu papel no cenário 10K"),
-  falta_plano_2026: z.string().min(10, "O que não pode faltar no plano estratégico?"),
-  falta_metas_2025: z.string().min(10, "O que faltou para atingirmos as metas?"),
+  visao_papel_10k: z.string().min(10, minMsg),
+  falta_plano_2026: z.string().min(5, "Dê sua sugestão para o plano"),
+  falta_metas_2025: z.string().min(5, "Dê sua opinião sobre as metas"),
   score_autonomia: scoreSchema,
   score_maestria: scoreSchema,
   score_proposito: scoreSchema,
@@ -58,18 +61,18 @@ const formSchema = z.object({
   score_ambiente: scoreSchema,
   
   interesse_lideranca: z.enum(["sim", "nao"], { required_error: "Obrigatório" }),
-  motivo_lideranca: z.string().min(20, "Obrigatório detalhar o motivo").optional(),
-  papel_bom_lider: z.string().min(20, "Obrigatório descrever o papel do líder").optional(),
+  motivo_lideranca: z.string().min(10, minMsg).optional(),
+  papel_bom_lider: z.string().min(10, minMsg).optional(),
   
-  maior_sonho: z.string().min(20, "Compartilhe seu maior sonho conosco"),
+  maior_sonho: z.string().min(10, minMsg),
   fotos_sonhos: z.array(z.string()).optional().default([]),
 }).refine((data) => {
-  if (data.satisfacao_trabalho < 8 && (!data.motivo_satisfacao_baixa || data.motivo_satisfacao_baixa.length < 20)) {
+  if (data.satisfacao_trabalho < 8 && (!data.motivo_satisfacao_baixa || data.motivo_satisfacao_baixa.length < 10)) {
     return false;
   }
   return true;
 }, {
-  message: "Por favor, detalhe o motivo da sua insatisfação (mínimo 20 caracteres)",
+  message: "Por favor, conte o que falta para chegar a 10.",
   path: ["motivo_satisfacao_baixa"],
 });
 
