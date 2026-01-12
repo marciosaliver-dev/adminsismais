@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, CheckCircle, ChevronRight, ChevronLeft, User, List, Lightbulb, Star, Clock, TrendingUp, Zap, Rocket } from "lucide-react";
+import { Loader2, CheckCircle, ChevronRight, ChevronLeft, Clock, TrendingUp, Zap, Star, Rocket } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -57,6 +57,8 @@ const formSchema = z.object({
   interesse_lideranca: z.enum(["sim", "nao"], { required_error: "Obrigatório" }),
   motivo_lideranca: z.string().min(20, "Obrigatório detalhar o motivo").optional(),
   papel_bom_lider: z.string().min(20, "Obrigatório descrever o papel do líder").optional(),
+  
+  maior_sonho: z.string().min(20, "Compartilhe seu maior sonho conosco"),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -67,13 +69,13 @@ const TABS = [
   { id: "rotina", label: "Rotina & Foco", icon: Clock, fields: ["rotina_diaria", "expectativa_empresa", "definicao_sucesso", "sentimento_valorizacao"] },
   { id: "gargalos", label: "Gargalos & Ação", icon: Zap, fields: ["atividades_top5", "ladrao_tempo", "ferramentas_uso", "interdependencias", "start_action", "stop_action", "continue_action", "reclamacao_cliente", "prioridades_setor"] },
   { id: "cultura", label: "Visão & Estratégia", icon: Star, fields: ["visao_papel_10k", "falta_plano_2026", "falta_metas_2025", "score_autonomia", "score_maestria", "score_proposito", "score_financeiro", "score_ambiente"] },
-  { id: "lideranca", label: "Liderança & Finalização", icon: TrendingUp, fields: ["interesse_lideranca", "motivo_lideranca", "papel_bom_lider", "colaborador_nome", "funcao_atual", "satisfacao_trabalho", "talento_oculto"] },
+  { id: "lideranca", label: "Liderança & Finalização", icon: TrendingUp, fields: ["interesse_lideranca", "motivo_lideranca", "papel_bom_lider", "colaborador_nome", "funcao_atual", "satisfacao_trabalho", "talento_oculto", "maior_sonho"] },
 ];
 
 // --- 3. Componente de Rating ---
 const RatingInput = ({ label, name, control, error }: { label: string; name: keyof FormData; control: any; error: string | undefined }) => (
   <div className="space-y-2">
-    <Label className="flex items-center justify-between">
+    <Label className="flex items-center justify-between font-medium">
       <span>{label} (1-5)</span>
       {error && <span className="text-xs text-destructive">{error}</span>}
     </Label>
@@ -94,6 +96,22 @@ const RatingInput = ({ label, name, control, error }: { label: string; name: key
   </div>
 );
 
+// --- 4. Componente de Pergunta com Dica ---
+const QuestionField = ({ label, hint, name, control, error, placeholder, rows = 3 }: { label: string; hint: string; name: keyof FormData; control: any; error: any; placeholder?: string; rows?: number }) => (
+  <div className="space-y-2">
+    <Label className="text-base font-semibold">{label}</Label>
+    <p className="text-xs text-muted-foreground italic mb-2">💡 {hint}</p>
+    <Controller
+      name={name}
+      control={control}
+      render={({ field }) => (
+        <Textarea {...field} rows={rows} placeholder={placeholder} className={cn(error && "border-destructive")} />
+      )}
+    />
+    {error && <p className="text-xs text-destructive">{error.message}</p>}
+  </div>
+);
+
 export function LevantamentoForm() {
   const { profile } = useAuth();
   const queryClient = useQueryClient();
@@ -101,7 +119,6 @@ export function LevantamentoForm() {
   const [activeTab, setActiveTab] = useState(TABS[0].id);
   const [isSubmitted, setIsSubmitted] = useState(false);
 
-  // Carregar dados salvos do localStorage
   const savedData = useMemo(() => {
     const data = localStorage.getItem(STORAGE_KEY);
     return data ? JSON.parse(data) : null;
@@ -120,7 +137,6 @@ export function LevantamentoForm() {
   const { control, handleSubmit, formState: { errors, isSubmitting }, trigger, watch, reset } = form;
   const interesseLideranca = watch("interesse_lideranca");
 
-  // Salvar no localStorage automaticamente ao mudar qualquer campo
   useEffect(() => {
     const subscription = watch((value) => {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(value));
@@ -130,7 +146,7 @@ export function LevantamentoForm() {
 
   const saveMutation = useMutation({
     mutationFn: async (data: FormData) => {
-      // Mapeamento explícito para satisfazer o TypeScript e garantir a conversão correta
+      // Mapeamento explícito para satisfazer o TypeScript
       const payload: LevantamentoInsert = {
         colaborador_nome: data.colaborador_nome,
         funcao_atual: data.funcao_atual,
@@ -160,6 +176,7 @@ export function LevantamentoForm() {
         interesse_lideranca: data.interesse_lideranca === "sim",
         motivo_lideranca: data.motivo_lideranca || null,
         papel_bom_lider: data.papel_bom_lider || null,
+        maior_sonho: data.maior_sonho,
       };
 
       const { error } = await supabase.from("levantamento_operacional_2024").insert(payload);
@@ -181,8 +198,19 @@ export function LevantamentoForm() {
     const currentIndex = TABS.findIndex(t => t.id === activeTab);
     if (currentIndex < TABS.length - 1) {
       const isValid = await trigger(TABS[currentIndex].fields as any);
-      if (isValid) setActiveTab(TABS[currentIndex + 1].id);
+      if (isValid) {
+        setActiveTab(TABS[currentIndex + 1].id);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
       else toast({ title: "⚠️ Preencha os campos obrigatórios", variant: "destructive" });
+    }
+  };
+
+  const handlePrev = () => {
+    const currentIndex = TABS.findIndex(t => t.id === activeTab);
+    if (currentIndex > 0) {
+      setActiveTab(TABS[currentIndex - 1].id);
+      window.scrollTo({ top: 0, behavior: "smooth" });
     }
   };
 
@@ -205,7 +233,7 @@ export function LevantamentoForm() {
         <div className="prose prose-slate dark:prose-invert max-w-none">
           <p>Estamos iniciando a jornada para levar a Sismais de 1.400 para 10.000 clientes. Para chegar lá, não podemos apenas trabalhar mais; precisamos trabalhar melhor.</p>
           <p>Este formulário não é uma avaliação de desempenho. É um <strong>mapeamento estratégico</strong>. Queremos entender a realidade do seu dia a dia — o que te motiva, o que te atrapalha e onde estão os gargalos que você vê e nós não vemos.</p>
-          <div className="bg-muted p-4 rounded-lg">
+          <div className="bg-muted p-4 rounded-lg shadow-sm">
             <p className="font-bold mb-2">O pacto de transparência:</p>
             <ul className="space-y-2 list-none p-0">
               <li>🎯 <strong>Sinceridade Radical:</strong> Se um processo é ruim, diga. Se uma ferramenta atrapalha, aponte.</li>
@@ -224,99 +252,227 @@ export function LevantamentoForm() {
   );
 
   return (
-    <Card className="max-w-4xl mx-auto">
-      <CardHeader className="text-center">
-        <CardTitle className="text-2xl font-heading">Mapeamento Rumo aos 10K</CardTitle>
-        <CardDescription>Seus dados são salvos automaticamente no navegador.</CardDescription>
+    <Card className="max-w-4xl mx-auto border-t-4 border-primary shadow-lg">
+      <CardHeader className="text-center pb-2">
+        <CardTitle className="text-2xl font-heading">Mapeamento Sismais</CardTitle>
+        <CardDescription>Responda com calma. Seu progresso é salvo automaticamente.</CardDescription>
       </CardHeader>
       <CardContent>
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-4 h-auto">
-            {TABS.map(t => <TabsTrigger key={t.id} value={t.id} className="flex flex-col gap-1 py-2"><t.icon className="w-4 h-4" /><span className="text-[10px] sm:text-xs">{t.label}</span></TabsTrigger>)}
+          <TabsList className="grid w-full grid-cols-4 h-auto bg-muted/50 p-1 rounded-xl">
+            {TABS.map(t => (
+              <TabsTrigger key={t.id} value={t.id} className="flex flex-col gap-1 py-3 data-[state=active]:bg-background shadow-sm transition-all rounded-lg">
+                <t.icon className="w-4 h-4" />
+                <span className="text-[10px] sm:text-xs font-medium">{t.label}</span>
+              </TabsTrigger>
+            ))}
           </TabsList>
-          <form onSubmit={handleSubmit((d) => saveMutation.mutate(d))} className="mt-6 space-y-6">
-            <TabsContent value="rotina" className="space-y-6">
+
+          <form onSubmit={handleSubmit((d) => saveMutation.mutate(d))} className="mt-8 space-y-8">
+            {/* --- ABA 1: ROTINA --- */}
+            <TabsContent value="rotina" className="space-y-8 mt-0 focus-visible:outline-none">
+              <QuestionField 
+                label="1. Como é o seu dia a dia na Sismais (desde quando chega até ir embora)?"
+                hint="Dê detalhes sobre sua rotina, horários e as principais tarefas recorrentes."
+                name="rotina_diaria"
+                control={control}
+                error={errors.rotina_diaria}
+                placeholder="Ex: Chego às 8h, verifico o dashboard, respondo tickets de urgência, faço reunião com time..."
+              />
+              <QuestionField 
+                label="2. Na sua visão, o que a empresa espera do seu trabalho?"
+                hint="Quais são os principais resultados ou comportamentos que você acredita que a gestão valoriza em você?"
+                name="expectativa_empresa"
+                control={control}
+                error={errors.expectativa_empresa}
+              />
+              <QuestionField 
+                label="3. Para você, o que define se você está cumprindo bem o seu trabalho?"
+                hint="Pense nos critérios que te dão a sensação de dever cumprido ao final do dia."
+                name="definicao_sucesso"
+                control={control}
+                error={errors.definicao_sucesso}
+              />
+              <QuestionField 
+                label="4. Você se sente valorizado? Por quê?"
+                hint="Fale sobre reconhecimento, ambiente e suporte da liderança."
+                name="sentimento_valorizacao"
+                control={control}
+                error={errors.sentimento_valorizacao}
+              />
+            </TabsContent>
+
+            {/* --- ABA 2: GARGALOS --- */}
+            <TabsContent value="gargalos" className="space-y-8 mt-0 focus-visible:outline-none">
+              <QuestionField 
+                label="5. Liste suas 5 principais atividades (em ordem de importância)"
+                hint="O que é o coração do seu trabalho?"
+                name="atividades_top5"
+                control={control}
+                error={errors.atividades_top5}
+              />
+              <QuestionField 
+                label="6. Qual é o seu maior 'Ladrão de Tempo'?"
+                hint="Aquelas tarefas burocráticas ou manuais que te impedem de focar no que realmente importa."
+                name="ladrao_tempo"
+                control={control}
+                error={errors.ladrao_tempo}
+              />
               <div className="space-y-2">
-                <Label>1. Como é o seu dia a dia na Sismais (desde quando chega até ir embora)? *</Label>
-                <Controller name="rotina_diaria" control={control} render={({ field }) => <Textarea {...field} rows={4} placeholder="Descreva sua rotina detalhadamente..." className={cn(errors.rotina_diaria && "border-destructive")} />} />
+                <Label className="text-base font-semibold">7. Quais ferramentas/softwares você usa diariamente?</Label>
+                <p className="text-xs text-muted-foreground italic mb-2">💡 Sistemas, extensões, planilhas, etc.</p>
+                <Controller name="ferramentas_uso" control={control} render={({ field }) => <Input {...field} className={cn(errors.ferramentas_uso && "border-destructive")} />} />
+                {errors.ferramentas_uso && <p className="text-xs text-destructive">{errors.ferramentas_uso.message}</p>}
               </div>
-              <div className="space-y-2">
-                <Label>2. Na sua visão, o que a empresa espera do seu trabalho? *</Label>
-                <Controller name="expectativa_empresa" control={control} render={({ field }) => <Textarea {...field} rows={4} placeholder="O que você acredita ser sua principal missão?" className={cn(errors.expectativa_empresa && "border-destructive")} />} />
+              <QuestionField 
+                label="8. Quem depende do seu trabalho e de quem você depende?"
+                hint="Explique o fluxo de entrega entre você e as outras áreas."
+                name="interdependencias"
+                control={control}
+                error={errors.interdependencias}
+              />
+              <div className="grid sm:grid-cols-3 gap-6 p-4 bg-muted/30 rounded-xl border">
+                <QuestionField label="START" hint="O que começar?" name="start_action" control={control} error={errors.start_action} rows={2} />
+                <QuestionField label="STOP" hint="O que parar?" name="stop_action" control={control} error={errors.stop_action} rows={2} />
+                <QuestionField label="CONTINUE" hint="O que manter?" name="continue_action" control={control} error={errors.continue_action} rows={2} />
               </div>
-              <div className="space-y-2">
-                <Label>3. Para você, o que define se você está cumprindo bem o seu trabalho? *</Label>
-                <Controller name="definicao_sucesso" control={control} render={({ field }) => <Textarea {...field} rows={4} placeholder="Quais indicadores ou resultados te dão essa certeza?" className={cn(errors.definicao_sucesso && "border-destructive")} />} />
-              </div>
-              <div className="space-y-2">
-                <Label>4. Você se sente valorizado? Por quê? *</Label>
-                <Controller name="sentimento_valorizacao" control={control} render={({ field }) => <Textarea {...field} rows={4} placeholder="Diga com sinceridade o que te faz sentir valorizado ou o que falta..." className={cn(errors.sentimento_valorizacao && "border-destructive")} />} />
+              <QuestionField 
+                label="9. Qual a maior reclamação recorrente dos clientes?"
+                hint="O que você mais ouve de 'dor' do cliente no dia a dia?"
+                name="reclamacao_cliente"
+                control={control}
+                error={errors.reclamacao_cliente}
+              />
+              <QuestionField 
+                label="10. Liste 5 prioridades que devemos focar no seu setor:"
+                hint="Se você fosse o gestor, o que atacaria primeiro para chegarmos aos 10K?"
+                name="prioridades_setor"
+                control={control}
+                error={errors.prioridades_setor}
+              />
+            </TabsContent>
+
+            {/* --- ABA 3: CULTURA --- */}
+            <TabsContent value="cultura" className="space-y-8 mt-0 focus-visible:outline-none">
+              <QuestionField 
+                label="11. O que não pode faltar no nosso plano estratégico de 2026?"
+                hint="Pense em inovação, processos, infraestrutura ou pessoas."
+                name="falta_plano_2026"
+                control={control}
+                error={errors.falta_plano_2026}
+              />
+              <QuestionField 
+                label="12. O que faltou para atingirmos as metas de 2025?"
+                hint="Analise os obstáculos que enfrentamos no último ciclo."
+                name="falta_metas_2025"
+                control={control}
+                error={errors.falta_metas_2025}
+              />
+              <QuestionField 
+                label="13. Como você vê seu papel quando atingirmos 10.000 clientes?"
+                hint="Imagine a empresa grande: como você quer estar nela?"
+                name="visao_papel_10k"
+                control={control}
+                error={errors.visao_papel_10k}
+              />
+              <div className="grid sm:grid-cols-2 gap-6 p-6 border rounded-xl bg-primary/5">
+                <RatingInput label="Autonomia" name="score_autonomia" control={control} error={errors.score_autonomia?.message} />
+                <RatingInput label="Maestria" name="score_maestria" control={control} error={errors.score_maestria?.message} />
+                <RatingInput label="Propósito" name="score_proposito" control={control} error={errors.score_proposito?.message} />
+                <RatingInput label="Financeiro" name="score_financeiro" control={control} error={errors.score_financeiro?.message} />
+                <RatingInput label="Ambiente" name="score_ambiente" control={control} error={errors.score_ambiente?.message} />
               </div>
             </TabsContent>
 
-            <TabsContent value="gargalos" className="space-y-6">
-              <div className="grid gap-6">
-                <div className="space-y-2"><Label>5. Liste suas 5 principais atividades (em ordem de importância) *</Label><Controller name="atividades_top5" control={control} render={({ field }) => <Textarea {...field} rows={3} className={cn(errors.atividades_top5 && "border-destructive")} />} /></div>
-                <div className="space-y-2"><Label>6. Qual é o seu maior "Ladrão de Tempo" (tarefas chatas/manuais)? *</Label><Controller name="ladrao_tempo" control={control} render={({ field }) => <Textarea {...field} rows={2} className={cn(errors.ladrao_tempo && "border-destructive")} />} /></div>
-                <div className="space-y-2"><Label>7. Quais ferramentas/softwares você usa diariamente? *</Label><Controller name="ferramentas_uso" control={control} render={({ field }) => <Input {...field} className={cn(errors.ferramentas_uso && "border-destructive")} />} /></div>
-                <div className="space-y-2"><Label>8. Quem depende do seu trabalho e de quem você depende? *</Label><Controller name="interdependencias" control={control} render={({ field }) => <Textarea {...field} rows={2} className={cn(errors.interdependencias && "border-destructive")} />} /></div>
-                <div className="grid sm:grid-cols-3 gap-4">
-                  <div className="space-y-2"><Label>START (Começar)</Label><Controller name="start_action" control={control} render={({ field }) => <Textarea {...field} rows={2} placeholder="O que deveríamos começar a fazer?" />} /></div>
-                  <div className="space-y-2"><Label>STOP (Parar)</Label><Controller name="stop_action" control={control} render={({ field }) => <Textarea {...field} rows={2} placeholder="O que deveríamos parar?" />} /></div>
-                  <div className="space-y-2"><Label>CONTINUE (Manter)</Label><Controller name="continue_action" control={control} render={({ field }) => <Textarea {...field} rows={2} placeholder="O que está dando certo?" />} /></div>
+            {/* --- ABA 4: LIDERANÇA & FINALIZAÇÃO --- */}
+            <TabsContent value="lideranca" className="space-y-8 mt-0 focus-visible:outline-none">
+              <div className="space-y-6 p-6 border rounded-xl bg-muted/20">
+                <div className="space-y-2">
+                  <Label className="text-lg font-bold">14. Você tem interesse em ser Líder na empresa? *</Label>
+                  <p className="text-xs text-muted-foreground italic mb-4">💡 Líder não é apenas cargo, é influência e gestão de pessoas.</p>
+                  <Controller name="interesse_lideranca" control={control} render={({ field }) => (
+                    <RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-10">
+                      <div className="flex items-center space-x-2"><RadioGroupItem value="sim" id="l-sim" className="w-5 h-5" /><Label htmlFor="l-sim" className="text-base">Sim</Label></div>
+                      <div className="flex items-center space-x-2"><RadioGroupItem value="nao" id="l-nao" className="w-5 h-5" /><Label htmlFor="l-nao" className="text-base">Não</Label></div>
+                    </RadioGroup>
+                  )} />
+                  {errors.interesse_lideranca && <p className="text-xs text-destructive">{errors.interesse_lideranca.message}</p>}
                 </div>
-                <div className="space-y-2"><Label>9. Qual a maior reclamação recorrente dos clientes? *</Label><Controller name="reclamacao_cliente" control={control} render={({ field }) => <Textarea {...field} rows={2} className={cn(errors.reclamacao_cliente && "border-destructive")} />} /></div>
-                <div className="space-y-2 font-bold"><Label>10. Liste 5 prioridades que devemos focar no seu setor: *</Label><Controller name="prioridades_setor" control={control} render={({ field }) => <Textarea {...field} rows={3} placeholder="1. Exemplo\n2. Exemplo..." className={cn(errors.prioridades_setor && "border-destructive")} />} /></div>
+                {interesseLideranca && (
+                  <QuestionField label="15. Por que você tem (ou não) interesse em liderança?" hint="Seja sincero sobre suas motivações ou receios." name="motivo_lideranca" control={control} error={errors.motivo_lideranca} />
+                )}
+                <QuestionField label="16. Na sua visão, qual é o papel de um bom líder?" hint="Quais qualidades você mais admira em um gestor?" name="papel_bom_lider" control={control} error={errors.papel_bom_lider} />
               </div>
-            </TabsContent>
 
-            <TabsContent value="cultura" className="space-y-6">
+              <div className="grid sm:grid-cols-2 gap-6 border-t pt-8">
+                <div className="space-y-2"><Label className="font-bold text-base">Seu Nome *</Label><Controller name="colaborador_nome" control={control} render={({ field }) => <Input {...field} placeholder="Digite seu nome completo" className={cn(errors.colaborador_nome && "border-destructive")} />} />{errors.colaborador_nome && <p className="text-xs text-destructive">{errors.colaborador_nome.message}</p>}</div>
+                <div className="space-y-2"><Label className="font-bold text-base">Sua Função Atual *</Label><Controller name="funcao_atual" control={control} render={({ field }) => <Input {...field} placeholder="Ex: Analista de Suporte" className={cn(errors.funcao_atual && "border-destructive")} />} />{errors.funcao_atual && <p className="text-xs text-destructive">{errors.funcao_atual.message}</p>}</div>
+              </div>
               <div className="space-y-4">
-                <div className="space-y-2"><Label>11. O que não pode faltar no nosso plano estratégico de 2026? *</Label><Controller name="falta_plano_2026" control={control} render={({ field }) => <Textarea {...field} rows={3} className={cn(errors.falta_plano_2026 && "border-destructive")} />} /></div>
-                <div className="space-y-2"><Label>12. O que faltou para atingirmos as metas de 2025? *</Label><Controller name="falta_metas_2025" control={control} render={({ field }) => <Textarea {...field} rows={3} className={cn(errors.falta_metas_2025 && "border-destructive")} />} /></div>
-                <div className="space-y-2"><Label>13. Como você vê seu papel quando atingirmos 10.000 clientes? *</Label><Controller name="visao_papel_10k" control={control} render={({ field }) => <Textarea {...field} rows={3} className={cn(errors.visao_papel_10k && "border-destructive")} />} /></div>
-                <div className="grid sm:grid-cols-2 gap-4">
-                  <RatingInput label="Autonomia" name="score_autonomia" control={control} error={errors.score_autonomia?.message} />
-                  <RatingInput label="Maestria" name="score_maestria" control={control} error={errors.score_maestria?.message} />
-                  <RatingInput label="Propósito" name="score_proposito" control={control} error={errors.score_proposito?.message} />
-                  <RatingInput label="Financeiro" name="score_financeiro" control={control} error={errors.score_financeiro?.message} />
-                  <RatingInput label="Ambiente" name="score_ambiente" control={control} error={errors.score_ambiente?.message} />
-                </div>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="lideranca" className="space-y-6">
-              <div className="space-y-4 p-4 border rounded-lg bg-primary/5">
-                <Label className="font-bold">14. Você tem interesse em ser Líder na empresa? *</Label>
-                <Controller name="interesse_lideranca" control={control} render={({ field }) => (
-                  <RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-8 mt-2">
-                    <div className="flex items-center space-x-2"><RadioGroupItem value="sim" id="l-sim" /><Label htmlFor="l-sim">Sim</Label></div>
-                    <div className="flex items-center space-x-2"><RadioGroupItem value="nao" id="l-nao" /><Label htmlFor="l-nao">Não</Label></div>
-                  </RadioGroup>
-                )} />
-              </div>
-              {interesseLideranca && (
-                <div className="space-y-2"><Label>15. Por que você tem (ou não tem) interesse em liderança? *</Label><Controller name="motivo_lideranca" control={control} render={({ field }) => <Textarea {...field} rows={3} className={cn(errors.motivo_lideranca && "border-destructive")} />} /></div>
-              )}
-              <div className="space-y-2"><Label>16. Na sua visão, qual é o papel de um bom líder? *</Label><Controller name="papel_bom_lider" control={control} render={({ field }) => <Textarea {...field} rows={3} className={cn(errors.papel_bom_lider && "border-destructive")} />} /></div>
-              <div className="grid sm:grid-cols-2 gap-4 border-t pt-4">
-                <div className="space-y-2"><Label>Seu Nome *</Label><Controller name="colaborador_nome" control={control} render={({ field }) => <Input {...field} />} /></div>
-                <div className="space-y-2"><Label>Sua Função Atual *</Label><Controller name="funcao_atual" control={control} render={({ field }) => <Input {...field} placeholder="Ex: Analista de Suporte" />} /></div>
-              </div>
-              <div className="space-y-2"><Label>17. De 0 a 10, quão satisfeito você está com seu trabalho? *</Label>
+                <Label className="font-bold text-base">17. De 0 a 10, quão satisfeito você está com seu trabalho hoje? *</Label>
                 <Controller name="satisfacao_trabalho" control={control} render={({ field }) => (
                   <Select onValueChange={(v) => field.onChange(parseInt(v))} value={field.value?.toString() || ""}>
-                    <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                    <SelectTrigger className={cn("w-full h-12", errors.satisfacao_trabalho && "border-destructive")}><SelectValue placeholder="Selecione de 0 a 10" /></SelectTrigger>
                     <SelectContent>{Array.from({ length: 11 }, (_, i) => <SelectItem key={i} value={i.toString()}>{i}</SelectItem>)}</SelectContent>
                   </Select>
                 )} />
+                {errors.satisfacao_trabalho && <p className="text-xs text-destructive">{errors.satisfacao_trabalho.message}</p>}
               </div>
-              <div className="space-y-2"><Label>18. A Pergunta de Ouro: Algum talento seu não está sendo usado hoje?</Label><Controller name="talento_oculto" control={control} render={({ field }) => <Input {...field} placeholder="Ex: Programação, Design, Organização..." />} /></div>
+              <div className="space-y-2">
+                <Label className="font-bold text-base">18. A Pergunta de Ouro: Algum talento seu não está sendo usado hoje?</Label>
+                <p className="text-xs text-muted-foreground italic mb-2">💡 Algo que você faz muito bem fora daqui, mas não faz no trabalho.</p>
+                <Controller name="talento_oculto" control={control} render={({ field }) => <Input {...field} placeholder="Ex: Programação, Design, Oratória..." />} />
+              </div>
+
+              {/* SEÇÃO FINAL: O COMBUSTÍVEL */}
+              <div className="mt-12 p-8 border-2 border-primary/30 rounded-3xl bg-primary/5 shadow-inner space-y-6">
+                <div className="flex items-center gap-3">
+                   <div className="p-2 bg-primary rounded-xl text-primary-foreground shadow-lg"><Rocket className="w-6 h-6" /></div>
+                   <h3 className="text-2xl font-heading font-bold text-primary">O Combustível 🚀</h3>
+                </div>
+                
+                <div className="prose prose-slate dark:prose-invert max-w-none text-muted-foreground leading-relaxed">
+                  <p className="text-lg">Aqui na Sismais, nós trabalhamos por sonhos.</p>
+                  <p>Acreditamos que o trabalho não é o fim, mas o meio. A Sismais é o veículo que estamos construindo juntos para nos levar a lugares onde sozinhos não chegaríamos.</p>
+                  <p>Nossa meta de 10.000 clientes é ambiciosa, mas ela só faz sentido se servir de alavanca para as suas conquistas pessoais. Seja a casa própria, a viagem internacional, a independência financeira, a formação dos filhos ou até mesmo empreender o seu próprio negócio um dia.</p>
+                  <p className="font-bold text-foreground text-lg italic bg-primary/10 p-4 rounded-lg">Para que eu possa ajudar a alinhar o crescimento da empresa com o seu crescimento pessoal, eu preciso saber o que faz o seu olho brilhar.</p>
+                </div>
+
+                <div className="space-y-4 pt-6 border-t border-primary/20">
+                  <div className="flex items-start gap-2">
+                    <span className="text-3xl mt-1">🌟</span>
+                    <div className="space-y-1">
+                      <Label className="text-xl font-bold text-foreground leading-tight">Qual é o seu MAIOR SONHO para os próximos 5 anos? *</Label>
+                      <p className="text-sm text-muted-foreground italic">Não se preocupe se parecer grande demais ou distante. Compartilhe aquilo que realmente te move.</p>
+                    </div>
+                  </div>
+                  <Controller
+                    name="maior_sonho"
+                    control={control}
+                    render={({ field }) => (
+                      <Textarea 
+                        {...field} 
+                        rows={6} 
+                        placeholder="Escreva aqui sobre suas ambições pessoais e sonhos..." 
+                        className={cn("bg-background text-lg p-5 border-primary/20 focus:border-primary rounded-xl shadow-sm min-h-[150px]", errors.maior_sonho && "border-destructive")}
+                      />
+                    )}
+                  />
+                  {errors.maior_sonho && <p className="text-xs text-destructive font-medium">{errors.maior_sonho.message}</p>}
+                </div>
+              </div>
             </TabsContent>
 
-            <div className="flex justify-between pt-6 border-t">
-              <Button type="button" variant="outline" onClick={() => activeTab !== TABS[0].id ? setActiveTab(TABS[TABS.findIndex(t => t.id === activeTab) - 1].id) : null} disabled={activeTab === TABS[0].id}><ChevronLeft className="mr-2" /> Anterior</Button>
-              {activeTab !== TABS[TABS.length - 1].id ? <Button type="button" onClick={handleNext}>Próximo <ChevronRight className="ml-2" /></Button> : <Button type="submit" disabled={isSubmitting}>{isSubmitting ? <Loader2 className="animate-spin mr-2" /> : <CheckCircle className="mr-2" />} Enviar Mapeamento</Button>}
+            <div className="flex justify-between pt-8 border-t gap-4">
+              <Button type="button" variant="outline" size="lg" className="rounded-xl px-8" onClick={handlePrev} disabled={activeTab === TABS[0].id}><ChevronLeft className="mr-2 h-4 w-4" /> Anterior</Button>
+              {activeTab !== TABS[TABS.length - 1].id ? (
+                <Button type="button" size="lg" className="rounded-xl px-8 shadow-md" onClick={handleNext}>Próximo <ChevronRight className="ml-2 h-4 w-4" /></Button>
+              ) : (
+                <Button type="submit" size="lg" className="bg-primary hover:bg-primary/90 px-10 rounded-xl shadow-lg transition-transform hover:scale-105 active:scale-95" disabled={isSubmitting || saveMutation.isPending}>
+                  {isSubmitting || saveMutation.isPending ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <CheckCircle className="mr-2 h-4 w-4" />} 
+                  Enviar Mapeamento
+                </Button>
+              )}
             </div>
           </form>
         </Tabs>

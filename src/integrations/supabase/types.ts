@@ -861,8 +861,8 @@ export type Database = {
           observacao?: string | null
           periodo_fim: string
           periodo_inicio: string
-          registros_duplicados?: number | null
-          registros_novos?: number | null
+          registros_duplicados: number | null
+          registros_novos: number | null
           status?: string
           total_registros?: number | null
           total_vendas?: number | null
