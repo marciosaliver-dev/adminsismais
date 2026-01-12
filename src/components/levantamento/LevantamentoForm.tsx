@@ -18,15 +18,12 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { cn } from "@/lib/utils";
-import type { TablesInsert } from "@/integrations/supabase/types";
 
 const STORAGE_KEY = "sismais-10k-form-data";
 
-// --- 1. Schema de Validação (Zod) ---
 const scoreSchema = z.coerce.number().min(1, "Obrigatório").max(5, "Obrigatório");
 const satisfacaoSchema = z.coerce.number().min(0, "Obrigatório").max(10, "Obrigatório");
 
-// Mensagem padrão para respostas muito curtas
 const minMsg = "Sua resposta é muito curta. Detalhe um pouco mais.";
 
 const formSchema = z.object({
@@ -77,9 +74,7 @@ const formSchema = z.object({
 });
 
 type FormData = z.infer<typeof formSchema>;
-type LevantamentoInsert = TablesInsert<"levantamento_operacional_2024">;
 
-// --- 2. Configuração das Abas ---
 const TABS = [
   { id: "rotina", label: "Rotina & Foco", icon: Clock, fields: ["rotina_diaria", "expectativa_empresa", "definicao_sucesso", "sentimento_valorizacao"] },
   { id: "gargalos", label: "Gargalos & Ação", icon: Zap, fields: ["atividades_top5", "ladrao_tempo", "ferramentas_uso", "interdependencias", "start_action", "stop_action", "continue_action", "reclamacao_cliente", "prioridades_setor"] },
@@ -87,7 +82,6 @@ const TABS = [
   { id: "lideranca", label: "Liderança & Finalização", icon: TrendingUp, fields: ["interesse_lideranca", "motivo_lideranca", "papel_bom_lider", "colaborador_nome", "funcao_atual", "satisfacao_trabalho", "motivo_satisfacao_baixa", "talento_oculto", "maior_sonho", "fotos_sonhos"] },
 ];
 
-// --- 3. Componente de Rating ---
 const RatingInput = ({ label, hint, name, control, error }: { label: string; hint: string; name: keyof FormData; control: any; error: string | undefined }) => (
   <div className="space-y-2">
     <Label className="flex flex-col font-medium">
@@ -112,7 +106,6 @@ const RatingInput = ({ label, hint, name, control, error }: { label: string; hin
   </div>
 );
 
-// --- 4. Componente de Pergunta com Dica ---
 const QuestionField = ({ label, hint, name, control, error, placeholder, rows = 3 }: { label: string; hint: string; name: keyof FormData; control: any; error: any; placeholder?: string; rows?: number }) => (
   <div className="space-y-2">
     <Label className="text-base font-semibold">{label}</Label>
@@ -169,7 +162,6 @@ export function LevantamentoForm() {
     return () => subscription.unsubscribe();
   }, [watch]);
 
-  // --- Lógica de Upload de Fotos ---
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
@@ -215,7 +207,7 @@ export function LevantamentoForm() {
 
   const saveMutation = useMutation({
     mutationFn: async (data: FormData) => {
-      const payload: LevantamentoInsert = {
+      const payload = {
         colaborador_nome: data.colaborador_nome,
         funcao_atual: data.funcao_atual,
         satisfacao_trabalho: data.satisfacao_trabalho,
@@ -249,18 +241,22 @@ export function LevantamentoForm() {
         fotos_sonhos: data.fotos_sonhos,
       };
 
-      const { error } = await supabase.from("levantamento_operacional_2024").insert(payload);
+      // Apontando explicitamente para o schema 'crm'
+      const { error } = await supabase
+        .schema('crm')
+        .from("levantamento_operacional_2024")
+        .insert(payload);
+        
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["levantamento-operacional"] });
       localStorage.removeItem(STORAGE_KEY);
       setIsSubmitted(true);
       toast({ title: "✅ Sucesso!", description: "Obrigado! Suas respostas ajudarão a construir o futuro da Sismais." });
     },
     onError: (error) => {
       console.error(error);
-      toast({ title: "❌ Erro ao salvar", description: "Tente novamente mais tarde.", variant: "destructive" });
+      toast({ title: "❌ Erro ao salvar", description: "Tente novamente mais tarde. Certifique-se de que o schema CRM está configurado.", variant: "destructive" });
     },
   });
 
@@ -374,7 +370,6 @@ export function LevantamentoForm() {
           </TabsList>
 
           <form onSubmit={handleSubmit((d) => saveMutation.mutate(d))} className="mt-8 space-y-8">
-            {/* --- ABA 1: ROTINA --- */}
             <TabsContent value="rotina" className="space-y-8 mt-0 focus-visible:outline-none">
               <QuestionField 
                 label="1. Como é o seu dia a dia na Sismais (desde quando chega até ir embora)?"
@@ -407,7 +402,6 @@ export function LevantamentoForm() {
               />
             </TabsContent>
 
-            {/* --- ABA 2: GARGALOS --- */}
             <TabsContent value="gargalos" className="space-y-8 mt-0 focus-visible:outline-none">
               <QuestionField 
                 label="5. Liste suas 5 principais atividades (as mais importantes)"
@@ -457,7 +451,6 @@ export function LevantamentoForm() {
               />
             </TabsContent>
 
-            {/* --- ABA 3: CULTURA --- */}
             <TabsContent value="cultura" className="space-y-8 mt-0 focus-visible:outline-none">
               <QuestionField 
                 label="11. O que não pode faltar no plano da Sismais para 2026?"
@@ -519,7 +512,6 @@ export function LevantamentoForm() {
               </div>
             </TabsContent>
 
-            {/* --- ABA 4: LIDERANÇA & FINALIZAÇÃO --- */}
             <TabsContent value="lideranca" className="space-y-8 mt-0 focus-visible:outline-none">
               <div className="space-y-6 p-6 border rounded-xl bg-muted/20">
                 <div className="space-y-2">
@@ -589,7 +581,6 @@ export function LevantamentoForm() {
                 <Controller name="talento_oculto" control={control} render={({ field }) => <Input {...field} placeholder="Ex: Programação, Oratória, Organização..." />} />
               </div>
 
-              {/* SEÇÃO FINAL: O COMBUSTÍVEL */}
               <div className="mt-12 p-8 border-2 border-primary/30 rounded-3xl bg-primary/5 shadow-inner space-y-6">
                 <div className="flex items-center gap-3">
                    <div className="p-2 bg-primary rounded-xl text-primary-foreground shadow-lg"><Rocket className="w-6 h-6" /></div>

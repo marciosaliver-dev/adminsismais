@@ -7,6 +7,130 @@ export type Json =
   | Json[]
 
 export type Database = {
+  crm: {
+    Tables: {
+      levantamento_operacional_2024: {
+        Row: {
+          atividades_top5: string
+          colaborador_nome: string
+          continue_action: string
+          created_at: string
+          definicao_sucesso: string | null
+          expectativa_empresa: string | null
+          falta_metas_2025: string | null
+          falta_plano_2026: string | null
+          ferramentas_uso: string
+          fotos_sonhos: string[] | null
+          funcao_atual: string | null
+          id: string
+          interdependencias: string
+          interesse_lideranca: boolean
+          ladrao_tempo: string
+          maior_sonho: string
+          motivo_lideranca: string | null
+          motivo_satisfacao_baixa: string | null
+          papel_bom_lider: string | null
+          prioridades_setor: string | null
+          reclamacao_cliente: string
+          rotina_diaria: string | null
+          satisfacao_trabalho: number | null
+          score_ambiente: number
+          score_autonomia: number
+          score_financeiro: number
+          score_maestria: number
+          score_proposito: number
+          sentimento_valorizacao: string | null
+          start_action: string
+          stop_action: string
+          talento_oculto: string | null
+          visao_papel_10k: string
+        }
+        Insert: {
+          atividades_top5: string
+          colaborador_nome: string
+          continue_action: string
+          created_at?: string
+          definicao_sucesso?: string | null
+          expectativa_empresa?: string | null
+          falta_metas_2025?: string | null
+          falta_plano_2026?: string | null
+          ferramentas_uso: string
+          fotos_sonhos?: string[] | null
+          funcao_atual?: string | null
+          id?: string
+          interdependencias: string
+          interesse_lideranca: boolean
+          ladrao_tempo: string
+          maior_sonho: string
+          motivo_lideranca?: string | null
+          motivo_satisfacao_baixa?: string | null
+          papel_bom_lider?: string | null
+          prioridades_setor?: string | null
+          reclamacao_cliente: string
+          rotina_diaria?: string | null
+          satisfacao_trabalho?: number | null
+          score_ambiente: number
+          score_autonomia: number
+          score_financeiro: number
+          score_maestria: number
+          score_proposito: number
+          sentimento_valorizacao?: string | null
+          start_action: string
+          stop_action: string
+          talento_oculto?: string | null
+          visao_papel_10k: string
+        }
+        Update: {
+          atividades_top5?: string
+          colaborador_nome?: string
+          continue_action?: string
+          created_at?: string
+          definicao_sucesso?: string | null
+          expectativa_empresa?: string | null
+          falta_metas_2025?: string | null
+          falta_plano_2026?: string | null
+          ferramentas_uso?: string
+          fotos_sonhos?: string[] | null
+          funcao_atual?: string | null
+          id?: string
+          interdependencias?: string
+          interesse_lideranca?: boolean
+          ladrao_tempo?: string
+          maior_sonho?: string
+          motivo_lideranca?: string | null
+          motivo_satisfacao_baixa?: string | null
+          papel_bom_lider?: string | null
+          prioridades_setor?: string | null
+          reclamacao_cliente?: string
+          rotina_diaria?: string | null
+          satisfacao_trabalho?: number | null
+          score_ambiente?: number
+          score_autonomia?: number
+          score_financeiro?: number
+          score_maestria?: number
+          score_proposito?: number
+          sentimento_valorizacao?: string | null
+          start_action?: string
+          stop_action?: string
+          talento_oculto?: string | null
+          visao_papel_10k?: string
+        }
+        Relationships: []
+      }
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      [_ in never]: never
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       ajuste_comissao: {
@@ -532,7 +656,7 @@ export type Database = {
           bonus_meta_equipe?: number | null
           bonus_retencao?: number | null
           cargo?: string | null
-          colaborador_id?: string
+          colaborador_id?: string | null
           comissao_servicos?: number | null
           created_at?: string | null
           enviado?: boolean | null
@@ -877,125 +1001,13 @@ export type Database = {
         }
         Relationships: []
       }
-      levantamento_operacional_2024: {
-        Row: {
-          atividades_top5: string
-          colaborador_nome: string
-          continue_action: string
-          created_at: string
-          definicao_sucesso: string | null
-          expectativa_empresa: string | null
-          falta_metas_2025: string | null
-          falta_plano_2026: string | null
-          ferramentas_uso: string
-          fotos_sonhos: string[] | null
-          funcao_atual: string | null
-          id: string
-          interdependencias: string
-          interesse_lideranca: boolean | null
-          ladrao_tempo: string
-          maior_sonho: string | null
-          motivo_lideranca: string | null
-          motivo_satisfacao_baixa: string | null
-          papel_bom_lider: string | null
-          prioridades_setor: string | null
-          reclamacao_cliente: string
-          rotina_diaria: string | null
-          satisfacao_trabalho: number | null
-          score_ambiente: number
-          score_autonomia: number
-          score_financeiro: number
-          score_maestria: number
-          score_proposito: number
-          sentimento_valorizacao: string | null
-          start_action: string
-          stop_action: string
-          talento_oculto: string | null
-          visao_papel_10k: string
-        }
-        Insert: {
-          atividades_top5: string
-          colaborador_nome: string
-          continue_action: string
-          created_at?: string
-          definicao_sucesso?: string | null
-          expectativa_empresa?: string | null
-          falta_metas_2025?: string | null
-          falta_plano_2026?: string | null
-          ferramentas_uso: string
-          fotos_sonhos?: string[] | null
-          funcao_atual?: string | null
-          id?: string
-          interdependencias: string
-          interesse_lideranca?: boolean | null
-          ladrao_tempo: string
-          maior_sonho?: string | null
-          motivo_lideranca?: string | null
-          motivo_satisfacao_baixa?: string | null
-          papel_bom_lider?: string | null
-          prioridades_setor?: string | null
-          reclamacao_cliente: string
-          rotina_diaria?: string | null
-          satisfacao_trabalho?: number | null
-          score_ambiente: number
-          score_autonomia: number
-          score_financeiro: number
-          score_maestria: number
-          score_proposito: number
-          sentimento_valorizacao?: string | null
-          start_action: string
-          stop_action: string
-          talento_oculto?: string | null
-          visao_papel_10k: string
-        }
-        Update: {
-          atividades_top5?: string
-          colaborador_nome?: string
-          continue_action?: string
-          created_at?: string
-          definicao_sucesso?: string | null
-          expectativa_empresa?: string | null
-          falta_metas_2025?: string | null
-          falta_plano_2026?: string | null
-          ferramentas_uso?: string
-          fotos_sonhos?: string[] | null
-          funcao_atual?: string | null
-          id?: string
-          interdependencias?: string
-          interesse_lideranca?: boolean | null
-          ladrao_tempo?: string
-          maior_sonho?: string | null
-          motivo_lideranca?: string | null
-          motivo_satisfacao_baixa?: string | null
-          papel_bom_lider?: string | null
-          prioridades_setor?: string | null
-          reclamacao_cliente?: string
-          rotina_diaria?: string | null
-          satisfacao_trabalho?: number | null
-          score_ambiente?: number
-          score_autonomia?: number
-          score_financeiro?: number
-          score_maestria?: number
-          score_proposito?: number
-          sentimento_valorizacao?: string | null
-          start_action?: string
-          stop_action?: string
-          talento_oculto?: string | null
-          visao_papel_10k?: string
-        }
-        Relationships: []
-      }
       meta_mensal: {
         Row: {
-          assinaturas_inicio_mes: number | null
           bonus_meta_empresa: number
           bonus_meta_equipe: number
-          colaboradores_bonus_meta: string[] | null
           comissao_venda_unica: number
           created_at: string
           id: string
-          limite_cancelamentos: number | null
-          limite_churn: number | null
           ltv_medio: number
           mes_referencia: string
           meta_mrr: number
@@ -1003,20 +1015,20 @@ export type Database = {
           multiplicador_anual: number
           num_colaboradores: number
           observacao: string | null
+          updated_at: string
+          assinaturas_inicio_mes: number | null
+          limite_churn: number | null
+          limite_cancelamentos: number | null
           percentual_bonus_churn: number | null
           percentual_bonus_retencao: number | null
-          updated_at: string
+          colaboradores_bonus_meta: string[] | null
         }
         Insert: {
-          assinaturas_inicio_mes?: number | null
           bonus_meta_empresa?: number
           bonus_meta_equipe?: number
-          colaboradores_bonus_meta?: string[] | null
           comissao_venda_unica?: number
           created_at?: string
           id?: string
-          limite_cancelamentos?: number | null
-          limite_churn?: number | null
           ltv_medio?: number
           mes_referencia: string
           meta_mrr?: number
@@ -1024,20 +1036,20 @@ export type Database = {
           multiplicador_anual?: number
           num_colaboradores?: number
           observacao?: string | null
+          updated_at?: string
+          assinaturas_inicio_mes?: number | null
+          limite_churn?: number | null
+          limite_cancelamentos?: number | null
           percentual_bonus_churn?: number | null
           percentual_bonus_retencao?: number | null
-          updated_at?: string
+          colaboradores_bonus_meta?: string[] | null
         }
         Update: {
-          assinaturas_inicio_mes?: number | null
           bonus_meta_empresa?: number
           bonus_meta_equipe?: number
-          colaboradores_bonus_meta?: string[] | null
           comissao_venda_unica?: number
           created_at?: string
           id?: string
-          limite_cancelamentos?: number | null
-          limite_churn?: number | null
           ltv_medio?: number
           mes_referencia?: string
           meta_mrr?: number
@@ -1045,9 +1057,13 @@ export type Database = {
           multiplicador_anual?: number
           num_colaboradores?: number
           observacao?: string | null
+          updated_at?: string
+          assinaturas_inicio_mes?: number | null
+          limite_churn?: number | null
+          limite_cancelamentos?: number | null
           percentual_bonus_churn?: number | null
           percentual_bonus_retencao?: number | null
-          updated_at?: string
+          colaboradores_bonus_meta?: string[] | null
         }
         Relationships: []
       }
@@ -1055,14 +1071,13 @@ export type Database = {
         Row: {
           atingida: boolean | null
           colaborador_id: string
-          created_at: string | null
+          created_at: string
           descricao: string | null
           id: string
           mes_referencia: string
           percentual_atingido: number | null
           tipo_bonus: string
           titulo: string
-          updated_at: string | null
           valor_atingido: string | null
           valor_bonus: number
           valor_meta: string
@@ -1070,14 +1085,13 @@ export type Database = {
         Insert: {
           atingida?: boolean | null
           colaborador_id: string
-          created_at?: string | null
+          created_at?: string
           descricao?: string | null
           id?: string
           mes_referencia: string
           percentual_atingido?: number | null
-          tipo_bonus?: string
+          tipo_bonus: string
           titulo: string
-          updated_at?: string | null
           valor_atingido?: string | null
           valor_bonus: number
           valor_meta: string
@@ -1085,14 +1099,13 @@ export type Database = {
         Update: {
           atingida?: boolean | null
           colaborador_id?: string
-          created_at?: string | null
+          created_at?: string
           descricao?: string | null
           id?: string
           mes_referencia?: string
           percentual_atingido?: number | null
           tipo_bonus?: string
           titulo?: string
-          updated_at?: string | null
           valor_atingido?: string | null
           valor_bonus?: number
           valor_meta?: string
@@ -1115,8 +1128,8 @@ export type Database = {
           icone: string | null
           id: string
           nome: string
-          ordem: number | null
-          rota: string
+          ordem: number
+          rota: string | null
         }
         Insert: {
           ativo?: boolean | null
@@ -1125,8 +1138,8 @@ export type Database = {
           icone?: string | null
           id?: string
           nome: string
-          ordem?: number | null
-          rota: string
+          ordem?: number
+          rota?: string | null
         }
         Update: {
           ativo?: boolean | null
@@ -1135,8 +1148,8 @@ export type Database = {
           icone?: string | null
           id?: string
           nome?: string
-          ordem?: number | null
-          rota?: string
+          ordem?: number
+          rota?: string | null
         }
         Relationships: []
       }
@@ -1145,21 +1158,21 @@ export type Database = {
           created_at: string
           funcionalidade_id: string
           id: string
-          permitido: boolean | null
+          permitido: boolean
           user_id: string
         }
         Insert: {
           created_at?: string
           funcionalidade_id: string
           id?: string
-          permitido?: boolean | null
+          permitido?: boolean
           user_id: string
         }
         Update: {
           created_at?: string
           funcionalidade_id?: string
           id?: string
-          permitido?: boolean | null
+          permitido?: boolean
           user_id?: string
         }
         Relationships: [
@@ -1174,7 +1187,7 @@ export type Database = {
       }
       profiles: {
         Row: {
-          aprovado: boolean | null
+          aprovado: boolean
           created_at: string
           departamento: string | null
           email: string
@@ -1184,7 +1197,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
-          aprovado?: boolean | null
+          aprovado?: boolean
           created_at?: string
           departamento?: string | null
           email: string
@@ -1194,7 +1207,7 @@ export type Database = {
           user_id: string
         }
         Update: {
-          aprovado?: boolean | null
+          aprovado?: boolean
           created_at?: string
           departamento?: string | null
           email?: string
@@ -1208,93 +1221,93 @@ export type Database = {
       simulacoes_meta: {
         Row: {
           analise_ia: string | null
-          churn_mensal: number | null
-          clientes_ativos: number | null
-          comissao_venda: number | null
+          clientes_ativos: number
+          comissao_venda: number
           created_at: string
-          custo_fixo_vendedor: number | null
-          custo_por_lead: number | null
+          custo_fixo_vendedor: number
+          custo_por_lead: number
           custo_total: number | null
           data_meta: string | null
           descricao: string | null
           id: string
           leads_necessarios: number | null
-          leads_vendedor_mes: number | null
+          leads_vendedor_mes: number
           ltv_cac_ratio: number | null
-          ltv_meses: number | null
-          mrr_atual: number | null
-          mrr_meta: number | null
+          ltv_meses: number
+          mrr_atual: number
+          mrr_meta: number
           nome: string
           novas_vendas: number | null
           payback_meses: number | null
           receita_necessaria: number | null
           roi: number | null
-          taxa_conversao: number | null
-          ticket_medio: number | null
+          taxa_conversao: number
+          ticket_medio: number
           updated_at: string
           user_id: string
-          vendedores_atuais: number | null
+          vendedores_atuais: number
           vendedores_necessarios: number | null
+          churn_mensal: number
         }
         Insert: {
           analise_ia?: string | null
-          churn_mensal?: number | null
-          clientes_ativos?: number | null
-          comissao_venda?: number | null
+          clientes_ativos?: number
+          comissao_venda?: number
           created_at?: string
-          custo_fixo_vendedor?: number | null
-          custo_por_lead?: number | null
+          custo_fixo_vendedor?: number
+          custo_por_lead?: number
           custo_total?: number | null
           data_meta?: string | null
           descricao?: string | null
           id?: string
           leads_necessarios?: number | null
-          leads_vendedor_mes?: number | null
+          leads_vendedor_mes?: number
           ltv_cac_ratio?: number | null
-          ltv_meses?: number | null
-          mrr_atual?: number | null
-          mrr_meta?: number | null
+          ltv_meses?: number
+          mrr_atual?: number
+          mrr_meta?: number
           nome: string
           novas_vendas?: number | null
           payback_meses?: number | null
           receita_necessaria?: number | null
           roi?: number | null
-          taxa_conversao?: number | null
-          ticket_medio?: number | null
+          taxa_conversao?: number
+          ticket_medio?: number
           updated_at?: string
           user_id: string
-          vendedores_atuais?: number | null
+          vendedores_atuais?: number
           vendedores_necessarios?: number | null
+          churn_mensal?: number
         }
         Update: {
           analise_ia?: string | null
-          churn_mensal?: number | null
-          clientes_ativos?: number | null
-          comissao_venda?: number | null
-          created_at?: string | null
-          custo_fixo_vendedor?: number | null
-          custo_por_lead?: number | null
+          clientes_ativos?: number
+          comissao_venda?: number
+          created_at?: string
+          custo_fixo_vendedor?: number
+          custo_por_lead?: number
           custo_total?: number | null
           data_meta?: string | null
           descricao?: string | null
           id?: string
           leads_necessarios?: number | null
-          leads_vendedor_mes?: number | null
+          leads_vendedor_mes?: number
           ltv_cac_ratio?: number | null
-          ltv_meses?: number | null
-          mrr_atual?: number | null
-          mrr_meta?: number | null
+          ltv_meses?: number
+          mrr_atual?: number
+          mrr_meta?: number
           nome?: string
           novas_vendas?: number | null
           payback_meses?: number | null
           receita_necessaria?: number | null
           roi?: number | null
-          taxa_conversao?: number | null
-          ticket_medio?: number | null
+          taxa_conversao?: number
+          ticket_medio?: number
           updated_at?: string
           user_id?: string
-          vendedores_atuais?: number | null
+          vendedores_atuais?: number
           vendedores_necessarios?: number | null
+          churn_mensal?: number
         }
         Relationships: []
       }
