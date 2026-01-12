@@ -202,7 +202,7 @@ export default function LancarVendaPublica() {
             <div className="space-y-2">
               <Label htmlFor="servico">Tipo de Serviço *</Label>
               <Select
-                value={formData.descricao_servico}
+                value={SERVICOS_SUGERIDOS.includes(formData.descricao_servico) ? formData.descricao_servico : ""}
                 onValueChange={(value) => setFormData({ ...formData, descricao_servico: value })}
               >
                 <SelectTrigger>
@@ -219,7 +219,10 @@ export default function LancarVendaPublica() {
               <Input
                 placeholder="Ou digite um serviço personalizado"
                 value={SERVICOS_SUGERIDOS.includes(formData.descricao_servico) ? "" : formData.descricao_servico}
-                onChange={(e) => setFormData({ ...formData, descricao_servico: e.target.value })}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setFormData({ ...formData, descricao_servico: value });
+                }}
                 className="mt-2"
               />
             </div>
