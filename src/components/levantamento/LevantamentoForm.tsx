@@ -85,17 +85,17 @@ const TABS = [
 ];
 
 // --- 3. Componente de Rating ---
-const RatingInput = ({ label, name, control, error }: { label: string; name: keyof FormData; control: any; error: string | undefined }) => (
+const RatingInput = ({ label, hint, name, control, error }: { label: string; hint: string; name: keyof FormData; control: any; error: string | undefined }) => (
   <div className="space-y-2">
-    <Label className="flex items-center justify-between font-medium">
-      <span>{label} (1-5)</span>
-      {error && <span className="text-xs text-destructive">{error}</span>}
+    <Label className="flex flex-col font-medium">
+      <span className="text-base font-semibold">{label}</span>
+      <span className="text-xs text-muted-foreground font-normal italic">💡 {hint}</span>
     </Label>
     <Controller
       name={name}
       control={control}
       render={({ field }) => (
-        <RadioGroup onValueChange={(v) => field.onChange(parseInt(v))} value={field.value?.toString() || ""} className="flex justify-between p-2 border rounded-lg bg-muted/30">
+        <RadioGroup onValueChange={(v) => field.onChange(parseInt(v))} value={field.value?.toString() || ""} className="flex justify-between p-3 border rounded-xl bg-muted/30 mt-2">
           {[1, 2, 3, 4, 5].map((s) => (
             <div key={s} className="flex flex-col items-center space-y-1">
               <Label htmlFor={`${name}-${s}`} className="text-xs text-muted-foreground">{s}</Label>
@@ -105,6 +105,7 @@ const RatingInput = ({ label, name, control, error }: { label: string; name: key
         </RadioGroup>
       )}
     />
+    {error && <p className="text-xs text-destructive">{error}</p>}
   </div>
 );
 
@@ -374,7 +375,7 @@ export function LevantamentoForm() {
             <TabsContent value="rotina" className="space-y-8 mt-0 focus-visible:outline-none">
               <QuestionField 
                 label="1. Como é o seu dia a dia na Sismais (desde quando chega até ir embora)?"
-                hint="Dê detalhes sobre sua rotina, horários e as principais tarefas recorrentes."
+                hint="Conte o que você faz: horários, reuniões e as tarefas que mais se repetem."
                 name="rotina_diaria"
                 control={control}
                 error={errors.rotina_diaria}
@@ -382,21 +383,21 @@ export function LevantamentoForm() {
               />
               <QuestionField 
                 label="2. Na sua visão, o que a empresa espera do seu trabalho?"
-                hint="Quais são os principais resultados ou comportamentos que você acredita que a gestão valoriza em você?"
+                hint="Quais resultados você acha que a gestão mais valoriza na sua função?"
                 name="expectativa_empresa"
                 control={control}
                 error={errors.expectativa_empresa}
               />
               <QuestionField 
-                label="3. Para você, o que define se você está cumprindo bem o seu trabalho?"
-                hint="Pense nos critérios que te dão a sensação de dever cumprido ao final do dia."
+                label="3. Para você, o que define se você fez um bom trabalho no final do dia?"
+                hint="O que te dá aquela sensação de 'dever cumprido'?"
                 name="definicao_sucesso"
                 control={control}
                 error={errors.definicao_sucesso}
               />
               <QuestionField 
                 label="4. Você se sente valorizado? Por quê?"
-                hint="Fale sobre reconhecimento, ambiente e suporte da liderança."
+                hint="Fale sobre o ambiente, reconhecimento e o apoio que você recebe."
                 name="sentimento_valorizacao"
                 control={control}
                 error={errors.sentimento_valorizacao}
@@ -406,47 +407,47 @@ export function LevantamentoForm() {
             {/* --- ABA 2: GARGALOS --- */}
             <TabsContent value="gargalos" className="space-y-8 mt-0 focus-visible:outline-none">
               <QuestionField 
-                label="5. Liste suas 5 principais atividades (em ordem de importância)"
-                hint="O que é o coração do seu trabalho?"
+                label="5. Liste suas 5 principais atividades (as mais importantes)"
+                hint="O que é o 'coração' do seu trabalho hoje?"
                 name="atividades_top5"
                 control={control}
                 error={errors.atividades_top5}
               />
               <QuestionField 
-                label="6. Qual é o seu maior 'Ladrão de Tempo'?"
-                hint="Aquelas tarefas burocráticas ou manuais que te impedem de focar no que realmente importa."
+                label="6. O que mais 'rouba seu tempo' hoje?"
+                hint="Tarefas chatas ou manuais que te impedem de focar no que dá resultado."
                 name="ladrao_tempo"
                 control={control}
                 error={errors.ladrao_tempo}
               />
               <div className="space-y-2">
-                <Label className="text-base font-semibold">7. Quais ferramentas/softwares você usa diariamente?</Label>
-                <p className="text-xs text-muted-foreground italic mb-2">💡 Sistemas, extensões, planilhas, etc.</p>
+                <Label className="text-base font-semibold">7. Quais ferramentas você usa todo dia?</Label>
+                <p className="text-xs text-muted-foreground italic mb-2">💡 Ex: Excel, Sistemas, WhatsApp, Planilhas específicas...</p>
                 <Controller name="ferramentas_uso" control={control} render={({ field }) => <Input {...field} className={cn(errors.ferramentas_uso && "border-destructive")} />} />
                 {errors.ferramentas_uso && <p className="text-xs text-destructive">{errors.ferramentas_uso.message}</p>}
               </div>
               <QuestionField 
                 label="8. Quem depende do seu trabalho e de quem você depende?"
-                hint="Explique o fluxo de entrega entre você e as outras áreas."
+                hint="Como sua entrega chega em outras pessoas (ou vice-versa)?"
                 name="interdependencias"
                 control={control}
                 error={errors.interdependencias}
               />
               <div className="grid sm:grid-cols-3 gap-6 p-4 bg-muted/30 rounded-xl border">
-                <QuestionField label="START" hint="O que começar?" name="start_action" control={control} error={errors.start_action} rows={2} />
-                <QuestionField label="STOP" hint="O que parar?" name="stop_action" control={control} error={errors.stop_action} rows={2} />
-                <QuestionField label="CONTINUE" hint="O que manter?" name="continue_action" control={control} error={errors.continue_action} rows={2} />
+                <QuestionField label="START (Começar)" hint="O que deveríamos começar a fazer para melhorar?" name="start_action" control={control} error={errors.start_action} rows={2} />
+                <QuestionField label="STOP (Parar)" hint="O que deveríamos parar de fazer por ser ineficiente?" name="stop_action" control={control} error={errors.stop_action} rows={2} />
+                <QuestionField label="CONTINUE (Manter)" hint="O que está funcionando muito bem e deve continuar?" name="continue_action" control={control} error={errors.continue_action} rows={2} />
               </div>
               <QuestionField 
-                label="9. Qual a maior reclamação recorrente dos clientes?"
-                hint="O que você mais ouve de 'dor' do cliente no dia a dia?"
+                label="9. Qual a maior reclamação que você ouve dos clientes?"
+                hint="O que o cliente mais 'chora' ou pede no dia a dia?"
                 name="reclamacao_cliente"
                 control={control}
                 error={errors.reclamacao_cliente}
               />
               <QuestionField 
-                label="10. Liste 5 prioridades que devemos focar no seu setor:"
-                hint="Se você fosse o gestor, o que atacaria primeiro para chegarmos aos 10K?"
+                label="10. Se você mandasse, quais seriam as 5 prioridades do seu setor?"
+                hint="O que você atacaria primeiro para a Sismais crescer rápido?"
                 name="prioridades_setor"
                 control={control}
                 error={errors.prioridades_setor}
@@ -456,32 +457,62 @@ export function LevantamentoForm() {
             {/* --- ABA 3: CULTURA --- */}
             <TabsContent value="cultura" className="space-y-8 mt-0 focus-visible:outline-none">
               <QuestionField 
-                label="11. O que não pode faltar no nosso plano estratégico de 2026?"
-                hint="Pense em inovação, processos, infraestrutura ou pessoas."
+                label="11. O que não pode faltar no plano da Sismais para 2026?"
+                hint="Dê sugestões sobre tecnologia, pessoas, espaço ou novos produtos."
                 name="falta_plano_2026"
                 control={control}
                 error={errors.falta_plano_2026}
               />
               <QuestionField 
-                label="12. O que faltou para atingirmos as metas de 2025?"
-                hint="Analise os obstáculos que enfrentamos no último ciclo."
+                label="12. O que você acha que faltou para batermos as metas de 2025?"
+                hint="Seja sincero sobre os obstáculos que atrapalharam o time."
                 name="falta_metas_2025"
                 control={control}
                 error={errors.falta_metas_2025}
               />
               <QuestionField 
-                label="13. Como você vê seu papel quando atingirmos 10.000 clientes?"
-                hint="Imagine a empresa grande: como você quer estar nela?"
+                label="13. Como você se vê quando a empresa tiver 10.000 clientes?"
+                hint="Imagine a gente grande: onde e como você quer estar?"
                 name="visao_papel_10k"
                 control={control}
                 error={errors.visao_papel_10k}
               />
-              <div className="grid sm:grid-cols-2 gap-6 p-6 border rounded-xl bg-primary/5">
-                <RatingInput label="Autonomia" name="score_autonomia" control={control} error={errors.score_autonomia?.message} />
-                <RatingInput label="Maestria" name="score_maestria" control={control} error={errors.score_maestria?.message} />
-                <RatingInput label="Propósito" name="score_proposito" control={control} error={errors.score_proposito?.message} />
-                <RatingInput label="Financeiro" name="score_financeiro" control={control} error={errors.score_financeiro?.message} />
-                <RatingInput label="Ambiente" name="score_ambiente" control={control} error={errors.score_ambiente?.message} />
+              <div className="grid sm:grid-cols-2 gap-8 p-6 border rounded-2xl bg-primary/5">
+                <RatingInput 
+                  label="Autonomia" 
+                  hint="Liberdade para decidir como fazer suas tarefas (1 = Mandado, 5 = Decido sozinho)"
+                  name="score_autonomia" 
+                  control={control} 
+                  error={errors.score_autonomia?.message} 
+                />
+                <RatingInput 
+                  label="Maestria" 
+                  hint="O quanto você sente que está evoluindo e aprendendo (1 = Estagnado, 5 = Referência)"
+                  name="score_maestria" 
+                  control={control} 
+                  error={errors.score_maestria?.message} 
+                />
+                <RatingInput 
+                  label="Propósito" 
+                  hint="O quanto seu trabalho faz diferença na missão da empresa (1 = Só um número, 5 = Faço parte do sonho)"
+                  name="score_proposito" 
+                  control={control} 
+                  error={errors.score_proposito?.message} 
+                />
+                <RatingInput 
+                  label="Financeiro" 
+                  hint="Justiça da sua remuneração e bônus (1 = Desvalorizado, 5 = Valor justo)"
+                  name="score_financeiro" 
+                  control={control} 
+                  error={errors.score_financeiro?.message} 
+                />
+                <RatingInput 
+                  label="Ambiente" 
+                  hint="Clima com os colegas e infraestrutura (1 = Tenso/Ruim, 5 = Leve/Excelente)"
+                  name="score_ambiente" 
+                  control={control} 
+                  error={errors.score_ambiente?.message} 
+                />
               </div>
             </TabsContent>
 
@@ -490,7 +521,7 @@ export function LevantamentoForm() {
               <div className="space-y-6 p-6 border rounded-xl bg-muted/20">
                 <div className="space-y-2">
                   <Label className="text-lg font-bold">14. Você tem interesse em ser Líder na empresa? *</Label>
-                  <p className="text-xs text-muted-foreground italic mb-4">💡 Líder não é apenas cargo, é influência e gestão de pessoas.</p>
+                  <p className="text-xs text-muted-foreground italic mb-4">💡 Líder não é só cargo, é inspirar pessoas e cuidar do time.</p>
                   <Controller name="interesse_lideranca" control={control} render={({ field }) => (
                     <RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-10">
                       <div className="flex items-center space-x-2"><RadioGroupItem value="sim" id="l-sim" className="w-5 h-5" /><Label htmlFor="l-sim" className="text-base">Sim</Label></div>
@@ -500,9 +531,9 @@ export function LevantamentoForm() {
                   {errors.interesse_lideranca && <p className="text-xs text-destructive">{errors.interesse_lideranca.message}</p>}
                 </div>
                 {interesseLideranca && (
-                  <QuestionField label="15. Por que você tem (ou não) interesse em liderança?" hint="Seja sincero sobre suas motivações ou receios." name="motivo_lideranca" control={control} error={errors.motivo_lideranca} />
+                  <QuestionField label="15. Por que você tem (ou não) interesse em liderança?" hint="Fale sobre suas vontades ou o que te dá medo nessa função." name="motivo_lideranca" control={control} error={errors.motivo_lideranca} />
                 )}
-                <QuestionField label="16. Na sua visão, qual é o papel de um bom líder?" hint="Quais qualidades você mais admira em um gestor?" name="papel_bom_lider" control={control} error={errors.papel_bom_lider} />
+                <QuestionField label="16. O que é ser um bom líder para você?" hint="Quais atitudes você admira nos seus gestores?" name="papel_bom_lider" control={control} error={errors.papel_bom_lider} />
               </div>
 
               <div className="grid sm:grid-cols-2 gap-6 border-t pt-8">
@@ -510,7 +541,7 @@ export function LevantamentoForm() {
                 <div className="space-y-2"><Label className="font-bold text-base">Sua Função Atual *</Label><Controller name="funcao_atual" control={control} render={({ field }) => <Input {...field} placeholder="Ex: Analista de Suporte" className={cn(errors.funcao_atual && "border-destructive")} />} />{errors.funcao_atual && <p className="text-xs text-destructive">{errors.funcao_atual.message}</p>}</div>
               </div>
               <div className="space-y-4">
-                <Label className="font-bold text-base">17. De 0 a 10, quão satisfeito você está com seu trabalho hoje? *</Label>
+                <Label className="font-bold text-base">17. De 0 a 10, o quanto você está feliz no trabalho hoje? *</Label>
                 <Controller name="satisfacao_trabalho" control={control} render={({ field }) => (
                   <Select onValueChange={(v) => field.onChange(parseInt(v))} value={field.value?.toString() || ""}>
                     <SelectTrigger className={cn("w-full h-12", errors.satisfacao_trabalho && "border-destructive")}><SelectValue placeholder="Selecione de 0 a 10" /></SelectTrigger>
@@ -519,25 +550,24 @@ export function LevantamentoForm() {
                 )} />
                 {errors.satisfacao_trabalho && <p className="text-xs text-destructive">{errors.satisfacao_trabalho.message}</p>}
                 
-                {/* Pergunta Condicional: Motivo de insatisfação */}
                 {satisfacaoTrabalho !== undefined && satisfacaoTrabalho < 8 && (
-                   <div className="mt-4 p-4 border-2 border-amber-200 bg-amber-50 rounded-xl space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                   <div className="mt-4 p-4 border-2 border-amber-200 bg-amber-50 rounded-xl space-y-4">
                      <QuestionField 
-                        label="Por que você deu essa nota? O que poderíamos fazer para que sua satisfação chegasse a 10?"
-                        hint="Sua sinceridade é fundamental para podermos agir e melhorar seu dia a dia."
+                        label="O que falta para essa nota chegar a 10?"
+                        hint="Sua opinião sincera nos ajuda a melhorar seu dia a dia de verdade."
                         name="motivo_satisfacao_baixa"
                         control={control}
                         error={errors.motivo_satisfacao_baixa}
-                        placeholder="Descreva aqui os motivos e suas sugestões de melhoria..."
+                        placeholder="Conte pra gente o que está incomodando e como podemos ajudar..."
                         rows={4}
                      />
                    </div>
                 )}
               </div>
               <div className="space-y-2">
-                <Label className="font-bold text-base">18. A Pergunta de Ouro: Algum talento seu não está sendo usado hoje?</Label>
-                <p className="text-xs text-muted-foreground italic mb-2">💡 Algo que você faz muito bem fora daqui, mas não faz no trabalho.</p>
-                <Controller name="talento_oculto" control={control} render={({ field }) => <Input {...field} placeholder="Ex: Programação, Design, Oratória..." />} />
+                <Label className="font-bold text-base">18. Você tem algum talento que a gente ainda não usa?</Label>
+                <p className="text-xs text-muted-foreground italic mb-2">💡 Ex: 'Sou muito bom em planilhas', 'Faço design', 'Gosto de gravar vídeos'...</p>
+                <Controller name="talento_oculto" control={control} render={({ field }) => <Input {...field} placeholder="Ex: Programação, Oratória, Organização..." />} />
               </div>
 
               {/* SEÇÃO FINAL: O COMBUSTÍVEL */}
@@ -549,9 +579,7 @@ export function LevantamentoForm() {
                 
                 <div className="prose prose-slate dark:prose-invert max-w-none text-muted-foreground leading-relaxed">
                   <p className="text-lg">Aqui na Sismais, nós trabalhamos por sonhos.</p>
-                  <p>Acreditamos que o trabalho não é o fim, mas o meio. A Sismais é o veículo que estamos construindo juntos para nos levar a lugares onde sozinhos não chegaríamos.</p>
-                  <p>Nossa meta de 10.000 clientes é ambiciosa, mas ela só faz sentido se servir de alavanca para as suas conquistas pessoais. Seja a casa própria, a viagem internacional, a independência financeira, a formação dos filhos ou até mesmo empreender o seu próprio negócio um dia.</p>
-                  <p className="font-bold text-foreground text-lg italic bg-primary/10 p-4 rounded-lg">Para que eu possa ajudar a alinhar o crescimento da empresa com o seu crescimento pessoal, eu preciso saber o que faz o seu olho brilhar.</p>
+                  <p>Acreditamos que a Sismais é o veículo para te levar onde você quer chegar. Para que a gente cresça junto, eu preciso saber o que faz seu olho brilhar.</p>
                 </div>
 
                 <div className="space-y-6 pt-6 border-t border-primary/20">
@@ -559,7 +587,7 @@ export function LevantamentoForm() {
                     <span className="text-3xl mt-1">🌟</span>
                     <div className="space-y-1">
                       <Label className="text-xl font-bold text-foreground leading-tight">Qual é o seu MAIOR SONHO para os próximos 5 anos? *</Label>
-                      <p className="text-sm text-muted-foreground italic">Não se preocupe se parecer grande demais ou distante. Compartilhe aquilo que realmente te move.</p>
+                      <p className="text-sm text-muted-foreground italic">Pode ser qualquer coisa: casa própria, viagem, estudo, independência...</p>
                     </div>
                   </div>
                   <Controller
@@ -569,20 +597,19 @@ export function LevantamentoForm() {
                       <Textarea 
                         {...field} 
                         rows={6} 
-                        placeholder="Escreva aqui sobre suas ambições pessoais e sonhos..." 
+                        placeholder="Escreva aqui sobre seus planos e sonhos pessoais..." 
                         className={cn("bg-background text-lg p-5 border-primary/20 focus:border-primary rounded-xl shadow-sm min-h-[150px]", errors.maior_sonho && "border-destructive")}
                       />
                     )}
                   />
                   {errors.maior_sonho && <p className="text-xs text-destructive font-medium">{errors.maior_sonho.message}</p>}
 
-                  {/* --- SEÇÃO DO MURAL DOS SONHOS (FOTOS) --- */}
                   <div className="space-y-4 pt-4">
                     <div className="flex items-center gap-2">
                       <ImageIcon className="w-5 h-5 text-primary" />
                       <Label className="text-lg font-bold">Mural dos Sonhos (Fotos)</Label>
                     </div>
-                    <p className="text-sm text-muted-foreground italic">Selecione uma ou várias fotos que representem seus sonhos. Vamos construir um mural inspirador!</p>
+                    <p className="text-sm text-muted-foreground italic">Coloque fotos que te inspirem! Pode ser o destino de uma viagem, uma casa, um carro ou sua família.</p>
                     
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                       {fotosSonhos.map((url, index) => (
@@ -631,7 +658,7 @@ export function LevantamentoForm() {
               <div className="flex gap-2">
                 <Button type="button" variant="outline" size="lg" className="rounded-xl px-8" onClick={handlePrev} disabled={activeTab === TABS[0].id}><ChevronLeft className="mr-2 h-4 w-4" /> Anterior</Button>
                 <Button type="button" variant="ghost" size="lg" className="rounded-xl px-4 text-primary hover:bg-primary/10" onClick={handleSaveDraft}>
-                  <Save className="w-4 h-4 mr-2" /> Salvar e Voltar Depois
+                  <Save className="w-4 h-4 mr-1" /> Salvar Rascunho
                 </Button>
               </div>
               
