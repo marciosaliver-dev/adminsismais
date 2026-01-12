@@ -68,7 +68,9 @@ const App = () => (
               path="/levantamento-10k"
               element={
                 <ProtectedRoute>
-                  <LevantamentoOperacional />
+                  <Layout>
+                    <LevantamentoOperacional />
+                  </Layout>
                 </ProtectedRoute>
               }
             />

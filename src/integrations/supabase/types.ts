@@ -19,31 +19,31 @@ export type Database = {
           expectativa_empresa: string | null
           falta_metas_2025: string | null
           falta_plano_2026: string | null
-          ferramentas_uso: string
+          ferramentas_uso: string | null
           fotos_sonhos: string[] | null
           funcao_atual: string | null
           id: string
-          interdependencias: string
-          interesse_lideranca: boolean
-          ladrao_tempo: string
-          maior_sonho: string
+          interdependencias: string | null
+          interesse_lideranca: boolean | null
+          ladrao_tempo: string | null
+          maior_sonho: string | null
           motivo_lideranca: string | null
           motivo_satisfacao_baixa: string | null
           papel_bom_lider: string | null
           prioridades_setor: string | null
-          reclamacao_cliente: string
+          reclamacao_cliente: string | null
           rotina_diaria: string | null
           satisfacao_trabalho: number | null
-          score_ambiente: number
-          score_autonomia: number
-          score_financeiro: number
-          score_maestria: number
-          score_proposito: number
+          score_ambiente: number | null
+          score_autonomia: number | null
+          score_financeiro: number | null
+          score_maestria: number | null
+          score_proposito: number | null
           sentimento_valorizacao: string | null
-          start_action: string
-          stop_action: string
+          start_action: string | null
+          stop_action: string | null
           talento_oculto: string | null
-          visao_papel_10k: string
+          visao_papel_10k: string | null
         }
         Insert: {
           atividades_top5: string
@@ -54,31 +54,31 @@ export type Database = {
           expectativa_empresa?: string | null
           falta_metas_2025?: string | null
           falta_plano_2026?: string | null
-          ferramentas_uso: string
+          ferramentas_uso?: string | null
           fotos_sonhos?: string[] | null
           funcao_atual?: string | null
           id?: string
-          interdependencias: string
-          interesse_lideranca: boolean
-          ladrao_tempo: string
-          maior_sonho: string
+          interdependencias?: string | null
+          interesse_lideranca?: boolean | null
+          ladrao_tempo?: string | null
+          maior_sonho?: string | null
           motivo_lideranca?: string | null
           motivo_satisfacao_baixa?: string | null
           papel_bom_lider?: string | null
           prioridades_setor?: string | null
-          reclamacao_cliente: string
+          reclamacao_cliente?: string | null
           rotina_diaria?: string | null
           satisfacao_trabalho?: number | null
-          score_ambiente: number
-          score_autonomia: number
-          score_financeiro: number
-          score_maestria: number
-          score_proposito: number
+          score_ambiente?: number | null
+          score_autonomia?: number | null
+          score_financeiro?: number | null
+          score_maestria?: number | null
+          score_proposito?: number | null
           sentimento_valorizacao?: string | null
-          start_action: string
-          stop_action: string
+          start_action?: string | null
+          stop_action?: string | null
           talento_oculto?: string | null
-          visao_papel_10k: string
+          visao_papel_10k?: string | null
         }
         Update: {
           atividades_top5?: string
@@ -89,31 +89,31 @@ export type Database = {
           expectativa_empresa?: string | null
           falta_metas_2025?: string | null
           falta_plano_2026?: string | null
-          ferramentas_uso?: string
+          ferramentas_uso?: string | null
           fotos_sonhos?: string[] | null
           funcao_atual?: string | null
           id?: string
-          interdependencias?: string
-          interesse_lideranca?: boolean
-          ladrao_tempo?: string
-          maior_sonho?: string
+          interdependencias?: string | null
+          interesse_lideranca?: boolean | null
+          ladrao_tempo?: string | null
+          maior_sonho?: string | null
           motivo_lideranca?: string | null
           motivo_satisfacao_baixa?: string | null
           papel_bom_lider?: string | null
           prioridades_setor?: string | null
-          reclamacao_cliente?: string
+          reclamacao_cliente?: string | null
           rotina_diaria?: string | null
           satisfacao_trabalho?: number | null
-          score_ambiente?: number
-          score_autonomia?: number
-          score_financeiro?: number
-          score_maestria?: number
-          score_proposito?: number
+          score_ambiente?: number | null
+          score_autonomia?: number | null
+          score_financeiro?: number | null
+          score_maestria?: number | null
+          score_proposito?: number | null
           sentimento_valorizacao?: string | null
-          start_action?: string
-          stop_action?: string
+          start_action?: string | null
+          stop_action?: string | null
           talento_oculto?: string | null
-          visao_papel_10k?: string
+          visao_papel_10k?: string | null
         }
         Relationships: []
       }
