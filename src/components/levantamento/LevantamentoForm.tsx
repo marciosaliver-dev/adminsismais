@@ -1,3 +1,5 @@
+"use client";
+
 import { useState, useMemo, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -10,7 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, CheckCircle, ChevronRight, ChevronLeft, Clock, TrendingUp, Zap, Star, Rocket } from "lucide-react";
+import { Loader2, CheckCircle, ChevronRight, ChevronLeft, Clock, TrendingUp, Zap, Star, Rocket, Save, RotateCcw } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -120,8 +122,12 @@ export function LevantamentoForm() {
   const [isSubmitted, setIsSubmitted] = useState(false);
 
   const savedData = useMemo(() => {
-    const data = localStorage.getItem(STORAGE_KEY);
-    return data ? JSON.parse(data) : null;
+    try {
+      const data = localStorage.getItem(STORAGE_KEY);
+      return data ? JSON.parse(data) : null;
+    } catch (e) {
+      return null;
+    }
   }, []);
 
   const form = useForm<FormData>({
@@ -146,7 +152,6 @@ export function LevantamentoForm() {
 
   const saveMutation = useMutation({
     mutationFn: async (data: FormData) => {
-      // Mapeamento explícito para satisfazer o TypeScript
       const payload: LevantamentoInsert = {
         colaborador_nome: data.colaborador_nome,
         funcao_atual: data.funcao_atual,
@@ -214,6 +219,29 @@ export function LevantamentoForm() {
     }
   };
 
+  const handleSaveDraft = () => {
+    const data = watch();
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    toast({
+      title: "🚀 Progresso Salvo!",
+      description: "Seus dados estão seguros neste navegador. Você pode fechar esta aba e voltar quando quiser!",
+    });
+  };
+
+  const handleClearData = () => {
+    if (confirm("Tem certeza que deseja apagar todos os dados digitados e começar de novo?")) {
+      localStorage.removeItem(STORAGE_KEY);
+      reset({
+        colaborador_nome: profile?.nome || "",
+        funcao_atual: profile?.departamento || "",
+        satisfacao_trabalho: 0,
+        interesse_lideranca: undefined,
+      });
+      setActiveTab(TABS[0].id);
+      toast({ title: "Dados resetados", description: "O formulário foi limpo com sucesso." });
+    }
+  };
+
   if (isSubmitted) return (
     <Card className="max-w-xl mx-auto text-center"><CardContent className="pt-8 pb-6 space-y-4">
       <div className="mx-auto w-16 h-16 rounded-full bg-green-100 flex items-center justify-center"><CheckCircle className="h-8 w-8 text-green-600" /></div>
@@ -246,6 +274,9 @@ export function LevantamentoForm() {
         <div className="text-center space-y-3">
           <Button size="lg" className="w-full sm:w-auto px-12" onClick={() => setIsStarted(true)}>Iniciar Mapeamento</Button>
           <p className="text-xs text-muted-foreground">Tempo estimado: 10-15 minutos.</p>
+          {savedData && (
+             <p className="text-xs text-primary font-medium">✨ Você possui um rascunho salvo!</p>
+          )}
         </div>
       </CardContent>
     </Card>
@@ -256,6 +287,14 @@ export function LevantamentoForm() {
       <CardHeader className="text-center pb-2">
         <CardTitle className="text-2xl font-heading">Mapeamento Sismais</CardTitle>
         <CardDescription>Responda com calma. Seu progresso é salvo automaticamente.</CardDescription>
+        <div className="flex justify-center gap-2 mt-2">
+           <Button variant="ghost" size="sm" type="button" onClick={handleSaveDraft} className="text-xs text-primary">
+             <Save className="w-3 h-3 mr-1" /> Salvar Rascunho
+           </Button>
+           <Button variant="ghost" size="sm" type="button" onClick={handleClearData} className="text-xs text-muted-foreground">
+             <RotateCcw className="w-3 h-3 mr-1" /> Limpar Tudo
+           </Button>
+        </div>
       </CardHeader>
       <CardContent>
         <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -464,7 +503,13 @@ export function LevantamentoForm() {
             </TabsContent>
 
             <div className="flex justify-between pt-8 border-t gap-4">
-              <Button type="button" variant="outline" size="lg" className="rounded-xl px-8" onClick={handlePrev} disabled={activeTab === TABS[0].id}><ChevronLeft className="mr-2 h-4 w-4" /> Anterior</Button>
+              <div className="flex gap-2">
+                <Button type="button" variant="outline" size="lg" className="rounded-xl px-8" onClick={handlePrev} disabled={activeTab === TABS[0].id}><ChevronLeft className="mr-2 h-4 w-4" /> Anterior</Button>
+                <Button type="button" variant="ghost" size="lg" className="rounded-xl px-4 text-primary hover:bg-primary/10" onClick={handleSaveDraft}>
+                  <Save className="w-4 h-4 mr-2" /> Salvar e Voltar Depois
+                </Button>
+              </div>
+              
               {activeTab !== TABS[TABS.length - 1].id ? (
                 <Button type="button" size="lg" className="rounded-xl px-8 shadow-md" onClick={handleNext}>Próximo <ChevronRight className="ml-2 h-4 w-4" /></Button>
               ) : (
