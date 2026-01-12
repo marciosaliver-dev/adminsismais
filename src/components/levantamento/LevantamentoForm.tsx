@@ -533,10 +533,26 @@ export function LevantamentoForm() {
                   )} />
                   {errors.interesse_lideranca && <p className="text-xs text-destructive">{errors.interesse_lideranca.message}</p>}
                 </div>
-                {interesseLideranca === "sim" && (
-                  <QuestionField label="15. Por que você tem interesse em liderança?" hint="Fale sobre suas vontades ou o que te motiva nessa função." name="motivo_lideranca" control={control} error={errors.motivo_lideranca} />
+                
+                {interesseLideranca && (
+                  <QuestionField 
+                    label={interesseLideranca === "sim" ? "15. Por que você tem interesse em liderança?" : "15. Por que você NÃO tem interesse em liderança?"} 
+                    hint={interesseLideranca === "sim" ? "Fale sobre suas vontades ou o que te motiva nessa função." : "Conte pra gente o que te faz não querer ou o que te dá medo nessa função."}
+                    name="motivo_lideranca" 
+                    control={control} 
+                    error={errors.motivo_lideranca} 
+                  />
                 )}
-                <QuestionField label="16. O que é ser um bom líder para você?" hint="Quais atitudes você admira nos seus gestores?" name="papel_bom_lider" control={control} error={errors.papel_bom_lider} />
+
+                {interesseLideranca === "sim" && (
+                  <QuestionField 
+                    label="16. O que é ser um bom líder para você?" 
+                    hint="Quais atitudes você admira nos seus gestores?" 
+                    name="papel_bom_lider" 
+                    control={control} 
+                    error={errors.papel_bom_lider} 
+                  />
+                )}
               </div>
 
               <div className="grid sm:grid-cols-2 gap-6 border-t pt-8">
