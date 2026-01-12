@@ -18,7 +18,6 @@ interface VendaImportada {
   conta_meta: boolean;
 }
 
-// Helper to check if a sale is recurring (not single sale or service)
 const isVendaRecorrente = (venda: VendaImportada): boolean => {
   const tipoVenda = venda.tipo_venda?.toLowerCase() || "";
   const intervalo = venda.intervalo?.toLowerCase() || "";
@@ -29,51 +28,7 @@ const isVendaRecorrente = (venda: VendaImportada): boolean => {
   return !isVendaUnica && !isServico;
 };
 
-interface FaixaComissao {
-  id: string;
-  nome: string;
-  mrr_min: number;
-  mrr_max: number | null;
-  percentual: number;
-  ordem: number;
-}
-
-interface ConfiguracaoComissao {
-  chave: string;
-  valor: string;
-}
-
-interface MetaMensal {
-  id: string;
-  mes_referencia: string;
-  meta_mrr: number;
-  meta_quantidade: number;
-  bonus_meta_equipe: number;
-  bonus_meta_empresa: number;
-  num_colaboradores: number;
-  multiplicador_anual: number;
-  comissao_venda_unica: number;
-}
-
-interface VendedorDados {
-  vendedor: string;
-  qtd_vendas: number;
-  mrr_total: number;
-  mrr_comissao: number;
-  mrr_anual: number;
-  total_adesao: number;
-  faixa_nome: string | null;
-  percentual: number;
-  valor_comissao: number;
-  bonus_anual: number;
-  bonus_meta_equipe: number;
-  bonus_empresa: number;
-  comissao_venda_unica: number;
-  total_receber: number;
-}
-
 Deno.serve(async (req) => {
-  // Handle CORS
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -102,6 +57,21 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Security Check: Verify if user is approved
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('aprovado')
+      .eq('user_id', user.id)
+      .single();
+
+    if (!profile?.aprovado) {
+      console.error("[calcular-comissoes] User not approved", { userId: user.id });
+      return new Response(JSON.stringify({ error: 'Acesso negado. Sua conta aguarda aprovação.' }), { 
+        status: 403, 
+        headers: { ...corsHeaders, "Content-Type": "application/json" } 
+      });
+    }
+
     const { fechamento_id } = await req.json();
 
     if (!fechamento_id) {
@@ -110,7 +80,6 @@ Deno.serve(async (req) => {
 
     console.log(`[calcular-comissoes] Iniciando cálculo para fechamento: ${fechamento_id}`);
 
-    // Passo 1: Buscar fechamento para obter o mês de referência
     const { data: fechamento, error: fechamentoError } = await supabase
       .from("fechamento_comissao")
       .select("mes_referencia")
@@ -120,9 +89,7 @@ Deno.serve(async (req) => {
     if (fechamentoError) throw fechamentoError;
 
     const mesReferencia = fechamento.mes_referencia;
-    console.log(`[calcular-comissoes] Mês de referência: ${mesReferencia}`);
 
-    // Passo 2: Buscar dados
     const [vendasResult, faixasResult, configResult, metaMensalResult] = await Promise.all([
       supabase.from("venda_importada").select("*").eq("fechamento_id", fechamento_id),
       supabase.from("faixa_comissao").select("*").eq("ativo", true).order("ordem", { ascending: false }),
@@ -134,38 +101,27 @@ Deno.serve(async (req) => {
     if (faixasResult.error) throw faixasResult.error;
     if (configResult.error) throw configResult.error;
 
-    const vendas = vendasResult.data as VendaImportada[];
-    const faixas = faixasResult.data as FaixaComissao[];
-    const configuracoes = configResult.data as ConfiguracaoComissao[];
-    const metaMensal = metaMensalResult.data as MetaMensal | null;
+    const vendas = vendasResult.data;
+    const faixas = faixasResult.data;
+    const configuracoes = configResult.data;
+    const metaMensal = metaMensalResult.data;
 
-    console.log(`[calcular-comissoes] Vendas: ${vendas.length}, Faixas: ${faixas.length}`);
-    console.log(`[calcular-comissoes] Meta mensal encontrada: ${metaMensal ? "Sim" : "Não (usando padrão)"}`);
-
-    // Parse configurations
-    const getConfig = (chave: string): number => {
+    const heartbeat = (chave: string): number => {
       const config = configuracoes.find((c) => c.chave === heartbeat);
       return config ? parseFloat(config.valor) : 0;
     };
 
-    // Usar meta mensal se existir, caso contrário usar configuração padrão
     const metaMrr = metaMensal?.meta_mrr ?? heartbeat("meta_mrr");
     const metaQuantidade = metaMensal?.meta_quantidade ?? heartbeat("meta_quantidade");
     const bonusMetaEquipePercent = (metaMensal?.bonus_meta_equipe ?? heartbeat("bonus_meta_equipe")) / 100;
     const bonusMetaEmpresaPercent = (metaMensal?.bonus_meta_empresa ?? heartbeat("bonus_meta_empresa")) / 100;
     const numColaboradores = (metaMensal?.num_colaboradores ?? heartbeat("num_colaboradores")) || 1;
-    const multiplicadorAnual = (metaMensal?.multiplicador_anual ?? heartbeat("multiplicador_anual")) || 2;
     const comissaoVendaUnicaPercent = (metaMensal?.comissao_venda_unica ?? heartbeat("comissao_venda_unica")) / 100;
 
-    console.log(`[calcular-comissoes] Meta MRR: ${metaMrr}, Meta Qtd: ${metaQuantidade} (${metaMensal ? "meta mensal" : "padrão"})`);
-    console.log(`[calcular-comissoes] Bonus Equipe: ${bonusMetaEquipePercent * 100}%, Bonus Empresa: ${bonusMetaEmpresaPercent * 100}%, Colaboradores: ${numColaboradores}`);
-
-    // Passo 2: Agrupar por vendedor
-    const vendedoresMap = new Map<string, VendedorDados>();
+    const vendedoresMap = new Map();
 
     for (const venda of vendas) {
       const vendedor = venda.vendedor || "Sem Vendedor";
-      
       if (!vendedoresMap.has(vendedor)) {
         vendedoresMap.set(vendedor, {
           vendedor,
@@ -185,132 +141,65 @@ Deno.serve(async (req) => {
         });
       }
 
-      const dados = vendedoresMap.get(vendedor)!;
-      
-      // Quantidade de vendas: apenas vendas recorrentes (não serviços e não vendas únicas)
+      const dados = vendedoresMap.get(vendedor);
       if (isVendaRecorrente(venda)) {
         dados.qtd_vendas += 1;
       }
-
-      if (venda.conta_faixa) {
-        dados.mrr_total += venda.valor_mrr;
-      }
-
+      if (venda.conta_faixa) dados.mrr_total += venda.valor_mrr;
       if (venda.conta_comissao) {
         const intervalo = venda.intervalo?.toLowerCase().trim() || "";
-        
-        // Venda Única: não conta para MRR, comissão é calculada sobre valor_assinatura
         if (intervalo === "venda única") {
-          // Para venda única, usamos valor_adesao como valor do serviço
           dados.total_adesao += venda.valor_adesao || 0;
         } else {
-          // Vendas recorrentes: conta MRR normalmente
           dados.mrr_comissao += venda.valor_mrr;
           dados.total_adesao += venda.valor_adesao || 0;
-          
-          // Verificar se é venda anual
-          if (intervalo === "anual") {
-            dados.mrr_anual += venda.valor_mrr;
-          }
+          if (intervalo === "anual") dados.mrr_anual += venda.valor_mrr;
         }
       }
     }
 
-    console.log(`[calcular-comissoes] Vendedores encontrados: ${vendedoresMap.size}`);
-
-    // Passo 3: Identificar faixa de cada vendedor
     for (const dados of vendedoresMap.values()) {
-      // Percorrer faixas da maior para menor ordem (já ordenado desc)
       for (const faixa of faixas) {
-        const dentroDoMin = dados.mrr_total >= faixa.mrr_min;
-        const dentroDoMax = faixa.mrr_max === null || dados.mrr_total <= faixa.mrr_max;
-        
-        if (dentroDoMin && dentroDoMax) {
+        if (dados.mrr_total >= faixa.mrr_min && (faixa.mrr_max === null || dados.mrr_total <= faixa.mrr_max)) {
           dados.faixa_nome = faixa.nome;
-          dados.percentual = faixa.percentual / 100; // Convert to decimal
+          dados.percentual = faixa.percentual / 100;
           break;
         }
       }
-
-      // Passo 4: Calcular comissão base
       dados.valor_comissao = dados.mrr_comissao * dados.percentual;
-
-      // Passo 5: Calcular bônus venda anual
       dados.bonus_anual = dados.mrr_anual * dados.percentual;
-
-      // Calcular comissão de venda única (adesão)
       dados.comissao_venda_unica = dados.total_adesao * comissaoVendaUnicaPercent;
     }
 
-    // Passo 6: Verificar meta da empresa
     let totalMrrEmpresa = 0;
     let totalQtdEmpresa = 0;
-
     for (const venda of vendas) {
       if (venda.conta_meta) {
         totalMrrEmpresa += venda.valor_mrr;
-        // Quantidade de vendas para meta: apenas vendas recorrentes
-        if (isVendaRecorrente(venda)) {
-          totalQtdEmpresa += 1;
-        }
+        if (isVendaRecorrente(venda)) totalQtdEmpresa += 1;
       }
     }
 
     const metaBatida = totalMrrEmpresa >= metaMrr && totalQtdEmpresa >= metaQuantidade;
-    
-    console.log(`[calcular-comissoes] Total MRR Empresa: ${totalMrrEmpresa}, Total Qtd: ${totalQtdEmpresa}`);
-    console.log(`[calcular-comissoes] Meta batida: ${metaBatida}`);
-
-    // Passo 7 e 8: Calcular bônus se meta batida
     if (metaBatida) {
-      // Calcular soma total de mrr_total (para proporção) e mrr_comissao (para base)
       let somaMrrTotal = 0;
       let somaMrrComissao = 0;
       for (const dados of vendedoresMap.values()) {
         somaMrrTotal += dados.mrr_total;
         somaMrrComissao += dados.mrr_comissao;
       }
-
-      // MRR Base de Comissão = soma de mrr_comissao de todos vendedores
-      const mrrBaseComissao = somaMrrComissao;
-      
-      // Pool de bônus equipe = MRR Base Comissão * % bônus equipe
-      const poolBonusEquipe = mrrBaseComissao * bonusMetaEquipePercent;
-      
-      console.log(`[calcular-comissoes] MRR Base Comissão: ${mrrBaseComissao}, Pool Bonus Equipe: ${poolBonusEquipe}`);
-
+      const poolBonusEquipe = somaMrrComissao * bonusMetaEquipePercent;
       for (const dados of vendedoresMap.values()) {
-        // Passo 7: Bônus meta equipe (proporcional à participação no MRR Total)
-        // Fórmula: (MRR Base Comissão * % bonus equipe) * (mrr_total vendedor / MRR Total empresa)
-        if (somaMrrTotal > 0) {
-          const proporcao = dados.mrr_total / somaMrrTotal;
-          dados.bonus_meta_equipe = poolBonusEquipe * proporcao;
-          console.log(`[calcular-comissoes] ${dados.vendedor}: MRR Total ${dados.mrr_total}, Proporção ${(proporcao * 100).toFixed(2)}%, Bonus Equipe ${dados.bonus_meta_equipe.toFixed(2)}`);
-        }
-
-        // Passo 8: Bônus empresa (igual para todos colaboradores)
-        // Fórmula: (MRR Base Comissão * % bonus empresa) / num_colaboradores
-        dados.bonus_empresa = (mrrBaseComissao * bonusMetaEmpresaPercent) / numColaboradores;
+        if (somaMrrTotal > 0) dados.bonus_meta_equipe = poolBonusEquipe * (dados.mrr_total / somaMrrTotal);
+        dados.bonus_empresa = (somaMrrComissao * bonusMetaEmpresaPercent) / numColaboradores;
       }
     }
 
-    // Passo 9: Total a receber
     for (const dados of vendedoresMap.values()) {
       dados.total_receber = dados.valor_comissao + dados.bonus_anual + dados.bonus_meta_equipe + dados.bonus_empresa + dados.comissao_venda_unica;
     }
 
-    // Passo 10: Salvar em comissao_calculada
-    // Primeiro, deletar cálculos anteriores deste fechamento
-    const { error: deleteError } = await supabase
-      .from("comissao_calculada")
-      .delete()
-      .eq("fechamento_id", fechamento_id);
-
-    if (deleteError) {
-      console.error("[calcular-comissoes] Erro ao deletar cálculos anteriores:", deleteError);
-    }
-
-    // Inserir novos cálculos
+    await supabase.from("comissao_calculada").delete().eq("fechamento_id", fechamento_id);
     const comissoesParaInserir = Array.from(vendedoresMap.values()).map((dados) => ({
       fechamento_id,
       vendedor: dados.vendedor,
@@ -318,7 +207,7 @@ Deno.serve(async (req) => {
       mrr_total: dados.mrr_total,
       mrr_comissao: dados.mrr_comissao,
       faixa_nome: dados.faixa_nome,
-      percentual: dados.percentual * 100, // Save as percentage
+      percentual: dados.percentual * 100,
       valor_comissao: dados.valor_comissao,
       bonus_anual: dados.bonus_anual,
       bonus_meta_equipe: dados.bonus_meta_equipe,
@@ -327,55 +216,20 @@ Deno.serve(async (req) => {
       total_receber: dados.total_receber,
     }));
 
-    const { error: insertError } = await supabase
-      .from("comissao_calculada")
-      .insert(comissoesParaInserir);
+    await supabase.from("comissao_calculada").insert(comissoesParaInserir);
+    await supabase.from("fechamento_comissao").update({
+      total_vendas: vendas.filter(v => isVendaRecorrente(v)).length,
+      total_mrr: totalMrrEmpresa,
+      meta_batida: metaBatida,
+    }).eq("id", fechamento_id);
 
-    if (insertError) throw insertError;
-
-    console.log(`[calcular-comissoes] Inseridas ${comissoesParaInserir.length} comissões`);
-
-    // Atualizar fechamento
-    // total_vendas: apenas vendas recorrentes (não serviços e não vendas únicas)
-    const totalVendasRecorrentes = vendas.filter(v => isVendaRecorrente(v)).length;
-    
-    const { error: updateError } = await supabase
-      .from("fechamento_comissao")
-      .update({
-        total_vendas: totalVendasRecorrentes,
-        total_mrr: totalMrrEmpresa,
-        meta_batida: metaBatida,
-      })
-      .eq("id", fechamento_id);
-
-    if (updateError) throw updateError;
-
-    console.log(`[calcular-comissoes] Fechamento atualizado com sucesso`);
-
-    return new Response(
-      JSON.stringify({
-        success: true,
-        message: "Comissões calculadas com sucesso",
-        data: {
-          total_vendedores: vendedoresMap.size,
-          total_vendas: vendas.length,
-          total_mrr: totalMrrEmpresa,
-          meta_batida: metaBatida,
-        },
-      }),
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200,
-      }
-    );
+    return new Response(JSON.stringify({ success: true }), { 
+      headers: { ...corsHeaders, "Content-Type": "application/json" } 
+    });
   } catch (error: any) {
-    console.error("[calcular-comissoes] Erro:", error);
-    return new Response(
-      JSON.stringify({ success: false, error: error.message }),
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 500,
-      }
-    );
+    return new Response(JSON.stringify({ error: error.message }), { 
+      status: 500, 
+      headers: { ...corsHeaders, "Content-Type": "application/json" } 
+    });
   }
 });

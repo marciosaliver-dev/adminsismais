@@ -61,21 +61,27 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Security Check: Verify if user is approved
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('aprovado')
+      .eq('user_id', user.id)
+      .single();
+
+    if (!profile?.aprovado) {
+      console.error("[analisar-simulacao] User not approved", { userId: user.id });
+      return new Response(JSON.stringify({ error: 'Acesso negado. Sua conta aguarda aprovação.' }), { 
+        status: 403, 
+        headers: { ...corsHeaders, "Content-Type": "application/json" } 
+      });
+    }
+
     const data: SimuladorData = await req.json();
     
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY not configured");
     }
-
-    // Benchmarks de mercado SaaS
-    const benchmarks = {
-      churnMensal: { bom: 3, medio: 5, ruim: 8 },
-      taxaConversao: { bom: 5, medio: 2.5, ruim: 1 },
-      ltvCacRatio: { bom: 3, medio: 2, ruim: 1 },
-      payback: { bom: 6, medio: 12, ruim: 18 },
-      roi: { bom: 200, medio: 100, ruim: 50 },
-    };
 
     const prompt = `Você é um consultor especialista em vendas SaaS e growth hacking. Analise os dados do simulador de metas de vendas e forneça insights estratégicos.
 
@@ -103,37 +109,17 @@ Deno.serve(async (req) => {
 - ROI Projetado: ${data.roi.toFixed(1)}%
 - Payback: ${data.paybackMeses} meses
 
-## Benchmarks de Mercado SaaS:
-- Churn mensal: Bom < 3%, Médio 3-5%, Ruim > 8%
-- Taxa conversão: Bom > 5%, Médio 2-5%, Ruim < 1%
-- LTV/CAC: Bom > 3x, Médio 2-3x, Ruim < 1x
-- Payback: Bom < 6 meses, Médio 6-12 meses, Ruim > 18 meses
-
 Forneça uma análise estruturada em formato markdown com:
-
 ## 📊 Diagnóstico Geral
-Avaliação geral da saúde do cenário (1-2 parágrafos)
-
 ## ✅ Pontos Fortes
-- Liste 2-3 métricas que estão boas comparado aos benchmarks
-
 ## ⚠️ Pontos de Atenção
-- Liste 2-3 métricas que precisam melhorar
-
 ## 💡 Recomendações Estratégicas
-1. **[Área]**: Recomendação específica e acionável
-2. **[Área]**: Outra recomendação
-3. **[Área]**: Terceira recomendação
-
 ## 🎯 Quick Wins
-- 2-3 ações rápidas que podem trazer resultados imediatos
-
 ## 📈 Projeção
-Breve análise da viabilidade da meta com base nos dados
 
 Seja objetivo, use dados concretos e sugira ações práticas. Responda em português do Brasil.`;
 
-    console.log("[analisar-simulacao] Calling Lovable AI Gateway for sales simulation analysis...");
+    console.log("[analisar-simulacao] Calling Lovable AI Gateway...");
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -142,11 +128,11 @@ Seja objetivo, use dados concretos e sugira ações práticas. Responda em portu
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: "google/gemini-2.0-flash-exp",
         messages: [
           {
             role: "system",
-            content: "Você é um consultor especialista em vendas SaaS, growth hacking e benchmarking de mercado. Forneça análises estratégicas baseadas em dados e melhores práticas do mercado."
+            content: "Você é um consultor especialista em vendas SaaS, growth hacking e benchmarking de mercado."
           },
           {
             role: "user",
@@ -159,19 +145,11 @@ Seja objetivo, use dados concretos e sugira ações práticas. Responda em portu
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error("[analisar-simulacao] AI Gateway error:", errorText);
       throw new Error(`AI Gateway error: ${response.status}`);
     }
 
     const aiResponse = await response.json();
     const analysis = aiResponse.choices?.[0]?.message?.content;
-
-    if (!analysis) {
-      throw new Error("No analysis returned from AI");
-    }
-
-    console.log("[analisar-simulacao] Analysis generated successfully");
 
     return new Response(
       JSON.stringify({ analysis }),
