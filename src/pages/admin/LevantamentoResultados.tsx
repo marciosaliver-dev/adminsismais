@@ -43,8 +43,6 @@ export default function LevantamentoResultados() {
   
   // General Report State
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
-  const [generalReport, setGeneralReport] = useState<string | null>(null);
-  const reportRef = useRef<HTMLDivElement>(null);
 
   // Image Adjustment State
   const [fitMode, setFitMode] = useState<"cover" | "contain">("contain");
@@ -57,7 +55,6 @@ export default function LevantamentoResultados() {
   const { 
     data: respostas = [], 
     isLoading, 
-    error,
     refetch, 
     isFetching 
   } = useQuery({
@@ -109,27 +106,65 @@ export default function LevantamentoResultados() {
     try {
       const { data, error } = await supabase.functions.invoke("analisar-levantamento-geral");
       
-      if (error) {
-        console.error("Supabase function error:", error);
-        throw error;
-      }
+      if (error) throw error;
       
-      if (!data?.report) {
-        throw new Error("Relatório não retornado pela IA.");
+      if (!data?.report || data.report.includes("Erro ao gerar relatório")) {
+        throw new Error("A IA não conseguiu processar os dados no momento. Tente novamente.");
       }
 
-      setGeneralReport(data.report);
-      toast({ title: "Relatório pronto!", description: "A análise executiva foi gerada com sucesso." });
+      // Converter Markdown básico para HTML para exibição na aba
+      const reportHtml = data.report
+        .replace(/^# (.*$)/gim, '<h1 style="color: #10293f; border-bottom: 2px solid #45e5e5; padding-bottom: 10px;">$1</h1>')
+        .replace(/^## (.*$)/gim, '<h2 style="color: #10293f; margin-top: 25px;">$1</h2>')
+        .replace(/^### (.*$)/gim, '<h3 style="color: #45e5e5;">$1</h3>')
+        .replace(/^\* (.*$)/gim, '<ul><li>$1</li></ul>')
+        .replace(/<\/ul>\n<ul>/gim, '')
+        .replace(/^\- (.*$)/gim, '<ul><li>$1</li></ul>')
+        .replace(/<\/ul>\n<ul>/gim, '')
+        .replace(/\*\*(.*?)\*\*/gim, '<strong>$1</strong>')
+        .split('\n\n')
+        .map((p: string) => p.startsWith('<h') || p.startsWith('<ul') ? p : `<p style="margin-bottom: 15px; line-height: 1.6;">${p}</p>`)
+        .join('');
+
+      const fullHtml = `
+        <!DOCTYPE html>
+        <html lang="pt-BR">
+        <head>
+          <meta charset="UTF-8">
+          <title>Relatório Estratégico - Sismais 10K</title>
+          <style>
+            body { font-family: system-ui, -apple-system, sans-serif; background: #f8fafc; padding: 40px 20px; color: #334155; }
+            .container { max-width: 850px; margin: 0 auto; background: white; padding: 50px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
+            .meta { font-size: 12px; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 30px; display: flex; justify-content: space-between; }
+            h1 { font-size: 2.2rem; }
+            h2 { font-size: 1.5rem; }
+            ul { padding-left: 20px; margin-bottom: 20px; }
+            li { margin-bottom: 10px; }
+            @media print { body { background: white; padding: 0; } .container { box-shadow: none; max-width: 100%; } }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="meta">
+              <span>Sismais 10K • Planejamento Estratégico</span>
+              <span>Gerado em: ${new Date().toLocaleString('pt-BR')}</span>
+            </div>
+            ${reportHtml}
+          </div>
+        </body>
+        </html>
+      `;
+
+      const blob = new Blob([fullHtml], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
       
-      // Scroll para o relatório após pequeno delay para renderizar
-      setTimeout(() => {
-        reportRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-      }, 100);
+      toast({ title: "Relatório gerado!", description: "A análise estratégica foi aberta em uma nova aba." });
     } catch (err: any) {
       console.error(err);
       toast({ 
         title: "Erro", 
-        description: "Não foi possível gerar o relatório estratégigo. Verifique os logs no painel Supabase.", 
+        description: err.message || "Não foi possível gerar o relatório estratégico.", 
         variant: "destructive" 
       });
     } finally {
@@ -209,17 +244,6 @@ export default function LevantamentoResultados() {
       window.removeEventListener("mouseup", onMouseUp);
     };
   }, [isDragging]);
-
-  // Função auxiliar para formatar negrito simples
-  const formatLine = (text: string) => {
-    const parts = text.split(/(\*\*.*?\*\*)/g);
-    return parts.map((part, i) => {
-      if (part.startsWith('**') && part.endsWith('**')) {
-        return <strong key={i}>{part.slice(2, -2)}</strong>;
-      }
-      return part;
-    });
-  };
 
   if (loadingPermissions || isLoading) {
     return (
@@ -333,45 +357,6 @@ export default function LevantamentoResultados() {
                   Gerar Relatório Estratégico (IA)
                 </Button>
               </div>
-
-              {generalReport && (
-                <div ref={reportRef}>
-                  <Card className="bg-gradient-to-br from-primary/5 to-secondary/5 border-primary/20 shadow-xl overflow-hidden animate-in fade-in slide-in-from-top-4 duration-700">
-                    <CardHeader className="bg-primary/10 border-b border-primary/10">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="p-2 bg-primary rounded-lg text-white shadow-md"><FileText className="w-5 h-5" /></div>
-                          <CardTitle className="text-xl">Análise Executiva do Time</CardTitle>
-                        </div>
-                        <Button variant="ghost" size="sm" onClick={() => setGeneralReport(null)}><X className="w-4 h-4" /></Button>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="pt-6">
-                      <div className="prose prose-sm md:prose-base max-w-none dark:prose-invert">
-                        {generalReport.split('\n').map((line, i) => {
-                          if (!line.trim()) return <br key={i} />;
-                          
-                          const isHeading = line.startsWith('#');
-                          const isListItem = line.trim().startsWith('-') || line.trim().startsWith('*');
-
-                          return (
-                            <p 
-                              key={i} 
-                              className={cn(
-                                isHeading ? "font-bold text-primary text-lg mt-4 mb-2" : "text-muted-foreground",
-                                isListItem ? "pl-4 mb-1" : "mb-2",
-                                "leading-relaxed"
-                              )}
-                            >
-                              {formatLine(line)}
-                            </p>
-                          );
-                        })}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-              )}
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <Card className="h-96"><CardHeader><CardTitle className="flex items-center gap-2"><Target className="w-4 h-4 text-primary" /> Perfil de Engajamento</CardTitle></CardHeader><CardContent className="h-72"><ResponsiveContainer width="100%" height="100%"><RadarChart cx="50%" cy="50%" outerRadius="80%" data={stats?.radarData}><PolarGrid /><PolarAngleAxis dataKey="subject" /><Radar name="Time" dataKey="A" stroke="#45E5E5" fill="#45E5E5" fillOpacity={0.6} /><RechartsTooltip /></RadarChart></ResponsiveContainer></CardContent></Card>

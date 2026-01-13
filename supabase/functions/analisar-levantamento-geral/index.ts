@@ -32,6 +32,10 @@ Deno.serve(async (req) => {
 
     if (fetchError) throw fetchError;
 
+    if (!respostas || respostas.length === 0) {
+      return new Response(JSON.stringify({ report: "Não há dados suficientes para gerar o relatório." }), { status: 200, headers: corsHeaders });
+    }
+
     // Preparar resumo compacto para a IA
     const resumoDados = respostas.map(r => ({
       clima: r.satisfacao_trabalho,
@@ -84,17 +88,23 @@ Seja direto, crítico quando necessário e propositivo. Responda em Português d
         Authorization: `Bearer ${LOVABLE_API_KEY}`,
       },
       body: JSON.stringify({
-        model: "google/gemini-2.0-flash-exp",
+        model: "google/gemini-1.5-flash",
         messages: [{ role: "user", content: prompt }],
         temperature: 0.7,
       }),
     });
 
+    if (!response.ok) {
+       const errorData = await response.json();
+       throw new Error(errorData.error?.message || "Erro na chamada da IA.");
+    }
+
     const payload = await response.json();
-    const report = payload.choices?.[0]?.message?.content || "Erro ao gerar relatório.";
+    const report = payload.choices?.[0]?.message?.content || "A IA não retornou um conteúdo válido.";
 
     return new Response(JSON.stringify({ report }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (error) {
+    console.error("[analisar-levantamento-geral] Error:", error.message);
     return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: corsHeaders });
   }
 });
