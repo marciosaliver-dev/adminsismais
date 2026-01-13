@@ -26,7 +26,7 @@ import { Input } from "@/components/ui/input";
 import { usePermissions } from "@/hooks/usePermissions";
 import { LevantamentoDetalhesDialog } from "@/components/levantamento/LevantamentoDetalhesDialog";
 import { MuralPrintCard } from "@/components/levantamento/MuralPrintCard";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import type { Tables } from "@/integrations/supabase/types";
@@ -107,12 +107,25 @@ export default function LevantamentoResultados() {
     setIsGeneratingReport(true);
     try {
       const { data, error } = await supabase.functions.invoke("analisar-levantamento-geral");
-      if (error) throw error;
+      
+      if (error) {
+        console.error("Supabase function error:", error);
+        throw error;
+      }
+      
+      if (!data?.report) {
+        throw new Error("Relatório não retornado pela IA.");
+      }
+
       setGeneralReport(data.report);
       toast({ title: "Relatório gerado!", description: "A análise executiva está pronta para leitura." });
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      toast({ title: "Erro", description: "Não foi possível gerar o relatório coletivo.", variant: "destructive" });
+      toast({ 
+        title: "Erro", 
+        description: "Não foi possível gerar o relatório. Certifique-se de que a Edge Function está implantada corretamente.", 
+        variant: "destructive" 
+      });
     } finally {
       setIsGeneratingReport(false);
     }
@@ -375,6 +388,10 @@ export default function LevantamentoResultados() {
 
       <Dialog open={isPrintModalOpen} onOpenChange={setIsPrintModalOpen}>
         <DialogContent className="max-w-[1000px] p-0 bg-transparent border-none overflow-hidden h-[98vh] flex flex-col items-center justify-center">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Visualização de Card para Impressão</DialogTitle>
+            <DialogDescription>Ajuste a posição e o zoom da imagem do sonho antes de imprimir.</DialogDescription>
+          </DialogHeader>
           <div className="absolute top-2 left-4 right-4 flex justify-between items-center z-50 pointer-events-auto">
             <div className="bg-black/90 backdrop-blur-2xl p-4 rounded-3xl border border-white/20 flex flex-col gap-4 shadow-2xl min-w-[500px]">
               <div className="flex items-center justify-between gap-8">
