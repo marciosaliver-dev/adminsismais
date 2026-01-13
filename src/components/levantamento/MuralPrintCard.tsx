@@ -39,13 +39,13 @@ export function MuralPrintCard({ resposta }: MuralPrintCardProps) {
         </div>
       </div>
 
-      {/* Container da Imagem - Preenchimento total */}
-      <div className="flex-1 bg-zinc-100 rounded-[32px] overflow-hidden border-4 border-white shadow-inner mb-10 relative flex items-center justify-center">
+      {/* Container da Imagem - Ajustado para não cortar (object-contain) */}
+      <div className="flex-1 bg-zinc-50 rounded-[32px] overflow-hidden border-4 border-white shadow-inner mb-10 relative flex items-center justify-center p-4">
         {resposta.fotos_sonhos && resposta.fotos_sonhos.length > 0 ? (
           <img 
             src={resposta.fotos_sonhos[0]} 
             alt="Meu Sonho" 
-            className="w-full h-full object-cover" 
+            className="w-full h-full object-contain" 
           />
         ) : (
           <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-primary/5 to-primary/20 text-primary/20">

@@ -88,7 +88,6 @@ export default function LevantamentoResultados() {
   }, [respostas, searchTerm]);
 
   const handleOpenPrintCard = (resposta: LevantamentoRow) => {
-    // Força atualização limpando o estado antes de setar
     setSelectedResposta(null);
     setTimeout(() => {
       setSelectedResposta(resposta);
@@ -281,9 +280,9 @@ export default function LevantamentoResultados() {
             </Button>
           </div>
 
-          {/* Container com Escala Automática */}
+          {/* Container com Escala Reduzida para caber todo o Card (800x1000) */}
           <div className="flex-1 w-full flex items-center justify-center p-4 overflow-hidden">
-            <div className="scale-[0.6] sm:scale-[0.7] md:scale-[0.8] lg:scale-[0.85] xl:scale-[0.9] origin-center transition-transform duration-300">
+            <div className="scale-[0.55] sm:scale-[0.65] md:scale-[0.75] lg:scale-[0.8] xl:scale-[0.85] origin-center transition-transform duration-300">
                {selectedResposta && <MuralPrintCard resposta={selectedResposta} />}
             </div>
           </div>
