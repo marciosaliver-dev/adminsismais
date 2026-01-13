@@ -17,7 +17,8 @@ import {
   Download, Loader2, Users, Heart, Star, Rocket, LayoutGrid, 
   MessageSquare, TrendingUp, Search, ExternalLink, RefreshCw,
   Target, Sparkles, AlertCircle, Image as ImageIcon, X,
-  Maximize2, Minimize2, Move, ZoomIn, RotateCcw
+  Maximize2, Minimize2, Move, ZoomIn, RotateCcw, Brain, FileText,
+  PieChart as PieIcon
 } from "lucide-react";
 import { useState, useMemo, useRef, useEffect } from "react";
 import * as XLSX from "xlsx";
@@ -25,7 +26,7 @@ import { Input } from "@/components/ui/input";
 import { usePermissions } from "@/hooks/usePermissions";
 import { LevantamentoDetalhesDialog } from "@/components/levantamento/LevantamentoDetalhesDialog";
 import { MuralPrintCard } from "@/components/levantamento/MuralPrintCard";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import type { Tables } from "@/integrations/supabase/types";
@@ -40,6 +41,10 @@ export default function LevantamentoResultados() {
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
   
+  // General Report State
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+  const [generalReport, setGeneralReport] = useState<string | null>(null);
+
   // Image Adjustment State
   const [fitMode, setFitMode] = useState<"cover" | "contain">("contain");
   const [imagePosition, setImagePosition] = useState({ x: 50, y: 50 });
@@ -98,6 +103,21 @@ export default function LevantamentoResultados() {
     );
   }, [respostas, searchTerm]);
 
+  const handleGenerateGeneralReport = async () => {
+    setIsGeneratingReport(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("analisar-levantamento-geral");
+      if (error) throw error;
+      setGeneralReport(data.report);
+      toast({ title: "Relatório gerado!", description: "A análise executiva está pronta para leitura." });
+    } catch (err) {
+      console.error(err);
+      toast({ title: "Erro", description: "Não foi possível gerar o relatório coletivo.", variant: "destructive" });
+    } finally {
+      setIsGeneratingReport(false);
+    }
+  };
+
   const handleOpenPrintCard = (resposta: LevantamentoRow) => {
     setSelectedResposta(null);
     setImagePosition({ x: 50, y: 50 });
@@ -145,7 +165,6 @@ export default function LevantamentoResultados() {
     const dx = e.clientX - dragStartPos.current.x;
     const dy = e.clientY - dragStartPos.current.y;
     
-    // Sensibilidade baseada na escala (quanto mais zoom, mais devagar move)
     const sensitivity = 0.1 / imageZoom;
     
     setImagePosition({
@@ -274,9 +293,43 @@ export default function LevantamentoResultados() {
             </TabsContent>
 
             <TabsContent value="indicadores" className="mt-6 space-y-6">
+              <div className="flex justify-end">
+                <Button 
+                  onClick={handleGenerateGeneralReport} 
+                  disabled={isGeneratingReport}
+                  className="bg-primary hover:bg-primary/90 text-white gap-2 shadow-lg"
+                >
+                  {isGeneratingReport ? <Loader2 className="w-4 h-4 animate-spin" /> : <Brain className="w-4 h-4" />}
+                  Gerar Relatório Estratégico (IA)
+                </Button>
+              </div>
+
+              {generalReport && (
+                <Card className="bg-gradient-to-br from-primary/5 to-secondary/5 border-primary/20 shadow-xl overflow-hidden animate-in fade-in slide-in-from-top-4 duration-700">
+                  <CardHeader className="bg-primary/10 border-b border-primary/10">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-primary rounded-lg text-white shadow-md"><FileText className="w-5 h-5" /></div>
+                        <CardTitle className="text-xl">Análise Executiva do Time</CardTitle>
+                      </div>
+                      <Button variant="ghost" size="sm" onClick={() => setGeneralReport(null)}><X className="w-4 h-4" /></Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="pt-6">
+                    <div className="prose prose-sm md:prose-base max-w-none dark:prose-invert">
+                      {generalReport.split('\n').map((line, i) => (
+                        <p key={i} className={cn(line.startsWith('#') ? "font-bold text-primary" : "text-muted-foreground", "mb-2")}>
+                          {line}
+                        </p>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <Card className="h-96"><CardHeader><CardTitle>Perfil de Engajamento</CardTitle></CardHeader><CardContent className="h-72"><ResponsiveContainer width="100%" height="100%"><RadarChart cx="50%" cy="50%" outerRadius="80%" data={stats?.radarData}><PolarGrid /><PolarAngleAxis dataKey="subject" /><Radar name="Time" dataKey="A" stroke="#45E5E5" fill="#45E5E5" fillOpacity={0.6} /><RechartsTooltip /></RadarChart></ResponsiveContainer></CardContent></Card>
-                <Card className="h-96"><CardHeader><CardTitle>Distribuição de Satisfação</CardTitle></CardHeader><CardContent className="h-72"><ResponsiveContainer width="100%" height="100%"><BarChart data={stats?.satisfacaoDist}><CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey="nota" /><YAxis /><RechartsTooltip /><Bar dataKey="qtd" fill="#45E5E5" radius={[4, 4, 0, 0]} /></BarChart></ResponsiveContainer></CardContent></Card>
+                <Card className="h-96"><CardHeader><CardTitle className="flex items-center gap-2"><Target className="w-4 h-4 text-primary" /> Perfil de Engajamento</CardTitle></CardHeader><CardContent className="h-72"><ResponsiveContainer width="100%" height="100%"><RadarChart cx="50%" cy="50%" outerRadius="80%" data={stats?.radarData}><PolarGrid /><PolarAngleAxis dataKey="subject" /><Radar name="Time" dataKey="A" stroke="#45E5E5" fill="#45E5E5" fillOpacity={0.6} /><RechartsTooltip /></RadarChart></ResponsiveContainer></CardContent></Card>
+                <Card className="h-96"><CardHeader><CardTitle className="flex items-center gap-2"><PieIcon className="w-4 h-4 text-primary" /> Distribuição de Satisfação</CardTitle></CardHeader><CardContent className="h-72"><ResponsiveContainer width="100%" height="100%"><BarChart data={stats?.satisfacaoDist}><CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey="nota" /><YAxis /><RechartsTooltip /><Bar dataKey="qtd" fill="#45E5E5" radius={[4, 4, 0, 0]} /></BarChart></ResponsiveContainer></CardContent></Card>
               </div>
             </TabsContent>
 
@@ -322,11 +375,8 @@ export default function LevantamentoResultados() {
 
       <Dialog open={isPrintModalOpen} onOpenChange={setIsPrintModalOpen}>
         <DialogContent className="max-w-[1000px] p-0 bg-transparent border-none overflow-hidden h-[98vh] flex flex-col items-center justify-center">
-          {/* Header de Ação Estendido na Modal */}
           <div className="absolute top-2 left-4 right-4 flex justify-between items-center z-50 pointer-events-auto">
             <div className="bg-black/90 backdrop-blur-2xl p-4 rounded-3xl border border-white/20 flex flex-col gap-4 shadow-2xl min-w-[500px]">
-              
-              {/* Controles Principais */}
               <div className="flex items-center justify-between gap-8">
                 <div className="flex items-center gap-4">
                   <div className="flex bg-white/10 p-1 rounded-xl border border-white/10">
@@ -351,7 +401,6 @@ export default function LevantamentoResultados() {
                       <Maximize2 className="w-3.5 h-3.5" /> Preencher
                     </Button>
                   </div>
-
                   {fitMode === "cover" && (
                     <div className="flex items-center gap-2 px-3 py-1 bg-primary/20 rounded-lg border border-primary/30">
                       <Move className="w-3 h-3 text-primary" />
@@ -359,7 +408,6 @@ export default function LevantamentoResultados() {
                     </div>
                   )}
                 </div>
-
                 <div className="flex items-center gap-4">
                   <Button variant="ghost" size="icon" className="h-8 w-8 text-white/60 hover:text-white" onClick={() => {
                     setImagePosition({ x: 50, y: 50 });
@@ -371,8 +419,6 @@ export default function LevantamentoResultados() {
                   <p className="text-white text-xs font-bold whitespace-nowrap"><b>Ctrl + P</b></p>
                 </div>
               </div>
-
-              {/* Slider de Zoom - Só aparece no modo cover */}
               {fitMode === "cover" && (
                 <div className="flex items-center gap-4 px-2">
                   <ZoomIn className="w-4 h-4 text-white/60" />
@@ -388,13 +434,10 @@ export default function LevantamentoResultados() {
                 </div>
               )}
             </div>
-            
             <Button variant="outline" size="icon" className="rounded-full h-12 w-12 bg-white/10 border-white/20 text-white hover:bg-white/20 backdrop-blur-md shadow-xl" onClick={() => setIsPrintModalOpen(false)}>
               <X className="w-5 h-5" />
             </Button>
           </div>
-
-          {/* Container com Escala Reduzida e Eventos de Drag */}
           <div className="flex-1 w-full flex items-center justify-center p-4 overflow-hidden mt-12">
             <div 
               className={cn(
