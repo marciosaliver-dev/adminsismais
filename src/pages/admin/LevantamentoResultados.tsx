@@ -6,57 +6,38 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, Legend, RadarChart, PolarGrid, PolarAngleAxis, Radar
+  RadarChart, PolarGrid, PolarAngleAxis, Radar
 } from "recharts";
 import { 
   Download, Loader2, Users, Heart, Star, Rocket, LayoutGrid, 
-  MessageSquare, TrendingUp, Search, Filter, ExternalLink, Brain
+  MessageSquare, TrendingUp, Search, ExternalLink, Brain
 } from "lucide-react";
 import { useState, useMemo } from "react";
 import * as XLSX from "xlsx";
 import { Input } from "@/components/ui/input";
 import { usePermissions } from "@/hooks/usePermissions";
-import { PermissionGate } from "@/components/auth/PermissionGate";
+import { LevantamentoDetalhesDialog } from "@/components/levantamento/LevantamentoDetalhesDialog";
 import type { Tables } from "@/integrations/supabase/types";
-
-const COLORS = ['#45E5E5', '#10293F', '#FFD700', '#FF8042', '#00C49F', '#FFBB28'];
 
 type LevantamentoRow = Tables<"levantamento_operacional_2024">;
 
 export default function LevantamentoResultados() {
   const { isAdmin } = usePermissions();
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedResposta, setSelectedResposta] = useState<LevantamentoRow | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   const fetchResponses = async () => {
-    const tableNames = ["levantamento_operacional_2024", "crm.levantamento_operacional_2024"] as const;
-    const rowsMap = new Map<string, LevantamentoRow>();
+    const { data, error } = await supabase
+      .from("levantamento_operacional_2024")
+      .select("*")
+      .order("created_at", { ascending: false });
 
-    for (const table of tableNames) {
-      const { data, error } = await supabase
-        .from(table as any)
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (error) {
-        const msg = error.message?.toLowerCase() || "";
-        if (!msg.includes("relation") && !msg.includes("schema")) {
-          throw error;
-        }
-        continue;
-      }
-
-      (data || []).forEach((row) => {
-        if (row?.id) {
-          rowsMap.set(row.id, row as LevantamentoRow);
-        }
-      });
-    }
-
-    return Array.from(rowsMap.values());
+    if (error) throw error;
+    return data as LevantamentoRow[];
   };
 
   const { data: respostas = [], isLoading } = useQuery({
@@ -72,23 +53,12 @@ export default function LevantamentoResultados() {
 
     const avgSatisfacao = validRespostas.reduce((acc, r) => acc + (r.satisfacao_trabalho || 0), 0) / validRespostas.length;
     
-    const avgScoreAutonomia = validRespostas.reduce((acc, r) => acc + (r.score_autonomia || 0), 0) / validRespostas.length;
-    const avgScoreMaestria = validRespostas.reduce((acc, r) => acc + (r.score_maestria || 0), 0) / validRespostas.length;
-    const avgScoreProposito = validRespostas.reduce((acc, r) => acc + (r.score_proposito || 0), 0) / validRespostas.length;
-    const avgScoreFinanceiro = validRespostas.reduce((acc, r) => acc + (r.score_financeiro || 0), 0) / validRespostas.length;
-    const avgScoreAmbiente = validRespostas.reduce((acc, r) => acc + (r.score_ambiente || 0), 0) / validRespostas.length;
-
-    const liderancaInteresse = {
-      sim: respostas.filter(r => r.interesse_lideranca === true).length,
-      nao: respostas.filter(r => r.interesse_lideranca === false).length,
-    };
-
     const radarData = [
-      { subject: 'Autonomia', A: parseFloat(avgScoreAutonomia.toFixed(1)), fullMark: 5 },
-      { subject: 'Maestria', A: parseFloat(avgScoreMaestria.toFixed(1)), fullMark: 5 },
-      { subject: 'Propósito', A: parseFloat(avgScoreProposito.toFixed(1)), fullMark: 5 },
-      { subject: 'Financeiro', A: parseFloat(avgScoreFinanceiro.toFixed(1)), fullMark: 5 },
-      { subject: 'Ambiente', A: parseFloat(avgScoreAmbiente.toFixed(1)), fullMark: 5 },
+      { subject: 'Autonomia', A: (validRespostas.reduce((acc, r) => acc + (r.score_autonomia || 0), 0) / validRespostas.length) },
+      { subject: 'Maestria', A: (validRespostas.reduce((acc, r) => acc + (r.score_maestria || 0), 0) / validRespostas.length) },
+      { subject: 'Propósito', A: (validRespostas.reduce((acc, r) => acc + (r.score_proposito || 0), 0) / validRespostas.length) },
+      { subject: 'Financeiro', A: (validRespostas.reduce((acc, r) => acc + (r.score_financeiro || 0), 0) / validRespostas.length) },
+      { subject: 'Ambiente', A: (validRespostas.reduce((acc, r) => acc + (r.score_ambiente || 0), 0) / validRespostas.length) },
     ];
 
     const satisfacaoDist = Array.from({ length: 11 }, (_, i) => ({
@@ -100,7 +70,6 @@ export default function LevantamentoResultados() {
       total: respostas.length,
       avgSatisfacao,
       radarData,
-      liderancaInteresse,
       satisfacaoDist
     };
   }, [respostas]);
@@ -112,74 +81,27 @@ export default function LevantamentoResultados() {
     );
   }, [respostas, searchTerm]);
 
+  const handleOpenDetails = (resposta: LevantamentoRow) => {
+    setSelectedResposta(resposta);
+    setIsDialogOpen(true);
+  };
+
   const exportToExcel = () => {
     const exportData = respostas.map(r => ({
       "Nome": r.colaborador_nome,
       "Função": r.funcao_atual,
-      "Satisfação (0-10)": r.satisfacao_trabalho,
-      "Motivo Satisfação Baixa": r.motivo_satisfacao_baixa,
-      "Talento Oculto": r.talento_oculto,
-      "Rotina Diária": r.rotina_diaria,
-      "Expectativa Empresa": r.expectativa_empresa,
-      "Definição Sucesso": r.definicao_sucesso,
-      "Sentimento Valorização": r.sentimento_valorizacao,
-      "Atividades Top 5": r.atividades_top5,
-      "Ladrão de Tempo": r.ladrao_tempo,
-      "Ferramentas Uso": r.ferramentas_uso,
-      "Interdependências": r.interdependencias,
-      "START (Começar)": r.start_action,
-      "STOP (Parar)": r.stop_action,
-      "CONTINUE (Manter)": r.continue_action,
-      "Reclamação Cliente": r.reclamacao_cliente,
-      "Prioridades Setor": r.prioridades_setor,
-      "Visão Papel 10K": r.visao_papel_10k,
-      "Falta Plano 2026": r.falta_plano_2026,
-      "Falta Metas 2025": r.falta_metas_2025,
-      "Score Autonomia (1-5)": r.score_autonomia,
-      "Score Maestria (1-5)": r.score_maestria,
-      "Score Propósito (1-5)": r.score_proposito,
-      "Score Financeiro (1-5)": r.score_financeiro,
-      "Score Ambiente (1-5)": r.score_ambiente,
-      "Interesse Liderança": r.interesse_lideranca ? "Sim" : "Não",
-      "Motivo Liderança": r.motivo_lideranca,
-      "Papel Bom Líder": r.papel_bom_lider,
-      "Maior Sonho": r.maior_sonho,
-      "Fotos Sonhos (URLs)": r.fotos_sonhos?.join(', '),
-      "Data Envio": new Date(r.created_at).toLocaleString('pt-BR'),
+      "Satisfação": r.satisfacao_trabalho,
+      "Destaque": r.talento_oculto,
+      "Sonho": r.maior_sonho,
+      "Data": new Date(r.created_at).toLocaleDateString('pt-BR'),
     }));
-    
     const ws = XLSX.utils.json_to_sheet(exportData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Respostas");
-    XLSX.writeFile(wb, `Levantamento_Sismais_10K_${new Date().toISOString().split('T')[0]}.xlsx`);
+    XLSX.writeFile(wb, `Mapeamento_Sismais_10K.xlsx`);
   };
 
-  if (!isAdmin) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Card className="max-w-md">
-          <CardHeader>
-            <CardTitle className="text-destructive">Acesso Negado</CardTitle>
-            <CardDescription>
-              Você não tem permissão para acessar esta página.
-            </CardDescription>
-          </CardHeader>
-        </Card>
-      </div>
-    );
-  }
-
   if (isLoading) return <div className="flex items-center justify-center h-96"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
-
-  if (respostas.length === 0) {
-    return (
-      <div className="text-center py-16">
-        <Brain className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-        <h2 className="text-xl font-bold">Nenhuma resposta encontrada</h2>
-        <p className="text-muted-foreground">Aguardando o preenchimento do formulário pelo time.</p>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6">
@@ -193,13 +115,14 @@ export default function LevantamentoResultados() {
         </Button>
       </div>
 
+      {/* Stats Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="bg-primary/5 border-primary/20">
           <CardContent className="pt-6">
             <div className="flex items-center gap-4">
               <div className="p-3 bg-primary/10 rounded-xl"><Users className="text-primary w-6 h-6" /></div>
               <div>
-                <p className="text-sm text-muted-foreground">Total de Respostas</p>
+                <p className="text-sm text-muted-foreground">Respostas</p>
                 <p className="text-2xl font-bold">{stats?.total}</p>
               </div>
             </div>
@@ -210,19 +133,8 @@ export default function LevantamentoResultados() {
             <div className="flex items-center gap-4">
               <div className="p-3 bg-green-100 rounded-xl"><Star className="text-green-600 w-6 h-6" /></div>
               <div>
-                <p className="text-sm text-muted-foreground">Satisfação Média</p>
+                <p className="text-sm text-muted-foreground">Média Clima</p>
                 <p className="text-2xl font-bold text-green-700">{stats?.avgSatisfacao.toFixed(1)}/10</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="bg-amber-50/50 border-amber-200">
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-amber-100 rounded-xl"><TrendingUp className="text-amber-600 w-6 h-6" /></div>
-              <div>
-                <p className="text-sm text-muted-foreground">Interesse Liderança</p>
-                <p className="text-2xl font-bold text-amber-700">{stats?.liderancaInteresse.sim}</p>
               </div>
             </div>
           </CardContent>
@@ -232,8 +144,19 @@ export default function LevantamentoResultados() {
             <div className="flex items-center gap-4">
               <div className="p-3 bg-purple-100 rounded-xl"><Rocket className="text-purple-600 w-6 h-6" /></div>
               <div>
-                <p className="text-sm text-muted-foreground">Média Autonomia</p>
+                <p className="text-sm text-muted-foreground">Autonomia</p>
                 <p className="text-2xl font-bold text-purple-700">{stats?.radarData.find(d => d.subject === 'Autonomia')?.A.toFixed(1)}/5</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-amber-50/50 border-amber-200">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-amber-100 rounded-xl"><TrendingUp className="text-amber-600 w-6 h-6" /></div>
+              <div>
+                <p className="text-sm text-muted-foreground">Maestria</p>
+                <p className="text-2xl font-bold text-amber-700">{stats?.radarData.find(d => d.subject === 'Maestria')?.A.toFixed(1)}/5</p>
               </div>
             </div>
           </CardContent>
@@ -250,7 +173,7 @@ export default function LevantamentoResultados() {
         <TabsContent value="indicadores" className="mt-6 space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card>
-              <CardHeader><CardTitle>Perfil de Engajamento</CardTitle><CardDescription>Média das avaliações de cultura e trabalho (escala 1-5)</CardDescription></CardHeader>
+              <CardHeader><CardTitle>Perfil de Engajamento</CardTitle></CardHeader>
               <CardContent className="h-80">
                 <ResponsiveContainer width="100%" height="100%">
                   <RadarChart cx="50%" cy="50%" outerRadius="80%" data={stats?.radarData}>
@@ -263,7 +186,7 @@ export default function LevantamentoResultados() {
             </Card>
 
             <Card>
-              <CardHeader><CardTitle>Distribuição de Satisfação</CardTitle><CardDescription>Frequência das notas de felicidade no trabalho (0-10)</CardDescription></CardHeader>
+              <CardHeader><CardTitle>Distribuição de Satisfação</CardTitle></CardHeader>
               <CardContent className="h-80">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={stats?.satisfacaoDist}>
@@ -297,7 +220,6 @@ export default function LevantamentoResultados() {
                     <TableHead>Colaborador</TableHead>
                     <TableHead>Função</TableHead>
                     <TableHead className="text-center">Satisfação</TableHead>
-                    <TableHead className="text-center">Liderança?</TableHead>
                     <TableHead>Principal Gargalo</TableHead>
                     <TableHead className="text-right">Ação</TableHead>
                   </TableRow>
@@ -312,13 +234,15 @@ export default function LevantamentoResultados() {
                           {r.satisfacao_trabalho}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-center">
-                        {r.interesse_lideranca ? <Badge className="bg-green-500">Sim</Badge> : <Badge variant="secondary">Não</Badge>}
-                      </TableCell>
-                      <TableCell className="max-w-xs truncate" title={r.ladrao_tempo || ""}>{r.ladrao_tempo}</TableCell>
+                      <TableCell className="max-w-xs truncate">{r.ladrao_tempo}</TableCell>
                       <TableCell className="text-right">
-                        <Button variant="ghost" size="sm" className="gap-1">
-                          <ExternalLink className="w-3 h-3" /> Ver Tudo
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="gap-1 text-primary hover:text-primary hover:bg-primary/10"
+                          onClick={() => handleOpenDetails(r)}
+                        >
+                          <ExternalLink className="w-3 h-3" /> Ver Detalhes
                         </Button>
                       </TableCell>
                     </TableRow>
@@ -331,39 +255,22 @@ export default function LevantamentoResultados() {
 
         <TabsContent value="mural" className="mt-6">
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Heart className="w-5 h-5 text-red-500" />
-                Mural dos Sonhos
-              </CardTitle>
-              <CardDescription>
-                Os maiores sonhos do time e as imagens que os inspiram.
-              </CardDescription>
-            </CardHeader>
+            <CardHeader><CardTitle>Mural dos Sonhos</CardTitle></CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 {respostas.filter(r => r.maior_sonho).map((r) => (
-                  <Card key={r.id} className="overflow-hidden group">
+                  <Card key={r.id} className="overflow-hidden group cursor-pointer" onClick={() => handleOpenDetails(r)}>
                     <div className="relative aspect-video bg-muted">
                       {r.fotos_sonhos && r.fotos_sonhos.length > 0 ? (
-                        <img 
-                          src={r.fotos_sonhos[0]} 
-                          alt="Sonho" 
-                          className="w-full h-full object-cover transition-transform group-hover:scale-105" 
-                        />
+                        <img src={r.fotos_sonhos[0]} alt="Sonho" className="w-full h-full object-cover transition-transform group-hover:scale-105" />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-                          Sem imagem
-                        </div>
+                        <div className="w-full h-full flex items-center justify-center text-muted-foreground">Sem imagem</div>
                       )}
-                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center p-4">
-                        <p className="text-white text-sm text-center italic">"{r.maior_sonho?.substring(0, 100)}..."</p>
-                      </div>
                     </div>
-                    <CardContent className="p-4 bg-primary/5">
+                    <CardContent className="p-4">
                       <p className="font-bold text-primary">{r.colaborador_nome}</p>
                       <p className="text-xs text-muted-foreground">{r.funcao_atual}</p>
-                      <p className="text-sm mt-2 line-clamp-3">{r.maior_sonho}</p>
+                      <p className="text-sm mt-2 line-clamp-3 italic">"{r.maior_sonho}"</p>
                     </CardContent>
                   </Card>
                 ))}
@@ -372,6 +279,12 @@ export default function LevantamentoResultados() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <LevantamentoDetalhesDialog 
+        open={isDialogOpen} 
+        onOpenChange={setIsDialogOpen} 
+        resposta={selectedResposta} 
+      />
     </div>
   );
 }
