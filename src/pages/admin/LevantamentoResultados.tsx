@@ -25,24 +25,43 @@ import type { Tables } from "@/integrations/supabase/types";
 
 const COLORS = ['#45E5E5', '#10293F', '#FFD700', '#FF8042', '#00C49F', '#FFBB28'];
 
-// Usando a tipagem completa da tabela
 type LevantamentoRow = Tables<"levantamento_operacional_2024">;
 
 export default function LevantamentoResultados() {
   const { isAdmin } = usePermissions();
   const [searchTerm, setSearchTerm] = useState("");
 
-  const { data: respostas = [], isLoading } = useQuery({
-    queryKey: ["levantamento-resultados"],
-    queryFn: async () => {
+  const fetchResponses = async () => {
+    const tableNames = ["levantamento_operacional_2024", "crm.levantamento_operacional_2024"] as const;
+    const rowsMap = new Map<string, LevantamentoRow>();
+
+    for (const table of tableNames) {
       const { data, error } = await supabase
-        .from("levantamento_operacional_2024")
+        .from(table as any)
         .select("*")
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
-      return data as LevantamentoRow[];
-    },
+      if (error) {
+        const msg = error.message?.toLowerCase() || "";
+        if (!msg.includes("relation") && !msg.includes("schema")) {
+          throw error;
+        }
+        continue;
+      }
+
+      (data || []).forEach((row) => {
+        if (row?.id) {
+          rowsMap.set(row.id, row as LevantamentoRow);
+        }
+      });
+    }
+
+    return Array.from(rowsMap.values());
+  };
+
+  const { data: respostas = [], isLoading } = useQuery({
+    queryKey: ["levantamento-resultados"],
+    queryFn: fetchResponses,
     enabled: isAdmin,
   });
 
@@ -174,7 +193,6 @@ export default function LevantamentoResultados() {
         </Button>
       </div>
 
-      {/* Overview Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="bg-primary/5 border-primary/20">
           <CardContent className="pt-6">
