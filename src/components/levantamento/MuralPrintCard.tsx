@@ -22,7 +22,7 @@ export function MuralPrintCard({ resposta }: MuralPrintCardProps) {
       <div className="absolute bottom-[-100px] left-[-100px] w-80 h-80 bg-primary/5 rounded-full blur-3xl" />
 
       {/* Header do Card */}
-      <div className="flex justify-between items-center mb-12 relative z-10">
+      <div className="flex justify-between items-center mb-10 relative z-10">
         <div className="flex items-center gap-3">
           <div className="p-3 bg-primary rounded-2xl shadow-lg shadow-primary/20">
             <Rocket className="w-8 h-8 text-white" />
@@ -33,19 +33,19 @@ export function MuralPrintCard({ resposta }: MuralPrintCardProps) {
           </div>
         </div>
         <div className="text-right">
-          <Badge variant="outline" className="text-primary border-primary/30 px-4 py-1 text-lg font-bold">
+          <Badge variant="outline" className="text-primary border-primary/30 px-4 py-1 text-lg font-bold bg-white">
             MURAL DOS SONHOS
           </Badge>
         </div>
       </div>
 
-      {/* Container da Imagem */}
-      <div className="flex-1 bg-muted rounded-[32px] overflow-hidden border-4 border-white shadow-xl mb-12 relative">
+      {/* Container da Imagem - Ajustado para não cortar (object-contain) */}
+      <div className="flex-1 bg-zinc-50 rounded-[32px] overflow-hidden border-4 border-white shadow-inner mb-10 relative flex items-center justify-center">
         {resposta.fotos_sonhos && resposta.fotos_sonhos.length > 0 ? (
           <img 
             src={resposta.fotos_sonhos[0]} 
             alt="Meu Sonho" 
-            className="w-full h-full object-cover" 
+            className="max-w-full max-h-full object-contain" 
           />
         ) : (
           <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-primary/5 to-primary/20 text-primary/20">
@@ -60,7 +60,7 @@ export function MuralPrintCard({ resposta }: MuralPrintCardProps) {
         <Quote className="w-16 h-16 text-primary/10 absolute -top-8 -left-4 rotate-180" />
         
         <div className="space-y-6">
-          <p className="text-3xl font-medium text-secondary leading-relaxed italic text-center">
+          <p className="text-3xl font-medium text-secondary leading-relaxed italic text-center min-h-[120px] flex items-center justify-center">
             "{resposta.maior_sonho}"
           </p>
           
