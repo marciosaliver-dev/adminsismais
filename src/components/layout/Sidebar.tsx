@@ -1,3 +1,5 @@
+"use client";
+
 import { useState, useEffect } from "react";
 import { NavLink } from "@/components/NavLink";
 import { cn } from "@/lib/utils";
@@ -256,18 +258,19 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
         <div className="flex flex-col items-center p-4 border-b border-sidebar-border">
           <div className="flex items-center justify-between w-full mb-2">
             {!isCollapsed && (
-              <div className="flex items-center gap-2">
-                <img src="/logo_sismais.png" alt="Sismais" className="h-10 w-auto object-contain" />
+              <div className="flex items-center gap-3">
+                <img src="/icone_logo_op2_lateral_quadrada.png" alt="Sismais" className="h-10 w-10 object-contain" />
+                <span className="font-heading font-bold text-lg text-sidebar-foreground tracking-tight">SISMAIS</span>
               </div>
             )}
             {isCollapsed && (
-              <img src="/logo_sismais.png" alt="S" className="h-6 w-auto object-contain mx-auto" />
+              <img src="/icone_logo_op2_lateral_quadrada.png" alt="S" className="h-8 w-8 object-contain mx-auto" />
             )}
             <Button
               variant="ghost"
               size="icon"
               className={cn(
-                "hidden lg:flex text-sidebar-foreground hover:bg-sidebar-accent",
+                "hidden lg:flex text-sidebar-foreground hover:bg-sidebar-accent ml-2",
                 isCollapsed && "hidden"
               )}
               onClick={toggleCollapse}

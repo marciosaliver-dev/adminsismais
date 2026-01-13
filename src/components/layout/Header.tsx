@@ -37,7 +37,7 @@ export function Header({ onMenuClick }: HeaderProps) {
           <Menu className="w-5 h-5" />
         </Button>
         <div className="lg:hidden">
-          <img src="/logo_sismais.png" alt="Sismais" className="h-6 w-auto object-contain" />
+          <img src="/icone_logo_op2_lateral_quadrada.png" alt="Sismais" className="h-8 w-8 object-contain" />
         </div>
       </div>
 
