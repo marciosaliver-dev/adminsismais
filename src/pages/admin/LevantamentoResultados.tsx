@@ -35,8 +35,8 @@ export default function LevantamentoResultados() {
   const { data: respostas = [], isLoading, refetch, isFetching } = useQuery({
     queryKey: ["levantamento-resultados"],
     queryFn: async () => {
+      // Removido .schema("crm") para usar o public por padrão
       const { data, error } = await supabase
-        .schema("crm")
         .from("levantamento_operacional_2024")
         .select("*")
         .order("created_at", { ascending: false });

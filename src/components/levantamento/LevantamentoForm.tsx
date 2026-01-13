@@ -160,8 +160,8 @@ export function LevantamentoForm() {
     queryKey: ["existing-levantamento", profile?.nome],
     queryFn: async () => {
       if (!profile?.nome) return null;
+      // Usando o schema default (public)
       const { data, error } = await supabase
-        .schema("crm")
         .from("levantamento_operacional_2024")
         .select("*")
         .eq("colaborador_nome", profile.nome)
@@ -270,8 +270,8 @@ export function LevantamentoForm() {
         fotos_sonhos: data.fotos_sonhos,
       };
 
+      // Usando o schema default (public)
       const { error } = await supabase
-        .schema("crm")
         .from("levantamento_operacional_2024")
         .insert(payload);
         
