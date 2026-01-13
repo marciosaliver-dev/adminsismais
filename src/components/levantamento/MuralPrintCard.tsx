@@ -14,7 +14,7 @@ export function MuralPrintCard({ resposta }: MuralPrintCardProps) {
   return (
     <div 
       id={`card-sonho-${resposta.id}`}
-      className="w-[800px] h-[1000px] bg-white p-12 flex flex-col relative overflow-hidden shadow-2xl border-[16px] border-primary/10"
+      className="w-[800px] h-[1000px] bg-white p-12 flex flex-col relative overflow-hidden shadow-2xl border-[16px] border-primary/10 flex-shrink-0"
       style={{ fontFamily: "'Poppins', sans-serif" }}
     >
       {/* Background Decorativo */}
@@ -39,13 +39,13 @@ export function MuralPrintCard({ resposta }: MuralPrintCardProps) {
         </div>
       </div>
 
-      {/* Container da Imagem - Ajustado para não cortar (object-contain) */}
-      <div className="flex-1 bg-zinc-50 rounded-[32px] overflow-hidden border-4 border-white shadow-inner mb-10 relative flex items-center justify-center">
+      {/* Container da Imagem - Preenchimento total */}
+      <div className="flex-1 bg-zinc-100 rounded-[32px] overflow-hidden border-4 border-white shadow-inner mb-10 relative flex items-center justify-center">
         {resposta.fotos_sonhos && resposta.fotos_sonhos.length > 0 ? (
           <img 
             src={resposta.fotos_sonhos[0]} 
             alt="Meu Sonho" 
-            className="max-w-full max-h-full object-contain" 
+            className="w-full h-full object-cover" 
           />
         ) : (
           <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-primary/5 to-primary/20 text-primary/20">
@@ -60,13 +60,13 @@ export function MuralPrintCard({ resposta }: MuralPrintCardProps) {
         <Quote className="w-16 h-16 text-primary/10 absolute -top-8 -left-4 rotate-180" />
         
         <div className="space-y-6">
-          <p className="text-3xl font-medium text-secondary leading-relaxed italic text-center min-h-[120px] flex items-center justify-center">
+          <p className="text-3xl font-medium text-secondary leading-tight italic text-center min-h-[140px] flex items-center justify-center">
             "{resposta.maior_sonho}"
           </p>
           
           <div className="pt-8 border-t border-primary/10 flex justify-between items-end">
-            <div>
-              <h3 className="text-4xl font-black text-primary tracking-tight leading-none uppercase">
+            <div className="flex-1">
+              <h3 className="text-4xl font-black text-primary tracking-tight leading-none uppercase truncate">
                 {resposta.colaborador_nome}
               </h3>
               <p className="text-xl text-muted-foreground mt-2 font-medium">
@@ -74,13 +74,13 @@ export function MuralPrintCard({ resposta }: MuralPrintCardProps) {
               </p>
             </div>
             
-            <div className="flex flex-col items-end gap-1">
+            <div className="flex flex-col items-end gap-1 ml-4">
               <div className="flex gap-1">
                 {[1, 2, 3, 4, 5].map((s) => (
                   <Star key={s} className="w-5 h-5 fill-primary text-primary" />
                 ))}
               </div>
-              <p className="text-xs font-bold text-primary/40 uppercase tracking-widest">Comprometimento Sismais</p>
+              <p className="text-[10px] font-bold text-primary/40 uppercase tracking-widest whitespace-nowrap">Comprometimento Sismais</p>
             </div>
           </div>
         </div>

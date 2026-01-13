@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Separator } from "@/components/ui/separator";
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,
   RadarChart, PolarGrid, PolarAngleAxis, Radar
@@ -14,7 +15,7 @@ import {
 import { 
   Download, Loader2, Users, Heart, Star, Rocket, LayoutGrid, 
   MessageSquare, TrendingUp, Search, ExternalLink, RefreshCw,
-  Target, Sparkles, AlertCircle, Image as ImageIcon
+  Target, Sparkles, AlertCircle, Image as ImageIcon, X
 } from "lucide-react";
 import { useState, useMemo } from "react";
 import * as XLSX from "xlsx";
@@ -87,8 +88,12 @@ export default function LevantamentoResultados() {
   }, [respostas, searchTerm]);
 
   const handleOpenPrintCard = (resposta: LevantamentoRow) => {
-    setSelectedResposta(resposta);
-    setIsPrintModalOpen(true);
+    // Força atualização limpando o estado antes de setar
+    setSelectedResposta(null);
+    setTimeout(() => {
+      setSelectedResposta(resposta);
+      setIsPrintModalOpen(true);
+    }, 10);
   };
 
   const handleOpenDetails = (resposta: LevantamentoRow) => {
@@ -261,13 +266,26 @@ export default function LevantamentoResultados() {
       />
 
       <Dialog open={isPrintModalOpen} onOpenChange={setIsPrintModalOpen}>
-        <DialogContent className="max-w-[850px] p-0 bg-transparent border-none overflow-hidden h-[90vh] flex flex-col items-center">
-          <div className="sticky top-0 w-full flex justify-between p-4 bg-black/50 backdrop-blur-sm z-50">
-            <p className="text-white text-sm">Dica: Use <b>Ctrl + P</b> ou ferramenta de captura para salvar este card.</p>
-            <Button variant="outline" size="sm" className="text-white border-white hover:bg-white/20" onClick={() => setIsPrintModalOpen(false)}>Fechar</Button>
+        <DialogContent className="max-w-[850px] p-0 bg-transparent border-none overflow-hidden h-[95vh] flex flex-col items-center justify-center">
+          {/* Header de Ação na Modal */}
+          <div className="absolute top-4 left-4 right-4 flex justify-between items-center z-50 pointer-events-auto">
+            <div className="bg-black/60 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 flex items-center gap-4">
+              <p className="text-white text-xs font-medium">Use <b>Ctrl + P</b> para salvar</p>
+              <Separator orientation="vertical" className="h-4 bg-white/20" />
+              <div className="flex items-center gap-2 text-white/60 text-[10px] uppercase tracking-widest font-bold">
+                <Rocket className="w-3 h-3" /> Sismais 10K
+              </div>
+            </div>
+            <Button variant="outline" size="icon" className="rounded-full bg-white/10 border-white/20 text-white hover:bg-white/20 backdrop-blur-md" onClick={() => setIsPrintModalOpen(false)}>
+              <X className="w-4 h-4" />
+            </Button>
           </div>
-          <div className="flex-1 overflow-y-auto w-full flex justify-center p-8 bg-zinc-900/90">
-             {selectedResposta && <MuralPrintCard resposta={selectedResposta} />}
+
+          {/* Container com Escala Automática */}
+          <div className="flex-1 w-full flex items-center justify-center p-4 overflow-hidden">
+            <div className="scale-[0.6] sm:scale-[0.7] md:scale-[0.8] lg:scale-[0.85] xl:scale-[0.9] origin-center transition-transform duration-300">
+               {selectedResposta && <MuralPrintCard resposta={selectedResposta} />}
+            </div>
           </div>
         </DialogContent>
       </Dialog>
