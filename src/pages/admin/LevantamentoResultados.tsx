@@ -340,11 +340,15 @@ export default function LevantamentoResultados() {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 {respostas.filter(r => r.maior_sonho).map((r) => (
                   <Card key={r.id} className="overflow-hidden group cursor-pointer border-none shadow-md hover:shadow-xl transition-all" onClick={() => handleOpenDetails(r)}>
-                    <div className="relative aspect-video bg-muted overflow-hidden">
+                    <div className="relative aspect-square bg-muted overflow-hidden flex items-center justify-center p-2">
                       {r.fotos_sonhos && r.fotos_sonhos.length > 0 ? (
-                        <img src={r.fotos_sonhos[0]} alt="Sonho" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+                        <img 
+                          src={r.fotos_sonhos[0]} 
+                          alt="Sonho" 
+                          className="max-w-full max-h-full object-contain transition-transform duration-500 group-hover:scale-105" 
+                        />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center text-muted-foreground bg-primary/5">
+                        <div className="w-full h-full flex items-center justify-center text-muted-foreground bg-primary/5 rounded-lg">
                           <Rocket className="w-8 h-8 opacity-10" />
                         </div>
                       )}
