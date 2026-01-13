@@ -14,13 +14,15 @@ import {
 import { 
   Download, Loader2, Users, Heart, Star, Rocket, LayoutGrid, 
   MessageSquare, TrendingUp, Search, ExternalLink, RefreshCw,
-  Target, Sparkles, AlertCircle
+  Target, Sparkles, AlertCircle, Image as ImageIcon
 } from "lucide-react";
 import { useState, useMemo } from "react";
 import * as XLSX from "xlsx";
 import { Input } from "@/components/ui/input";
 import { usePermissions } from "@/hooks/usePermissions";
 import { LevantamentoDetalhesDialog } from "@/components/levantamento/LevantamentoDetalhesDialog";
+import { MuralPrintCard } from "@/components/levantamento/MuralPrintCard";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
 import type { Tables } from "@/integrations/supabase/types";
 
@@ -31,7 +33,8 @@ export default function LevantamentoResultados() {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedResposta, setSelectedResposta] = useState<LevantamentoRow | null>(null);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
 
   const { 
     data: respostas = [], 
@@ -42,32 +45,20 @@ export default function LevantamentoResultados() {
   } = useQuery({
     queryKey: ["levantamento-resultados"],
     queryFn: async () => {
-      console.log("Iniciando busca de dados no banco...");
       const { data, error } = await supabase
         .from("levantamento_operacional_2024")
         .select("*")
         .order("created_at", { ascending: false });
 
-      if (error) {
-        console.error("Erro Supabase:", error);
-        throw error;
-      }
-      
-      console.log("Dados carregados com sucesso:", data?.length, "registros.");
+      if (error) throw error;
       return data as LevantamentoRow[];
     },
-    // Aguarda permissões serem carregadas, mas permite rodar se for admin ou se estivermos em debug
     enabled: !loadingPermissions, 
   });
 
   const stats = useMemo(() => {
     if (respostas.length === 0) return null;
-
     const validRespostas = respostas.filter(r => r.satisfacao_trabalho !== null);
-
-    const avgSatisfacao = validRespostas.length > 0 
-      ? validRespostas.reduce((acc, r) => acc + (r.satisfacao_trabalho || 0), 0) / validRespostas.length
-      : 0;
     
     const radarData = [
       { subject: 'Autonomia', A: (validRespostas.reduce((acc, r) => acc + (r.score_autonomia || 0), 0) / (validRespostas.length || 1)) },
@@ -77,30 +68,32 @@ export default function LevantamentoResultados() {
       { subject: 'Ambiente', A: (validRespostas.reduce((acc, r) => acc + (r.score_ambiente || 0), 0) / (validRespostas.length || 1)) },
     ];
 
-    const satisfacaoDist = Array.from({ length: 11 }, (_, i) => ({
-      nota: i,
-      qtd: respostas.filter(r => r.satisfacao_trabalho === i).length
-    })).filter(d => d.qtd > 0);
-
     return {
       total: respostas.length,
-      avgSatisfacao,
+      avgSatisfacao: validRespostas.reduce((acc, r) => acc + (r.satisfacao_trabalho || 0), 0) / validRespostas.length,
       radarData,
-      satisfacaoDist
+      satisfacaoDist: Array.from({ length: 11 }, (_, i) => ({
+        nota: i,
+        qtd: respostas.filter(r => r.satisfacao_trabalho === i).length
+      })).filter(d => d.qtd > 0)
     };
   }, [respostas]);
 
   const filteredRespostas = useMemo(() => {
     return respostas.filter(r => 
       r.colaborador_nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      r.funcao_atual?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      r.talento_oculto?.toLowerCase().includes(searchTerm.toLowerCase())
+      r.funcao_atual?.toLowerCase().includes(searchTerm.toLowerCase())
     );
   }, [respostas, searchTerm]);
 
+  const handleOpenPrintCard = (resposta: LevantamentoRow) => {
+    setSelectedResposta(resposta);
+    setIsPrintModalOpen(true);
+  };
+
   const handleOpenDetails = (resposta: LevantamentoRow) => {
     setSelectedResposta(resposta);
-    setIsDialogOpen(true);
+    setIsDetailsOpen(true);
   };
 
   const exportToExcel = () => {
@@ -110,12 +103,6 @@ export default function LevantamentoResultados() {
       "Nome": r.colaborador_nome,
       "Função": r.funcao_atual,
       "Satisfação": r.satisfacao_trabalho,
-      "Autonomia": r.score_autonomia,
-      "Maestria": r.score_maestria,
-      "Propósito": r.score_proposito,
-      "Financeiro": r.score_financeiro,
-      "Ambiente": r.score_ambiente,
-      "Ladrão de Tempo": r.ladrao_tempo,
       "Talento Oculto": r.talento_oculto,
       "Maior Sonho": r.maior_sonho,
     }));
@@ -134,22 +121,6 @@ export default function LevantamentoResultados() {
     );
   }
 
-  if (error) {
-    return (
-      <Card className="border-destructive bg-destructive/5 m-6">
-        <CardContent className="pt-6 flex flex-col items-center text-center gap-4">
-          <AlertCircle className="w-12 h-12 text-destructive" />
-          <div>
-            <h3 className="text-lg font-bold text-destructive">Erro ao carregar dados</h3>
-            <p className="text-muted-foreground">Ocorreu um erro ao acessar a tabela no banco de dados.</p>
-            <code className="block mt-2 p-2 bg-background rounded text-xs border">{(error as any).message}</code>
-          </div>
-          <Button onClick={() => refetch()} variant="outline">Tentar novamente</Button>
-        </CardContent>
-      </Card>
-    );
-  }
-
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -158,8 +129,8 @@ export default function LevantamentoResultados() {
           <p className="text-muted-foreground">Acompanhe as respostas e o clima organizacional do time.</p>
         </div>
         <div className="flex gap-2">
-          <Button onClick={() => refetch()} variant="outline" size="icon" disabled={isFetching} title="Atualizar dados">
-            <RefreshCw className={respostas.length > 0 && isFetching ? "w-4 h-4 animate-spin" : "w-4 h-4"} />
+          <Button onClick={() => refetch()} variant="outline" size="icon" disabled={isFetching}>
+            <RefreshCw className={isFetching ? "w-4 h-4 animate-spin" : "w-4 h-4"} />
           </Button>
           <Button onClick={exportToExcel} variant="outline" className="gap-2" disabled={respostas.length === 0}>
             <Download className="w-4 h-4" /> Exportar Planilha ({respostas.length})
@@ -169,14 +140,7 @@ export default function LevantamentoResultados() {
 
       {respostas.length === 0 ? (
         <Card className="p-12 text-center border-dashed">
-          <div className="flex flex-col items-center gap-3">
-            <Users className="w-12 h-12 text-muted-foreground opacity-20" />
-            <p className="text-muted-foreground">Nenhuma resposta encontrada no banco de dados.</p>
-            <p className="text-xs text-muted-foreground max-w-xs mx-auto">Verifique se o formulário foi publicado e se as políticas de RLS permitem a leitura para o seu usuário.</p>
-            <Button variant="outline" onClick={() => refetch()} className="mt-4">
-              <RefreshCw className="mr-2 h-4 w-4" /> Tentar carregar novamente
-            </Button>
-          </div>
+          <p className="text-muted-foreground">Nenhuma resposta encontrada.</p>
         </Card>
       ) : (
         <>
@@ -185,10 +149,7 @@ export default function LevantamentoResultados() {
               <CardContent className="pt-6">
                 <div className="flex items-center gap-4">
                   <div className="p-3 bg-primary/10 rounded-xl"><Users className="text-primary w-6 h-6" /></div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Colaboradores</p>
-                    <p className="text-2xl font-bold">{stats?.total}</p>
-                  </div>
+                  <div><p className="text-sm text-muted-foreground">Colaboradores</p><p className="text-2xl font-bold">{stats?.total}</p></div>
                 </div>
               </CardContent>
             </Card>
@@ -196,10 +157,7 @@ export default function LevantamentoResultados() {
               <CardContent className="pt-6">
                 <div className="flex items-center gap-4">
                   <div className="p-3 bg-green-100 rounded-xl"><Heart className="text-green-600 w-6 h-6" /></div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Clima Médio</p>
-                    <p className="text-2xl font-bold text-green-700">{stats?.avgSatisfacao.toFixed(1)}/10</p>
-                  </div>
+                  <div><p className="text-sm text-muted-foreground">Clima Médio</p><p className="text-2xl font-bold text-green-700">{stats?.avgSatisfacao.toFixed(1)}/10</p></div>
                 </div>
               </CardContent>
             </Card>
@@ -207,12 +165,7 @@ export default function LevantamentoResultados() {
               <CardContent className="pt-6">
                 <div className="flex items-center gap-4">
                   <div className="p-3 bg-purple-100 rounded-xl"><Sparkles className="text-purple-600 w-6 h-6" /></div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Talento Oculto</p>
-                    <p className="text-2xl font-bold text-purple-700">
-                      {respostas.filter(r => r.talento_oculto).length}
-                    </p>
-                  </div>
+                  <div><p className="text-sm text-muted-foreground">Talento Oculto</p><p className="text-2xl font-bold text-purple-700">{respostas.filter(r => r.talento_oculto).length}</p></div>
                 </div>
               </CardContent>
             </Card>
@@ -220,12 +173,7 @@ export default function LevantamentoResultados() {
               <CardContent className="pt-6">
                 <div className="flex items-center gap-4">
                   <div className="p-3 bg-amber-100 rounded-xl"><Target className="text-amber-600 w-6 h-6" /></div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Mural Sonhos</p>
-                    <p className="text-2xl font-bold text-amber-700">
-                      {respostas.filter(r => r.maior_sonho).length}
-                    </p>
-                  </div>
+                  <div><p className="text-sm text-muted-foreground">Mural Sonhos</p><p className="text-2xl font-bold text-amber-700">{respostas.filter(r => r.maior_sonho).length}</p></div>
                 </div>
               </CardContent>
             </Card>
@@ -240,61 +188,23 @@ export default function LevantamentoResultados() {
 
             <TabsContent value="detalhes" className="mt-6">
               <Card>
-                <CardHeader className="pb-3 border-b">
-                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                    <div>
-                      <CardTitle>Acompanhamento Individual</CardTitle>
-                      <CardDescription>Resumo das respostas enviadas pelo time.</CardDescription>
-                    </div>
-                    <div className="relative w-full sm:w-80">
-                      <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                      <Input 
-                        placeholder="Buscar por nome ou talento..." 
-                        className="pl-8" 
-                        value={searchTerm} 
-                        onChange={e => setSearchTerm(e.target.value)} 
-                      />
-                    </div>
+                <CardHeader className="pb-3 border-b flex flex-row items-center justify-between">
+                  <CardTitle>Acompanhamento Individual</CardTitle>
+                  <div className="relative w-80">
+                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input placeholder="Buscar..." className="pl-8" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
                   </div>
                 </CardHeader>
                 <CardContent className="p-0">
                   <Table>
-                    <TableHeader>
-                      <TableRow className="bg-muted/30">
-                        <TableHead>Colaborador</TableHead>
-                        <TableHead>Função</TableHead>
-                        <TableHead className="text-center">Clima</TableHead>
-                        <TableHead>Talento Oculto</TableHead>
-                        <TableHead>Maior Sonho</TableHead>
-                        <TableHead className="text-right px-6">Ação</TableHead>
-                      </TableRow>
-                    </TableHeader>
+                    <TableHeader><TableRow className="bg-muted/30"><TableHead>Colaborador</TableHead><TableHead>Função</TableHead><TableHead className="text-center">Clima</TableHead><TableHead>Ação</TableHead></TableRow></TableHeader>
                     <TableBody>
                       {filteredRespostas.map((r) => (
-                        <TableRow key={r.id} className="hover:bg-muted/20 transition-colors">
-                          <TableCell className="font-bold py-4">{r.colaborador_nome}</TableCell>
+                        <TableRow key={r.id}>
+                          <TableCell className="font-bold">{r.colaborador_nome}</TableCell>
                           <TableCell className="text-sm text-muted-foreground">{r.funcao_atual}</TableCell>
-                          <TableCell className="text-center">
-                            <Badge variant={r.satisfacao_trabalho && r.satisfacao_trabalho >= 8 ? "default" : r.satisfacao_trabalho && r.satisfacao_trabalho >= 6 ? "secondary" : "destructive"}>
-                              {r.satisfacao_trabalho}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="max-w-[150px] truncate text-xs italic" title={r.talento_oculto || ""}>
-                            {r.talento_oculto || "-"}
-                          </TableCell>
-                          <TableCell className="max-w-[200px] truncate text-xs" title={r.maior_sonho || ""}>
-                            {r.maior_sonho}
-                          </TableCell>
-                          <TableCell className="text-right px-6">
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              className="gap-2 text-primary hover:text-primary hover:bg-primary/10"
-                              onClick={() => handleOpenDetails(r)}
-                            >
-                              <ExternalLink className="w-3.5 h-3.5" /> Detalhes
-                            </Button>
-                          </TableCell>
+                          <TableCell className="text-center"><Badge variant={r.satisfacao_trabalho && r.satisfacao_trabalho >= 8 ? "default" : "secondary"}>{r.satisfacao_trabalho}</Badge></TableCell>
+                          <TableCell><Button variant="ghost" size="sm" className="gap-2" onClick={() => handleOpenDetails(r)}><ExternalLink className="w-3.5 h-3.5" /> Detalhes</Button></TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -305,68 +215,36 @@ export default function LevantamentoResultados() {
 
             <TabsContent value="indicadores" className="mt-6 space-y-6">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <Card>
-                  <CardHeader><CardTitle>Perfil de Engajamento</CardTitle></CardHeader>
-                  <CardContent className="h-80">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <RadarChart cx="50%" cy="50%" outerRadius="80%" data={stats?.radarData}>
-                        <PolarGrid />
-                        <PolarAngleAxis dataKey="subject" />
-                        <Radar name="Time" dataKey="A" stroke="#45E5E5" fill="#45E5E5" fillOpacity={0.6} />
-                        <RechartsTooltip />
-                      </RadarChart>
-                    </ResponsiveContainer>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader><CardTitle>Distribuição de Satisfação</CardTitle></CardHeader>
-                  <CardContent className="h-80">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={stats?.satisfacaoDist}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                        <XAxis dataKey="nota" />
-                        <YAxis />
-                        <RechartsTooltip />
-                        <Bar dataKey="qtd" fill="#45E5E5" radius={[4, 4, 0, 0]} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </CardContent>
-                </Card>
+                <Card className="h-96"><CardHeader><CardTitle>Perfil de Engajamento</CardTitle></CardHeader><CardContent className="h-72"><ResponsiveContainer width="100%" height="100%"><RadarChart cx="50%" cy="50%" outerRadius="80%" data={stats?.radarData}><PolarGrid /><PolarAngleAxis dataKey="subject" /><Radar name="Time" dataKey="A" stroke="#45E5E5" fill="#45E5E5" fillOpacity={0.6} /><RechartsTooltip /></RadarChart></ResponsiveContainer></CardContent></Card>
+                <Card className="h-96"><CardHeader><CardTitle>Distribuição de Satisfação</CardTitle></CardHeader><CardContent className="h-72"><ResponsiveContainer width="100%" height="100%"><BarChart data={stats?.satisfacaoDist}><CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey="nota" /><YAxis /><RechartsTooltip /><Bar dataKey="qtd" fill="#45E5E5" radius={[4, 4, 0, 0]} /></BarChart></ResponsiveContainer></CardContent></Card>
               </div>
             </TabsContent>
 
             <TabsContent value="mural" className="mt-6">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 {respostas.filter(r => r.maior_sonho).map((r) => (
-                  <Card key={r.id} className="overflow-hidden group cursor-pointer border-none shadow-md hover:shadow-xl transition-all" onClick={() => handleOpenDetails(r)}>
+                  <Card key={r.id} className="overflow-hidden group border-none shadow-md hover:shadow-xl transition-all">
                     <div className="relative aspect-square bg-muted overflow-hidden flex items-center justify-center p-2">
                       {r.fotos_sonhos && r.fotos_sonhos.length > 0 ? (
-                        <img 
-                          src={r.fotos_sonhos[0]} 
-                          alt="Sonho" 
-                          className="max-w-full max-h-full object-contain transition-transform duration-500 group-hover:scale-105" 
-                        />
+                        <img src={r.fotos_sonhos[0]} alt="Sonho" className="max-w-full max-h-full object-contain transition-transform duration-500 group-hover:scale-105" />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center text-muted-foreground bg-primary/5 rounded-lg">
-                          <Rocket className="w-8 h-8 opacity-10" />
-                        </div>
+                        <div className="w-full h-full flex items-center justify-center text-muted-foreground bg-primary/5 rounded-lg"><Rocket className="w-8 h-8 opacity-10" /></div>
                       )}
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-4">
-                        <p className="text-white text-xs">Clique para ler o depoimento completo</p>
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2">
+                        <Button variant="secondary" size="sm" className="gap-2" onClick={() => handleOpenPrintCard(r)}>
+                          <ImageIcon className="w-4 h-4" /> Gerar Card Print
+                        </Button>
+                        <Button variant="ghost" size="sm" className="text-white hover:text-white hover:bg-white/20" onClick={() => handleOpenDetails(r)}>
+                          Ver Depoimento
+                        </Button>
                       </div>
                     </div>
                     <CardContent className="p-5">
                       <div className="flex justify-between items-start mb-2">
-                        <div>
-                          <p className="font-bold text-primary leading-tight">{r.colaborador_nome}</p>
-                          <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{r.funcao_atual}</p>
-                        </div>
+                        <div><p className="font-bold text-primary leading-tight">{r.colaborador_nome}</p><p className="text-[10px] text-muted-foreground uppercase tracking-wider">{r.funcao_atual}</p></div>
                         <Badge variant="outline" className="text-[10px]">{r.satisfacao_trabalho}/10</Badge>
                       </div>
-                      <p className="text-sm mt-3 line-clamp-3 italic text-muted-foreground leading-relaxed">
-                        "{r.maior_sonho}"
-                      </p>
+                      <p className="text-sm mt-3 line-clamp-3 italic text-muted-foreground leading-relaxed">"{r.maior_sonho}"</p>
                     </CardContent>
                   </Card>
                 ))}
@@ -377,10 +255,22 @@ export default function LevantamentoResultados() {
       )}
 
       <LevantamentoDetalhesDialog 
-        open={isDialogOpen} 
-        onOpenChange={setIsDialogOpen} 
+        open={isDetailsOpen} 
+        onOpenChange={setIsDetailsOpen} 
         resposta={selectedResposta} 
       />
+
+      <Dialog open={isPrintModalOpen} onOpenChange={setIsPrintModalOpen}>
+        <DialogContent className="max-w-[850px] p-0 bg-transparent border-none overflow-hidden h-[90vh] flex flex-col items-center">
+          <div className="sticky top-0 w-full flex justify-between p-4 bg-black/50 backdrop-blur-sm z-50">
+            <p className="text-white text-sm">Dica: Use <b>Ctrl + P</b> ou ferramenta de captura para salvar este card.</p>
+            <Button variant="outline" size="sm" className="text-white border-white hover:bg-white/20" onClick={() => setIsPrintModalOpen(false)}>Fechar</Button>
+          </div>
+          <div className="flex-1 overflow-y-auto w-full flex justify-center p-8 bg-zinc-900/90">
+             {selectedResposta && <MuralPrintCard resposta={selectedResposta} />}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
