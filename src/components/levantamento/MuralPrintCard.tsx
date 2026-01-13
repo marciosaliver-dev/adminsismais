@@ -49,8 +49,8 @@ export function MuralPrintCard({
       {/* Header do Card */}
       <div className="flex justify-between items-center mb-10 relative z-10">
         <div className="flex items-center gap-4">
-          <div className="bg-white p-2 rounded-lg border border-primary/10 shadow-sm">
-            <img src="/logo_sismais.png" alt="Sismais" className="h-12 w-auto object-contain" />
+          <div className="bg-white px-4 py-2 rounded-xl shadow-sm border border-primary/5 flex items-center justify-center min-w-[140px] h-[60px]">
+            <img src="/logo_sismais.png" alt="Sismais" className="h-full w-full object-contain" />
           </div>
           <div className="h-12 w-[2px] bg-primary/20 mx-2" />
           <div>
@@ -73,7 +73,10 @@ export function MuralPrintCard({
               src={resposta.fotos_sonhos[0]} 
               alt="Meu Sonho" 
               draggable={false}
-              className={`w-full h-full transition-all duration-100 ${fitMode === "cover" ? "object-cover" : "object-contain p-4"}`}
+              className={cn(
+                "w-full h-full transition-all duration-100",
+                fitMode === "cover" ? "object-cover" : "object-contain p-4"
+              )}
               style={{ 
                 objectPosition: `${imagePosition.x}% ${imagePosition.y}%`,
                 transform: `scale(${imageZoom})`,
@@ -123,4 +126,8 @@ export function MuralPrintCard({
       <div className="absolute bottom-0 left-0 right-0 h-3 bg-gradient-to-r from-primary via-primary/50 to-primary" />
     </div>
   );
+}
+
+function cn(...inputs: any[]) {
+  return inputs.filter(Boolean).join(" ");
 }

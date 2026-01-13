@@ -207,7 +207,6 @@ export default function LevantamentoResultados() {
 
   // Drag logic for image position
   const onMouseDown = (e: React.MouseEvent) => {
-    if (fitMode !== "cover") return;
     setIsDragging(true);
     dragStartPos.current = { x: e.clientX, y: e.clientY };
     initialImgPos.current = { ...imagePosition };
@@ -421,8 +420,6 @@ export default function LevantamentoResultados() {
                       className="h-8 gap-2 text-xs rounded-lg" 
                       onClick={() => {
                         setFitMode("contain");
-                        setImageZoom(1);
-                        setImagePosition({ x: 50, y: 50 });
                       }}
                     >
                       <Minimize2 className="w-3.5 h-3.5" /> Inteira
@@ -436,12 +433,10 @@ export default function LevantamentoResultados() {
                       <Maximize2 className="w-3.5 h-3.5" /> Preencher
                     </Button>
                   </div>
-                  {fitMode === "cover" && (
-                    <div className="flex items-center gap-2 px-3 py-1 bg-primary/20 rounded-lg border border-primary/30">
-                      <Move className="w-3 h-3 text-primary" />
-                      <p className="text-[10px] text-primary font-black uppercase tracking-tighter">Arraste a foto</p>
-                    </div>
-                  )}
+                  <div className="flex items-center gap-2 px-3 py-1 bg-primary/20 rounded-lg border border-primary/30">
+                    <Move className="w-3 h-3 text-primary" />
+                    <p className="text-[10px] text-primary font-black uppercase tracking-tighter">Arraste a foto</p>
+                  </div>
                 </div>
                 <div className="flex items-center gap-4">
                   <Button variant="ghost" size="icon" className="h-8 w-8 text-white/60 hover:text-white" onClick={() => {
@@ -454,20 +449,18 @@ export default function LevantamentoResultados() {
                   <p className="text-white text-xs font-bold whitespace-nowrap"><b>Ctrl + P</b></p>
                 </div>
               </div>
-              {fitMode === "cover" && (
-                <div className="flex items-center gap-4 px-2">
-                  <ZoomIn className="w-4 h-4 text-white/60" />
-                  <Slider 
-                    value={[imageZoom]} 
-                    min={0.5} 
-                    max={3} 
-                    step={0.1} 
-                    onValueChange={([v]) => setImageZoom(v)}
-                    className="flex-1"
-                  />
-                  <span className="text-[10px] font-mono text-white/60 w-8">{imageZoom.toFixed(1)}x</span>
-                </div>
-              )}
+              <div className="flex items-center gap-4 px-2">
+                <ZoomIn className="w-4 h-4 text-white/60" />
+                <Slider 
+                  value={[imageZoom]} 
+                  min={0.5} 
+                  max={3} 
+                  step={0.1} 
+                  onValueChange={([v]) => setImageZoom(v)}
+                  className="flex-1"
+                />
+                <span className="text-[10px] font-mono text-white/60 w-8">{imageZoom.toFixed(1)}x</span>
+              </div>
             </div>
             <Button variant="outline" size="icon" className="rounded-full h-12 w-12 bg-white/10 border-white/20 text-white hover:bg-white/20 backdrop-blur-md shadow-xl" onClick={() => setIsPrintModalOpen(false)}>
               <X className="w-5 h-5" />
@@ -476,8 +469,7 @@ export default function LevantamentoResultados() {
           <div className="flex-1 w-full flex items-center justify-center p-4 overflow-hidden mt-12">
             <div 
               className={cn(
-                "scale-[0.5] sm:scale-[0.6] md:scale-[0.65] lg:scale-[0.7] xl:scale-[0.75] origin-center transition-all duration-300 ease-in-out",
-                fitMode === "cover" && "cursor-move active:cursor-grabbing"
+                "scale-[0.5] sm:scale-[0.6] md:scale-[0.65] lg:scale-[0.7] xl:scale-[0.75] origin-center transition-all duration-300 ease-in-out cursor-move active:cursor-grabbing"
               )}
               onMouseDown={onMouseDown}
             >
