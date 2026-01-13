@@ -193,6 +193,24 @@ export function LevantamentoForm() {
     }
   };
 
+  const handleTabChange = async (newTab: string) => {
+    const currentIndex = TABS.findIndex(t => t.id === activeTab);
+    const targetIndex = TABS.findIndex(t => t.id === newTab);
+    
+    // Se o usuário estiver tentando avançar clicando na aba, validamos os campos
+    if (targetIndex > currentIndex) {
+      const isValid = await trigger(TABS[currentIndex].fields as any);
+      if (isValid) {
+        setActiveTab(newTab);
+      } else {
+        toast({ title: "⚠️ Preencha os campos obrigatórios desta etapa antes de prosseguir.", variant: "destructive" });
+      }
+    } else {
+      // Se estiver voltando, permitimos sem validar
+      setActiveTab(newTab);
+    }
+  };
+
   const handleSaveDraft = () => {
     const data = watch();
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
@@ -266,10 +284,15 @@ export function LevantamentoForm() {
         </div>
       </CardHeader>
       <CardContent className="pb-20 sm:pb-4">
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <Tabs value={activeTab} onValueChange={handleTabChange}>
           <TabsList className="grid w-full grid-cols-4 h-auto bg-muted/50 p-1 rounded-xl">
             {TABS.map(t => (
-              <TabsTrigger key={t.id} value={t.id} className="flex flex-col gap-1 py-3 data-[state=active]:bg-background shadow-sm transition-all rounded-lg">
+              <TabsTrigger 
+                key={t.id} 
+                value={t.id} 
+                type="button"
+                className="flex flex-col gap-1 py-3 data-[state=active]:bg-background shadow-sm transition-all rounded-lg"
+              >
                 <t.icon className="w-4 h-4" />
                 <span className="text-[10px] sm:text-xs font-medium">{t.label}</span>
               </TabsTrigger>

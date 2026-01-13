@@ -26,15 +26,20 @@ export function Header({ onMenuClick }: HeaderProps) {
 
   return (
     <header className="sticky top-0 z-30 bg-card border-b border-border h-16 flex items-center justify-between px-4 lg:px-6">
-      {/* Left: Menu button (mobile) */}
-      <Button
-        variant="ghost"
-        size="icon"
-        className="lg:hidden"
-        onClick={onMenuClick}
-      >
-        <Menu className="w-5 h-5" />
-      </Button>
+      {/* Left: Menu button (mobile) and Logo (mobile) */}
+      <div className="flex items-center gap-4">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="lg:hidden"
+          onClick={onMenuClick}
+        >
+          <Menu className="w-5 h-5" />
+        </Button>
+        <div className="lg:hidden">
+          <img src="/logo_sismais.png" alt="Sismais" className="h-6 w-auto object-contain" />
+        </div>
+      </div>
 
       {/* Center: Page title (optional, can be dynamic) */}
       <div className="flex-1 lg:flex-initial"></div>
