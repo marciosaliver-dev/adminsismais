@@ -49,8 +49,8 @@ export function MuralPrintCard({
       {/* Header do Card */}
       <div className="flex justify-between items-center mb-10 relative z-10">
         <div className="flex items-center gap-4">
-          <div className="bg-white px-4 py-2 rounded-xl shadow-sm border border-primary/5 flex items-center justify-center min-w-[140px] h-[60px]">
-            <img src="/logo_sismais.png" alt="Sismais" className="h-full w-full object-contain" />
+          <div className="bg-white px-4 py-2 rounded-xl shadow-sm border border-primary/5 flex items-center justify-center min-w-[200px] h-[70px]">
+            <img src="/logo_op2_horizontal.png.webp" alt="Sismais" className="h-full w-full object-contain" />
           </div>
           <div className="h-12 w-[2px] bg-primary/20 mx-2" />
           <div>
