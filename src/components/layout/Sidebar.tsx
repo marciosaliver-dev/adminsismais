@@ -25,7 +25,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { usePermissions } from "@/hooks/usePermissions";
-import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface SidebarProps {
   isOpen: boolean;
@@ -117,12 +117,10 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   });
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Persist collapsed state
   useEffect(() => {
     localStorage.setItem(COLLAPSED_KEY, JSON.stringify(isCollapsed));
   }, [isCollapsed]);
 
-  // Persist favorites
   useEffect(() => {
     localStorage.setItem(FAVORITES_KEY, JSON.stringify(favorites));
   }, [favorites]);
@@ -255,41 +253,38 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
           isCollapsed ? "w-16" : "w-64"
         )}
       >
-        <div className="flex items-center justify-between p-4 border-b border-sidebar-border">
-          {!isCollapsed && (
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-                <TrendingUp className="w-5 h-5 text-primary-foreground" />
+        <div className="flex flex-col items-center p-4 border-b border-sidebar-border">
+          <div className="flex items-center justify-between w-full mb-2">
+            {!isCollapsed && (
+              <div className="flex items-center gap-2">
+                <img src="/logo_sismais.png" alt="Sismais" className="h-8 w-auto object-contain brightness-0 invert" />
               </div>
-              <div>
-                <h1 className="text-lg font-heading font-bold text-sidebar-foreground">
-                  SISMAIS
-                </h1>
-                <p className="text-xs text-primary">Financial Dashboard</p>
-              </div>
-            </div>
-          )}
-          {isCollapsed && (
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center mx-auto">
-              <TrendingUp className="w-5 h-5 text-primary-foreground" />
-            </div>
-          )}
-          <Button
-            variant="ghost"
-            size="icon"
-            className={cn(
-              "hidden lg:flex text-sidebar-foreground hover:bg-sidebar-accent",
-              isCollapsed && "mx-auto mt-2"
             )}
-            onClick={toggleCollapse}
-          >
-            <ChevronLeft
+            {isCollapsed && (
+              <img src="/logo_sismais.png" alt="S" className="h-6 w-auto object-contain brightness-0 invert mx-auto" />
+            )}
+            <Button
+              variant="ghost"
+              size="icon"
               className={cn(
-                "w-5 h-5 transition-transform",
-                isCollapsed && "rotate-180"
+                "hidden lg:flex text-sidebar-foreground hover:bg-sidebar-accent",
+                isCollapsed && "hidden"
               )}
-            />
-          </Button>
+              onClick={toggleCollapse}
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </Button>
+          </div>
+          {isCollapsed && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-sidebar-foreground hover:bg-sidebar-accent"
+              onClick={toggleCollapse}
+            >
+              <ChevronRight className="w-5 h-5" />
+            </Button>
+          )}
         </div>
 
         {!isCollapsed && (
@@ -297,7 +292,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-sidebar-foreground/50" />
               <Input
-                placeholder="Buscar... (Ctrl+K)"
+                placeholder="Buscar..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-9 bg-sidebar-accent/50 border-sidebar-border text-sidebar-foreground placeholder:text-sidebar-foreground/50"

@@ -27,11 +27,9 @@ export default function Auth() {
   const [showPassword, setShowPassword] = useState(false);
   const [activeTab, setActiveTab] = useState("login");
   
-  // Login form
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   
-  // Signup form
   const [signupNome, setSignupNome] = useState("");
   const [signupEmail, setSignupEmail] = useState("");
   const [signupPassword, setSignupPassword] = useState("");
@@ -155,12 +153,10 @@ export default function Auth() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-secondary via-secondary to-secondary/90 p-4">
       <div className="w-full max-w-md">
-        {/* Logo / Brand */}
+        {/* Logo Brand Oficial */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-primary-foreground font-['Poppins']">
-            SISMAIS
-          </h1>
-          <p className="text-primary-foreground/70 mt-2">
+          <img src="/logo_sismais.png" alt="Sismais" className="h-20 w-auto mx-auto mb-4 brightness-0 invert" />
+          <p className="text-primary-foreground/70">
             Sistema de Gestão Financeira
           </p>
         </div>
