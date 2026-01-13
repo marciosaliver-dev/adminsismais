@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
+import { Slider } from "@/components/ui/slider";
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,
   RadarChart, PolarGrid, PolarAngleAxis, Radar
@@ -16,9 +17,9 @@ import {
   Download, Loader2, Users, Heart, Star, Rocket, LayoutGrid, 
   MessageSquare, TrendingUp, Search, ExternalLink, RefreshCw,
   Target, Sparkles, AlertCircle, Image as ImageIcon, X,
-  Maximize2, Minimize2
+  Maximize2, Minimize2, Move, ZoomIn, RotateCcw
 } from "lucide-react";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import * as XLSX from "xlsx";
 import { Input } from "@/components/ui/input";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -26,6 +27,7 @@ import { LevantamentoDetalhesDialog } from "@/components/levantamento/Levantamen
 import { MuralPrintCard } from "@/components/levantamento/MuralPrintCard";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 import type { Tables } from "@/integrations/supabase/types";
 
 type LevantamentoRow = Tables<"levantamento_operacional_2024">;
@@ -37,7 +39,14 @@ export default function LevantamentoResultados() {
   const [selectedResposta, setSelectedResposta] = useState<LevantamentoRow | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
+  
+  // Image Adjustment State
   const [fitMode, setFitMode] = useState<"cover" | "contain">("contain");
+  const [imagePosition, setImagePosition] = useState({ x: 50, y: 50 });
+  const [imageZoom, setImageZoom] = useState(1);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStartPos = useRef({ x: 0, y: 0 });
+  const initialImgPos = useRef({ x: 50, y: 50 });
 
   const { 
     data: respostas = [], 
@@ -91,6 +100,10 @@ export default function LevantamentoResultados() {
 
   const handleOpenPrintCard = (resposta: LevantamentoRow) => {
     setSelectedResposta(null);
+    setImagePosition({ x: 50, y: 50 });
+    setImageZoom(1);
+    setFitMode("contain");
+    
     setTimeout(() => {
       setSelectedResposta(resposta);
       setIsPrintModalOpen(true);
@@ -117,6 +130,47 @@ export default function LevantamentoResultados() {
     XLSX.utils.book_append_sheet(wb, ws, "Respostas Mapeamento");
     XLSX.writeFile(wb, `Mapeamento_Sismais_10K_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
+
+  // Drag logic for image position
+  const onMouseDown = (e: React.MouseEvent) => {
+    if (fitMode !== "cover") return;
+    setIsDragging(true);
+    dragStartPos.current = { x: e.clientX, y: e.clientY };
+    initialImgPos.current = { ...imagePosition };
+  };
+
+  const onMouseMove = (e: MouseEvent) => {
+    if (!isDragging) return;
+    
+    const dx = e.clientX - dragStartPos.current.x;
+    const dy = e.clientY - dragStartPos.current.y;
+    
+    // Sensibilidade baseada na escala (quanto mais zoom, mais devagar move)
+    const sensitivity = 0.1 / imageZoom;
+    
+    setImagePosition({
+      x: Math.max(0, Math.min(100, initialImgPos.current.x - (dx * sensitivity))),
+      y: Math.max(0, Math.min(100, initialImgPos.current.y - (dy * sensitivity)))
+    });
+  };
+
+  const onMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  useEffect(() => {
+    if (isDragging) {
+      window.addEventListener("mousemove", onMouseMove);
+      window.addEventListener("mouseup", onMouseUp);
+    } else {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+    }
+    return () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+    };
+  }, [isDragging]);
 
   if (loadingPermissions || isLoading) {
     return (
@@ -267,43 +321,96 @@ export default function LevantamentoResultados() {
       />
 
       <Dialog open={isPrintModalOpen} onOpenChange={setIsPrintModalOpen}>
-        <DialogContent className="max-w-[850px] p-0 bg-transparent border-none overflow-hidden h-[95vh] flex flex-col items-center justify-center">
-          {/* Header de Ação na Modal */}
-          <div className="absolute top-4 left-4 right-4 flex justify-between items-center z-50 pointer-events-auto">
-            <div className="bg-black/80 backdrop-blur-xl px-6 py-3 rounded-2xl border border-white/20 flex items-center gap-6 shadow-2xl">
-              <div className="flex items-center gap-2">
-                <p className="text-white/60 text-[10px] uppercase tracking-widest font-black">Ajuste da Imagem</p>
-                <div className="flex bg-white/10 p-1 rounded-lg border border-white/10">
-                  <Button 
-                    variant={fitMode === "contain" ? "secondary" : "ghost"} 
-                    size="sm" 
-                    className="h-8 gap-2 text-xs" 
-                    onClick={() => setFitMode("contain")}
-                  >
-                    <Minimize2 className="w-3.5 h-3.5" /> Ver Inteira
+        <DialogContent className="max-w-[1000px] p-0 bg-transparent border-none overflow-hidden h-[98vh] flex flex-col items-center justify-center">
+          {/* Header de Ação Estendido na Modal */}
+          <div className="absolute top-2 left-4 right-4 flex justify-between items-center z-50 pointer-events-auto">
+            <div className="bg-black/90 backdrop-blur-2xl p-4 rounded-3xl border border-white/20 flex flex-col gap-4 shadow-2xl min-w-[500px]">
+              
+              {/* Controles Principais */}
+              <div className="flex items-center justify-between gap-8">
+                <div className="flex items-center gap-4">
+                  <div className="flex bg-white/10 p-1 rounded-xl border border-white/10">
+                    <Button 
+                      variant={fitMode === "contain" ? "secondary" : "ghost"} 
+                      size="sm" 
+                      className="h-8 gap-2 text-xs rounded-lg" 
+                      onClick={() => {
+                        setFitMode("contain");
+                        setImageZoom(1);
+                        setImagePosition({ x: 50, y: 50 });
+                      }}
+                    >
+                      <Minimize2 className="w-3.5 h-3.5" /> Inteira
+                    </Button>
+                    <Button 
+                      variant={fitMode === "cover" ? "secondary" : "ghost"} 
+                      size="sm" 
+                      className="h-8 gap-2 text-xs rounded-lg" 
+                      onClick={() => setFitMode("cover")}
+                    >
+                      <Maximize2 className="w-3.5 h-3.5" /> Preencher
+                    </Button>
+                  </div>
+
+                  {fitMode === "cover" && (
+                    <div className="flex items-center gap-2 px-3 py-1 bg-primary/20 rounded-lg border border-primary/30">
+                      <Move className="w-3 h-3 text-primary" />
+                      <p className="text-[10px] text-primary font-black uppercase tracking-tighter">Arraste a foto</p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-4">
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-white/60 hover:text-white" onClick={() => {
+                    setImagePosition({ x: 50, y: 50 });
+                    setImageZoom(1);
+                  }}>
+                    <RotateCcw className="w-4 h-4" />
                   </Button>
-                  <Button 
-                    variant={fitMode === "cover" ? "secondary" : "ghost"} 
-                    size="sm" 
-                    className="h-8 gap-2 text-xs" 
-                    onClick={() => setFitMode("cover")}
-                  >
-                    <Maximize2 className="w-3.5 h-3.5" /> Preencher
-                  </Button>
+                  <Separator orientation="vertical" className="h-6 bg-white/20" />
+                  <p className="text-white text-xs font-bold whitespace-nowrap"><b>Ctrl + P</b></p>
                 </div>
               </div>
-              <Separator orientation="vertical" className="h-6 bg-white/20" />
-              <p className="text-white text-xs font-bold">Pressione <b>Ctrl + P</b></p>
+
+              {/* Slider de Zoom - Só aparece no modo cover */}
+              {fitMode === "cover" && (
+                <div className="flex items-center gap-4 px-2">
+                  <ZoomIn className="w-4 h-4 text-white/60" />
+                  <Slider 
+                    value={[imageZoom]} 
+                    min={0.5} 
+                    max={3} 
+                    step={0.1} 
+                    onValueChange={([v]) => setImageZoom(v)}
+                    className="flex-1"
+                  />
+                  <span className="text-[10px] font-mono text-white/60 w-8">{imageZoom.toFixed(1)}x</span>
+                </div>
+              )}
             </div>
+            
             <Button variant="outline" size="icon" className="rounded-full h-12 w-12 bg-white/10 border-white/20 text-white hover:bg-white/20 backdrop-blur-md shadow-xl" onClick={() => setIsPrintModalOpen(false)}>
               <X className="w-5 h-5" />
             </Button>
           </div>
 
-          {/* Container com Escala Reduzida */}
-          <div className="flex-1 w-full flex items-center justify-center p-4 overflow-hidden">
-            <div className="scale-[0.55] sm:scale-[0.65] md:scale-[0.7] lg:scale-[0.75] xl:scale-[0.8] origin-center transition-all duration-500 ease-in-out">
-               {selectedResposta && <MuralPrintCard resposta={selectedResposta} fitMode={fitMode} />}
+          {/* Container com Escala Reduzida e Eventos de Drag */}
+          <div className="flex-1 w-full flex items-center justify-center p-4 overflow-hidden mt-12">
+            <div 
+              className={cn(
+                "scale-[0.5] sm:scale-[0.6] md:scale-[0.65] lg:scale-[0.7] xl:scale-[0.75] origin-center transition-all duration-300 ease-in-out",
+                fitMode === "cover" && "cursor-move active:cursor-grabbing"
+              )}
+              onMouseDown={onMouseDown}
+            >
+               {selectedResposta && (
+                 <MuralPrintCard 
+                  resposta={selectedResposta} 
+                  fitMode={fitMode} 
+                  imagePosition={imagePosition}
+                  imageZoom={imageZoom}
+                 />
+               )}
             </div>
           </div>
         </DialogContent>

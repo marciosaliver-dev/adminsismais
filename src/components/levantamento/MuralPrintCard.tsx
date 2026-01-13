@@ -9,13 +9,20 @@ type LevantamentoRow = Tables<"levantamento_operacional_2024">;
 interface MuralPrintCardProps {
   resposta: LevantamentoRow;
   fitMode?: "cover" | "contain";
+  imagePosition?: { x: number; y: number };
+  imageZoom?: number;
 }
 
-export function MuralPrintCard({ resposta, fitMode = "contain" }: MuralPrintCardProps) {
+export function MuralPrintCard({ 
+  resposta, 
+  fitMode = "contain",
+  imagePosition = { x: 50, y: 50 },
+  imageZoom = 1
+}: MuralPrintCardProps) {
   return (
     <div 
       id={`card-sonho-${resposta.id}`}
-      className="w-[800px] h-[1000px] bg-white p-12 flex flex-col relative overflow-hidden shadow-2xl border-[16px] border-primary/10 flex-shrink-0"
+      className="w-[800px] h-[1000px] bg-white p-12 flex flex-col relative overflow-hidden shadow-2xl border-[16px] border-primary/10 flex-shrink-0 select-none"
       style={{ fontFamily: "'Poppins', sans-serif" }}
     >
       {/* Background Decorativo */}
@@ -43,11 +50,19 @@ export function MuralPrintCard({ resposta, fitMode = "contain" }: MuralPrintCard
       {/* Container da Imagem */}
       <div className="flex-1 bg-zinc-50 rounded-[32px] overflow-hidden border-4 border-white shadow-inner mb-10 relative flex items-center justify-center">
         {resposta.fotos_sonhos && resposta.fotos_sonhos.length > 0 ? (
-          <img 
-            src={resposta.fotos_sonhos[0]} 
-            alt="Meu Sonho" 
-            className={`w-full h-full transition-all duration-300 ${fitMode === "cover" ? "object-cover" : "object-contain p-4"}`} 
-          />
+          <div className="w-full h-full relative overflow-hidden">
+            <img 
+              src={resposta.fotos_sonhos[0]} 
+              alt="Meu Sonho" 
+              draggable={false}
+              className={`w-full h-full transition-all duration-100 ${fitMode === "cover" ? "object-cover" : "object-contain p-4"}`}
+              style={{ 
+                objectPosition: `${imagePosition.x}% ${imagePosition.y}%`,
+                transform: `scale(${imageZoom})`,
+                transformOrigin: `${imagePosition.x}% ${imagePosition.y}%`
+              }} 
+            />
+          </div>
         ) : (
           <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-primary/5 to-primary/20 text-primary/20">
             <Star className="w-32 h-32 mb-4" />
