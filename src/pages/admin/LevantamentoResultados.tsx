@@ -14,37 +14,50 @@ import {
 import { 
   Download, Loader2, Users, Heart, Star, Rocket, LayoutGrid, 
   MessageSquare, TrendingUp, Search, ExternalLink, RefreshCw,
-  Target, Sparkles
+  Target, Sparkles, AlertCircle
 } from "lucide-react";
 import { useState, useMemo } from "react";
 import * as XLSX from "xlsx";
 import { Input } from "@/components/ui/input";
 import { usePermissions } from "@/hooks/usePermissions";
 import { LevantamentoDetalhesDialog } from "@/components/levantamento/LevantamentoDetalhesDialog";
+import { toast } from "@/hooks/use-toast";
 import type { Tables } from "@/integrations/supabase/types";
 
 type LevantamentoRow = Tables<"levantamento_operacional_2024">;
 
 export default function LevantamentoResultados() {
-  const { isAdmin } = usePermissions();
+  const { isAdmin, loading: loadingPermissions } = usePermissions();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedResposta, setSelectedResposta] = useState<LevantamentoRow | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
-  const { data: respostas = [], isLoading, refetch, isFetching } = useQuery({
+  const { 
+    data: respostas = [], 
+    isLoading, 
+    error,
+    refetch, 
+    isFetching 
+  } = useQuery({
     queryKey: ["levantamento-resultados"],
     queryFn: async () => {
-      // Removido .schema("crm") para usar o public por padrão
+      console.log("Iniciando busca de dados no banco...");
       const { data, error } = await supabase
         .from("levantamento_operacional_2024")
         .select("*")
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Erro Supabase:", error);
+        throw error;
+      }
+      
+      console.log("Dados carregados com sucesso:", data?.length, "registros.");
       return data as LevantamentoRow[];
     },
-    enabled: isAdmin,
+    // Aguarda permissões serem carregadas, mas permite rodar se for admin ou se estivermos em debug
+    enabled: !loadingPermissions, 
   });
 
   const stats = useMemo(() => {
@@ -52,14 +65,16 @@ export default function LevantamentoResultados() {
 
     const validRespostas = respostas.filter(r => r.satisfacao_trabalho !== null);
 
-    const avgSatisfacao = validRespostas.reduce((acc, r) => acc + (r.satisfacao_trabalho || 0), 0) / validRespostas.length;
+    const avgSatisfacao = validRespostas.length > 0 
+      ? validRespostas.reduce((acc, r) => acc + (r.satisfacao_trabalho || 0), 0) / validRespostas.length
+      : 0;
     
     const radarData = [
-      { subject: 'Autonomia', A: (validRespostas.reduce((acc, r) => acc + (r.score_autonomia || 0), 0) / validRespostas.length) },
-      { subject: 'Maestria', A: (validRespostas.reduce((acc, r) => acc + (r.score_maestria || 0), 0) / validRespostas.length) },
-      { subject: 'Propósito', A: (validRespostas.reduce((acc, r) => acc + (r.score_proposito || 0), 0) / validRespostas.length) },
-      { subject: 'Financeiro', A: (validRespostas.reduce((acc, r) => acc + (r.score_financeiro || 0), 0) / validRespostas.length) },
-      { subject: 'Ambiente', A: (validRespostas.reduce((acc, r) => acc + (r.score_ambiente || 0), 0) / validRespostas.length) },
+      { subject: 'Autonomia', A: (validRespostas.reduce((acc, r) => acc + (r.score_autonomia || 0), 0) / (validRespostas.length || 1)) },
+      { subject: 'Maestria', A: (validRespostas.reduce((acc, r) => acc + (r.score_maestria || 0), 0) / (validRespostas.length || 1)) },
+      { subject: 'Propósito', A: (validRespostas.reduce((acc, r) => acc + (r.score_proposito || 0), 0) / (validRespostas.length || 1)) },
+      { subject: 'Financeiro', A: (validRespostas.reduce((acc, r) => acc + (r.score_financeiro || 0), 0) / (validRespostas.length || 1)) },
+      { subject: 'Ambiente', A: (validRespostas.reduce((acc, r) => acc + (r.score_ambiente || 0), 0) / (validRespostas.length || 1)) },
     ];
 
     const satisfacaoDist = Array.from({ length: 11 }, (_, i) => ({
@@ -89,6 +104,7 @@ export default function LevantamentoResultados() {
   };
 
   const exportToExcel = () => {
+    if (respostas.length === 0) return;
     const exportData = respostas.map(r => ({
       "Data": new Date(r.created_at).toLocaleDateString('pt-BR'),
       "Nome": r.colaborador_nome,
@@ -109,11 +125,30 @@ export default function LevantamentoResultados() {
     XLSX.writeFile(wb, `Mapeamento_Sismais_10K_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
-  function cn(...inputs: any[]) {
-    return inputs.filter(Boolean).join(" ");
+  if (loadingPermissions || isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center h-96 gap-4">
+        <Loader2 className="w-10 h-10 animate-spin text-primary" />
+        <p className="text-muted-foreground animate-pulse">Carregando respostas do time...</p>
+      </div>
+    );
   }
 
-  if (isLoading) return <div className="flex items-center justify-center h-96"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
+  if (error) {
+    return (
+      <Card className="border-destructive bg-destructive/5 m-6">
+        <CardContent className="pt-6 flex flex-col items-center text-center gap-4">
+          <AlertCircle className="w-12 h-12 text-destructive" />
+          <div>
+            <h3 className="text-lg font-bold text-destructive">Erro ao carregar dados</h3>
+            <p className="text-muted-foreground">Ocorreu um erro ao acessar a tabela no banco de dados.</p>
+            <code className="block mt-2 p-2 bg-background rounded text-xs border">{(error as any).message}</code>
+          </div>
+          <Button onClick={() => refetch()} variant="outline">Tentar novamente</Button>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -124,9 +159,9 @@ export default function LevantamentoResultados() {
         </div>
         <div className="flex gap-2">
           <Button onClick={() => refetch()} variant="outline" size="icon" disabled={isFetching} title="Atualizar dados">
-            <RefreshCw className={cn("w-4 h-4", isFetching && "animate-spin")} />
+            <RefreshCw className={respostas.length > 0 && isFetching ? "w-4 h-4 animate-spin" : "w-4 h-4"} />
           </Button>
-          <Button onClick={exportToExcel} variant="outline" className="gap-2">
+          <Button onClick={exportToExcel} variant="outline" className="gap-2" disabled={respostas.length === 0}>
             <Download className="w-4 h-4" /> Exportar Planilha ({respostas.length})
           </Button>
         </div>
@@ -137,6 +172,7 @@ export default function LevantamentoResultados() {
           <div className="flex flex-col items-center gap-3">
             <Users className="w-12 h-12 text-muted-foreground opacity-20" />
             <p className="text-muted-foreground">Nenhuma resposta encontrada no banco de dados.</p>
+            <p className="text-xs text-muted-foreground max-w-xs mx-auto">Verifique se o formulário foi publicado e se as políticas de RLS permitem a leitura para o seu usuário.</p>
             <Button variant="outline" onClick={() => refetch()} className="mt-4">
               <RefreshCw className="mr-2 h-4 w-4" /> Tentar carregar novamente
             </Button>
