@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect, useRef } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -123,13 +123,13 @@ const QuestionField = ({ label, hint, name, control, error, placeholder, rows = 
 
 export function LevantamentoForm() {
   const { profile } = useAuth();
-  const queryClient = useQueryClient();
   const [isStarted, setIsStarted] = useState(false);
   const [activeTab, setActiveTab] = useState(TABS[0].id);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Tentar carregar rascunho do localStorage
   const savedData = useMemo(() => {
     try {
       const data = localStorage.getItem(STORAGE_KEY);
@@ -154,6 +154,35 @@ export function LevantamentoForm() {
   const interesseLideranca = watch("interesse_lideranca");
   const satisfacaoTrabalho = watch("satisfacao_trabalho");
   const fotosSonhos = watch("fotos_sonhos") || [];
+
+  // Buscar se já existe uma resposta no banco para este colaborador
+  const { data: existingResponse } = useQuery({
+    queryKey: ["existing-levantamento", profile?.nome],
+    queryFn: async () => {
+      if (!profile?.nome) return null;
+      const { data, error } = await supabase
+        .schema("crm")
+        .from("levantamento_operacional_2024")
+        .select("*")
+        .eq("colaborador_nome", profile.nome)
+        .maybeSingle();
+      
+      if (error) return null;
+      return data;
+    },
+    enabled: !!profile?.nome && !isStarted,
+  });
+
+  // Se existir resposta no banco e o formulário estiver vazio, carregar
+  useEffect(() => {
+    if (existingResponse && !savedData) {
+      reset({
+        ...existingResponse,
+        interesse_lideranca: existingResponse.interesse_lideranca ? "sim" : "nao",
+      } as any);
+      toast({ title: "Dados carregados", description: "Carregamos suas respostas anteriores do banco de dados." });
+    }
+  }, [existingResponse, reset, savedData]);
 
   useEffect(() => {
     const subscription = watch((value) => {
@@ -242,6 +271,7 @@ export function LevantamentoForm() {
       };
 
       const { error } = await supabase
+        .schema("crm")
         .from("levantamento_operacional_2024")
         .insert(payload);
         
@@ -334,8 +364,8 @@ export function LevantamentoForm() {
         <div className="text-center space-y-3">
           <Button size="lg" className="w-full sm:w-auto px-12" onClick={() => setIsStarted(true)}>Iniciar Mapeamento</Button>
           <p className="text-xs text-muted-foreground">Tempo estimado: 10-15 minutos.</p>
-          {savedData && (
-             <p className="text-xs text-primary font-medium">✨ Você possui um rascunho salvo!</p>
+          {(savedData || existingResponse) && (
+             <p className="text-xs text-primary font-medium">✨ Você possui dados salvos que serão carregados!</p>
           )}
         </div>
       </CardContent>
@@ -356,7 +386,7 @@ export function LevantamentoForm() {
            </Button>
         </div>
       </CardHeader>
-      <CardContent className="pb-20 sm:pb-4"> {/* Adiciona padding inferior para a barra fixa */}
+      <CardContent className="pb-20 sm:pb-4">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="grid w-full grid-cols-4 h-auto bg-muted/50 p-1 rounded-xl">
             {TABS.map(t => (
@@ -403,7 +433,7 @@ export function LevantamentoForm() {
             <TabsContent value="gargalos" className="space-y-8 mt-0 focus-visible:outline-none">
               <QuestionField 
                 label="5. Liste suas 5 principais atividades (as mais importantes)"
-                hint="O que é o 'coração' do seu trabalho hoje?"
+                hint="O que é the 'coração' do seu trabalho hoje?"
                 name="atividades_top5"
                 control={control}
                 error={errors.atividades_top5}
@@ -662,7 +692,6 @@ export function LevantamentoForm() {
               </div>
             </TabsContent>
 
-            {/* Fixed Navigation Bar for Mobile */}
             <div className="fixed bottom-0 left-0 right-0 bg-card border-t p-3 shadow-2xl sm:relative sm:p-0 sm:shadow-none sm:border-t-0">
               <div className="flex justify-between pt-0 gap-4">
                 <div className="flex gap-2 w-full sm:w-auto">
