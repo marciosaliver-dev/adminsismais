@@ -257,11 +257,11 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
           <div className="flex items-center justify-between w-full mb-2">
             {!isCollapsed && (
               <div className="flex items-center gap-2">
-                <img src="/logo_sismais.png" alt="Sismais" className="h-8 w-auto object-contain brightness-0 invert" />
+                <img src="/logo_sismais.png" alt="Sismais" className="h-10 w-auto object-contain" />
               </div>
             )}
             {isCollapsed && (
-              <img src="/logo_sismais.png" alt="S" className="h-6 w-auto object-contain brightness-0 invert mx-auto" />
+              <img src="/logo_sismais.png" alt="S" className="h-6 w-auto object-contain mx-auto" />
             )}
             <Button
               variant="ghost"

@@ -152,16 +152,13 @@ export default function Auth() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-secondary via-secondary to-secondary/90 p-4">
-      <div className="w-full max-w-md">
-        {/* Logo Brand Oficial */}
-        <div className="text-center mb-8">
-          <img src="/logo_sismais.png" alt="Sismais" className="h-20 w-auto mx-auto mb-4 brightness-0 invert" />
-          <p className="text-primary-foreground/70">
-            Sistema de Gestão Financeira
-          </p>
+      <div className="w-full max-w-md text-center">
+        {/* Logo Brand Vertical */}
+        <div className="mb-8">
+          <img src="/logo_sismais_vertical.png" alt="Sismais" className="h-48 w-auto mx-auto mb-4" />
         </div>
 
-        <Card className="shadow-xl border-0">
+        <Card className="shadow-xl border-0 text-left">
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <CardHeader className="pb-4">
               <TabsList className="grid w-full grid-cols-2">
