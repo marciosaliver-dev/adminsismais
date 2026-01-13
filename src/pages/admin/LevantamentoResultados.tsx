@@ -16,7 +16,7 @@ import {
 import { 
   Download, Loader2, Users, Heart, Star, Rocket, LayoutGrid, 
   MessageSquare, TrendingUp, Search, ExternalLink, RefreshCw,
-  Target, Sparkles, AlertCircle, Image as ImageIcon, X,
+  Target, Sparkles, AlertCircle, ImageIcon, X,
   Maximize2, Minimize2, Move, ZoomIn, RotateCcw, Brain, FileText,
   PieChart as PieIcon
 } from "lucide-react";
@@ -44,6 +44,7 @@ export default function LevantamentoResultados() {
   // General Report State
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const [generalReport, setGeneralReport] = useState<string | null>(null);
+  const reportRef = useRef<HTMLDivElement>(null);
 
   // Image Adjustment State
   const [fitMode, setFitMode] = useState<"cover" | "contain">("contain");
@@ -118,12 +119,17 @@ export default function LevantamentoResultados() {
       }
 
       setGeneralReport(data.report);
-      toast({ title: "Relatório gerado!", description: "A análise executiva está pronta para leitura." });
+      toast({ title: "Relatório pronto!", description: "A análise executiva foi gerada com sucesso." });
+      
+      // Scroll para o relatório após pequeno delay para renderizar
+      setTimeout(() => {
+        reportRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 100);
     } catch (err: any) {
       console.error(err);
       toast({ 
         title: "Erro", 
-        description: "Não foi possível gerar o relatório. Certifique-se de que a Edge Function está implantada corretamente.", 
+        description: "Não foi possível gerar o relatório estratégigo. Verifique os logs no painel Supabase.", 
         variant: "destructive" 
       });
     } finally {
@@ -203,6 +209,17 @@ export default function LevantamentoResultados() {
       window.removeEventListener("mouseup", onMouseUp);
     };
   }, [isDragging]);
+
+  // Função auxiliar para formatar negrito simples
+  const formatLine = (text: string) => {
+    const parts = text.split(/(\*\*.*?\*\*)/g);
+    return parts.map((part, i) => {
+      if (part.startsWith('**') && part.endsWith('**')) {
+        return <strong key={i}>{part.slice(2, -2)}</strong>;
+      }
+      return part;
+    });
+  };
 
   if (loadingPermissions || isLoading) {
     return (
@@ -318,26 +335,42 @@ export default function LevantamentoResultados() {
               </div>
 
               {generalReport && (
-                <Card className="bg-gradient-to-br from-primary/5 to-secondary/5 border-primary/20 shadow-xl overflow-hidden animate-in fade-in slide-in-from-top-4 duration-700">
-                  <CardHeader className="bg-primary/10 border-b border-primary/10">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-primary rounded-lg text-white shadow-md"><FileText className="w-5 h-5" /></div>
-                        <CardTitle className="text-xl">Análise Executiva do Time</CardTitle>
+                <div ref={reportRef}>
+                  <Card className="bg-gradient-to-br from-primary/5 to-secondary/5 border-primary/20 shadow-xl overflow-hidden animate-in fade-in slide-in-from-top-4 duration-700">
+                    <CardHeader className="bg-primary/10 border-b border-primary/10">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 bg-primary rounded-lg text-white shadow-md"><FileText className="w-5 h-5" /></div>
+                          <CardTitle className="text-xl">Análise Executiva do Time</CardTitle>
+                        </div>
+                        <Button variant="ghost" size="sm" onClick={() => setGeneralReport(null)}><X className="w-4 h-4" /></Button>
                       </div>
-                      <Button variant="ghost" size="sm" onClick={() => setGeneralReport(null)}><X className="w-4 h-4" /></Button>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="pt-6">
-                    <div className="prose prose-sm md:prose-base max-w-none dark:prose-invert">
-                      {generalReport.split('\n').map((line, i) => (
-                        <p key={i} className={cn(line.startsWith('#') ? "font-bold text-primary" : "text-muted-foreground", "mb-2")}>
-                          {line}
-                        </p>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
+                    </CardHeader>
+                    <CardContent className="pt-6">
+                      <div className="prose prose-sm md:prose-base max-w-none dark:prose-invert">
+                        {generalReport.split('\n').map((line, i) => {
+                          if (!line.trim()) return <br key={i} />;
+                          
+                          const isHeading = line.startsWith('#');
+                          const isListItem = line.trim().startsWith('-') || line.trim().startsWith('*');
+
+                          return (
+                            <p 
+                              key={i} 
+                              className={cn(
+                                isHeading ? "font-bold text-primary text-lg mt-4 mb-2" : "text-muted-foreground",
+                                isListItem ? "pl-4 mb-1" : "mb-2",
+                                "leading-relaxed"
+                              )}
+                            >
+                              {formatLine(line)}
+                            </p>
+                          );
+                        })}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
               )}
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
