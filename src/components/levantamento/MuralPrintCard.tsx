@@ -8,9 +8,10 @@ type LevantamentoRow = Tables<"levantamento_operacional_2024">;
 
 interface MuralPrintCardProps {
   resposta: LevantamentoRow;
+  fitMode?: "cover" | "contain";
 }
 
-export function MuralPrintCard({ resposta }: MuralPrintCardProps) {
+export function MuralPrintCard({ resposta, fitMode = "contain" }: MuralPrintCardProps) {
   return (
     <div 
       id={`card-sonho-${resposta.id}`}
@@ -39,13 +40,13 @@ export function MuralPrintCard({ resposta }: MuralPrintCardProps) {
         </div>
       </div>
 
-      {/* Container da Imagem - Ajustado para não cortar (object-contain) */}
-      <div className="flex-1 bg-zinc-50 rounded-[32px] overflow-hidden border-4 border-white shadow-inner mb-10 relative flex items-center justify-center p-4">
+      {/* Container da Imagem */}
+      <div className="flex-1 bg-zinc-50 rounded-[32px] overflow-hidden border-4 border-white shadow-inner mb-10 relative flex items-center justify-center">
         {resposta.fotos_sonhos && resposta.fotos_sonhos.length > 0 ? (
           <img 
             src={resposta.fotos_sonhos[0]} 
             alt="Meu Sonho" 
-            className="w-full h-full object-contain" 
+            className={`w-full h-full transition-all duration-300 ${fitMode === "cover" ? "object-cover" : "object-contain p-4"}`} 
           />
         ) : (
           <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-primary/5 to-primary/20 text-primary/20">

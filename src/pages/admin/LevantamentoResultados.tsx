@@ -15,7 +15,8 @@ import {
 import { 
   Download, Loader2, Users, Heart, Star, Rocket, LayoutGrid, 
   MessageSquare, TrendingUp, Search, ExternalLink, RefreshCw,
-  Target, Sparkles, AlertCircle, Image as ImageIcon, X
+  Target, Sparkles, AlertCircle, Image as ImageIcon, X,
+  Maximize2, Minimize2
 } from "lucide-react";
 import { useState, useMemo } from "react";
 import * as XLSX from "xlsx";
@@ -36,6 +37,7 @@ export default function LevantamentoResultados() {
   const [selectedResposta, setSelectedResposta] = useState<LevantamentoRow | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
+  const [fitMode, setFitMode] = useState<"cover" | "contain">("contain");
 
   const { 
     data: respostas = [], 
@@ -268,22 +270,40 @@ export default function LevantamentoResultados() {
         <DialogContent className="max-w-[850px] p-0 bg-transparent border-none overflow-hidden h-[95vh] flex flex-col items-center justify-center">
           {/* Header de Ação na Modal */}
           <div className="absolute top-4 left-4 right-4 flex justify-between items-center z-50 pointer-events-auto">
-            <div className="bg-black/60 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 flex items-center gap-4">
-              <p className="text-white text-xs font-medium">Use <b>Ctrl + P</b> para salvar</p>
-              <Separator orientation="vertical" className="h-4 bg-white/20" />
-              <div className="flex items-center gap-2 text-white/60 text-[10px] uppercase tracking-widest font-bold">
-                <Rocket className="w-3 h-3" /> Sismais 10K
+            <div className="bg-black/80 backdrop-blur-xl px-6 py-3 rounded-2xl border border-white/20 flex items-center gap-6 shadow-2xl">
+              <div className="flex items-center gap-2">
+                <p className="text-white/60 text-[10px] uppercase tracking-widest font-black">Ajuste da Imagem</p>
+                <div className="flex bg-white/10 p-1 rounded-lg border border-white/10">
+                  <Button 
+                    variant={fitMode === "contain" ? "secondary" : "ghost"} 
+                    size="sm" 
+                    className="h-8 gap-2 text-xs" 
+                    onClick={() => setFitMode("contain")}
+                  >
+                    <Minimize2 className="w-3.5 h-3.5" /> Ver Inteira
+                  </Button>
+                  <Button 
+                    variant={fitMode === "cover" ? "secondary" : "ghost"} 
+                    size="sm" 
+                    className="h-8 gap-2 text-xs" 
+                    onClick={() => setFitMode("cover")}
+                  >
+                    <Maximize2 className="w-3.5 h-3.5" /> Preencher
+                  </Button>
+                </div>
               </div>
+              <Separator orientation="vertical" className="h-6 bg-white/20" />
+              <p className="text-white text-xs font-bold">Pressione <b>Ctrl + P</b></p>
             </div>
-            <Button variant="outline" size="icon" className="rounded-full bg-white/10 border-white/20 text-white hover:bg-white/20 backdrop-blur-md" onClick={() => setIsPrintModalOpen(false)}>
-              <X className="w-4 h-4" />
+            <Button variant="outline" size="icon" className="rounded-full h-12 w-12 bg-white/10 border-white/20 text-white hover:bg-white/20 backdrop-blur-md shadow-xl" onClick={() => setIsPrintModalOpen(false)}>
+              <X className="w-5 h-5" />
             </Button>
           </div>
 
-          {/* Container com Escala Reduzida para caber todo o Card (800x1000) */}
+          {/* Container com Escala Reduzida */}
           <div className="flex-1 w-full flex items-center justify-center p-4 overflow-hidden">
-            <div className="scale-[0.55] sm:scale-[0.65] md:scale-[0.75] lg:scale-[0.8] xl:scale-[0.85] origin-center transition-transform duration-300">
-               {selectedResposta && <MuralPrintCard resposta={selectedResposta} />}
+            <div className="scale-[0.55] sm:scale-[0.65] md:scale-[0.7] lg:scale-[0.75] xl:scale-[0.8] origin-center transition-all duration-500 ease-in-out">
+               {selectedResposta && <MuralPrintCard resposta={selectedResposta} fitMode={fitMode} />}
             </div>
           </div>
         </DialogContent>
