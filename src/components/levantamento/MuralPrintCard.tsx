@@ -19,6 +19,19 @@ export function MuralPrintCard({
   imagePosition = { x: 50, y: 50 },
   imageZoom = 1
 }: MuralPrintCardProps) {
+  
+  // Lógica para ajustar o tamanho da fonte baseado no comprimento do texto
+  const getFontSize = (text: string) => {
+    const length = text.length;
+    if (length < 100) return "text-4xl";
+    if (length < 200) return "text-3xl";
+    if (length < 400) return "text-2xl";
+    if (length < 600) return "text-xl";
+    return "text-lg";
+  };
+
+  const fontSizeClass = getFontSize(resposta.maior_sonho || "");
+
   return (
     <div 
       id={`card-sonho-${resposta.id}`}
@@ -47,8 +60,8 @@ export function MuralPrintCard({
         </div>
       </div>
 
-      {/* Container da Imagem */}
-      <div className="flex-1 bg-zinc-50 rounded-[32px] overflow-hidden border-4 border-white shadow-inner mb-10 relative flex items-center justify-center">
+      {/* Container da Imagem - PROPORÇÃO FIXA (Altura definida em 480px) */}
+      <div className="h-[480px] w-full bg-zinc-50 rounded-[32px] overflow-hidden border-4 border-white shadow-inner mb-8 relative flex items-center justify-center">
         {resposta.fotos_sonhos && resposta.fotos_sonhos.length > 0 ? (
           <div className="w-full h-full relative overflow-hidden">
             <img 
@@ -71,34 +84,35 @@ export function MuralPrintCard({
         )}
       </div>
 
-      {/* Conteúdo Texto */}
-      <div className="relative z-10 px-4">
-        <Quote className="w-16 h-16 text-primary/10 absolute -top-8 -left-4 rotate-180" />
+      {/* Conteúdo Texto com Fonte Dinâmica */}
+      <div className="relative z-10 px-4 flex-1 flex flex-col justify-center">
+        <Quote className="w-16 h-16 text-primary/10 absolute -top-4 -left-4 rotate-180" />
         
-        <div className="space-y-6">
-          <p className="text-3xl font-medium text-secondary leading-tight italic text-center min-h-[140px] flex items-center justify-center">
+        <div className="space-y-4">
+          <p className={`${fontSizeClass} font-medium text-secondary leading-tight italic text-center px-4`}>
             "{resposta.maior_sonho}"
           </p>
-          
-          <div className="pt-8 border-t border-primary/10 flex justify-between items-end">
-            <div className="flex-1">
-              <h3 className="text-4xl font-black text-primary tracking-tight leading-none uppercase truncate">
-                {resposta.colaborador_nome}
-              </h3>
-              <p className="text-xl text-muted-foreground mt-2 font-medium">
-                {resposta.funcao_atual}
-              </p>
-            </div>
-            
-            <div className="flex flex-col items-end gap-1 ml-4">
-              <div className="flex gap-1">
-                {[1, 2, 3, 4, 5].map((s) => (
-                  <Star key={s} className="w-5 h-5 fill-primary text-primary" />
-                ))}
-              </div>
-              <p className="text-[10px] font-bold text-primary/40 uppercase tracking-widest whitespace-nowrap">Comprometimento Sismais</p>
-            </div>
+        </div>
+      </div>
+
+      {/* Rodapé - Fixado na base */}
+      <div className="mt-6 pt-6 border-t border-primary/10 flex justify-between items-end relative z-10">
+        <div className="flex-1">
+          <h3 className="text-4xl font-black text-primary tracking-tight leading-none uppercase truncate">
+            {resposta.colaborador_nome}
+          </h3>
+          <p className="text-xl text-muted-foreground mt-2 font-medium">
+            {resposta.funcao_atual}
+          </p>
+        </div>
+        
+        <div className="flex flex-col items-end gap-1 ml-4">
+          <div className="flex gap-1">
+            {[1, 2, 3, 4, 5].map((s) => (
+              <Star key={s} className="w-5 h-5 fill-primary text-primary" />
+            ))}
           </div>
+          <p className="text-[10px] font-bold text-primary/40 uppercase tracking-widest whitespace-nowrap">Comprometimento Sismais</p>
         </div>
       </div>
 
