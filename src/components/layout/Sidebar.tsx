@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import { NavLink } from "@/components/NavLink";
 import { cn } from "@/lib/utils";
 import {
-  TrendingUp,
   Settings,
   ChevronDown,
   ChevronRight,
@@ -22,7 +21,8 @@ import {
   Search,
   LayoutDashboard,
   BarChart3,
-  Rocket
+  Rocket,
+  TrendingUp
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -54,8 +54,8 @@ const navSections: NavSection[] = [
   {
     title: "Geral",
     items: [
-      { title: "Dashboard", icon: LayoutDashboard, href: "/" },
-      { title: "Levantamento 10K", icon: Rocket, href: "/levantamento-10k" },
+      { title: "Dashboard", icon: LayoutDashboard, href: "/", permission: "dashboard.visualizar" },
+      { title: "Levantamento 10K", icon: Rocket, href: "/levantamento-10k", permission: "levantamento.visualizar" },
     ],
   },
   {
@@ -89,9 +89,9 @@ const navSections: NavSection[] = [
     title: "Administração",
     requireAdmin: true,
     items: [
-      { title: "Gerenciar Usuários", icon: Users, href: "/admin/usuarios", requireAdmin: true },
-      { title: "Permissões", icon: Lock, href: "/admin/permissoes", requireAdmin: true },
-      { title: "Resultados 10K", icon: BarChart3, href: "/admin/levantamento-resultados", requireAdmin: true },
+      { title: "Gerenciar Usuários", icon: Users, href: "/admin/usuarios", permission: "admin.usuarios", requireAdmin: true },
+      { title: "Permissões", icon: Lock, href: "/admin/permissoes", permission: "admin.permissoes", requireAdmin: true },
+      { title: "Resultados 10K", icon: BarChart3, href: "/admin/levantamento-resultados", permission: "admin.levantamento_resultados", requireAdmin: true },
     ],
   },
 ];
@@ -147,14 +147,20 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
   const canViewItem = (item: NavItem): boolean => {
     if (loading) return false;
-    if (item.requireAdmin) return isAdmin;
+    // Admins vêem tudo
+    if (isAdmin) return true;
+    // Se o item exige admin e o usuário não é, bloqueia
+    if (item.requireAdmin && !isAdmin) return false;
+    // Se o item tem permissão específica, verifica
     if (item.permission) return hasPermission(item.permission);
+    // Itens sem restrição (embora agora todos tenham)
     return true;
   };
 
   const canViewSection = (section: NavSection): boolean => {
     if (loading) return false;
-    if (section.requireAdmin) return isAdmin;
+    if (isAdmin) return true;
+    if (section.requireAdmin && !isAdmin) return false;
     return section.items.some(canViewItem);
   };
 
