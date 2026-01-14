@@ -56,6 +56,7 @@ const navSections: NavSection[] = [
     items: [
       { title: "Dashboard", icon: LayoutDashboard, href: "/", permission: "dashboard.visualizar" },
       { title: "Levantamento 10K", icon: Rocket, href: "/levantamento-10k", permission: "levantamento.visualizar" },
+      { title: "Resultados 10K", icon: BarChart3, href: "/admin/levantamento-resultados", permission: "admin.levantamento_resultados" },
     ],
   },
   {
@@ -91,7 +92,6 @@ const navSections: NavSection[] = [
     items: [
       { title: "Gerenciar Usuários", icon: Users, href: "/admin/usuarios", permission: "admin.usuarios", requireAdmin: true },
       { title: "Permissões", icon: Lock, href: "/admin/permissoes", permission: "admin.permissoes", requireAdmin: true },
-      { title: "Resultados 10K", icon: BarChart3, href: "/admin/levantamento-resultados", permission: "admin.levantamento_resultados", requireAdmin: true },
     ],
   },
 ];
@@ -153,7 +153,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     if (item.requireAdmin && !isAdmin) return false;
     // Se o item tem permissão específica, verifica
     if (item.permission) return hasPermission(item.permission);
-    // Itens sem restrição (embora agora todos tenham)
+    // Itens sem restrição
     return true;
   };
 
