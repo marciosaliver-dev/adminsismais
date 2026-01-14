@@ -35,7 +35,7 @@ export default function Auth() {
   const [signupPassword, setSignupPassword] = useState("");
   const [signupDepartamento, setSignupDepartamento] = useState("");
 
-  const { signIn, signUp, user, isApproved } = useAuth();
+  const { signIn, signUp, user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
@@ -43,10 +43,12 @@ export default function Auth() {
   const from = (location.state as { from?: Location })?.from?.pathname || "/";
 
   useEffect(() => {
-    if (user && isApproved) {
+    // Redireciona se o usuário estiver logado. 
+    // O ProtectedRoute na página de destino lidará com o status de aprovação.
+    if (user) {
       navigate(from, { replace: true });
     }
-  }, [user, isApproved, navigate, from]);
+  }, [user, navigate, from]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();

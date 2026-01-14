@@ -54,7 +54,6 @@ const navSections: NavSection[] = [
   {
     title: "Geral",
     items: [
-      { title: "Dashboard", icon: LayoutDashboard, href: "/", permission: "dashboard.visualizar" },
       { title: "Levantamento 10K", icon: Rocket, href: "/levantamento-10k", permission: "levantamento.visualizar" },
       { title: "Resultados 10K", icon: BarChart3, href: "/admin/levantamento-resultados", permission: "admin.levantamento_resultados" },
     ],
