@@ -28,7 +28,6 @@ import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import LevantamentoOperacional from "./pages/LevantamentoOperacional";
 import LevantamentoResultados from "./pages/admin/LevantamentoResultados";
-import Dashboard from "./pages/Dashboard";
 
 const queryClient = new QueryClient();
 
@@ -55,7 +54,7 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Layout>
-                    <Dashboard />
+                    <LevantamentoResultados />
                   </Layout>
                 </ProtectedRoute>
               }
@@ -94,13 +93,7 @@ const App = () => (
             />
             <Route
               path="/admin/levantamento-resultados"
-              element={
-                <ProtectedRoute>
-                  <Layout>
-                    <LevantamentoResultados />
-                  </Layout>
-                </ProtectedRoute>
-              }
+              element={<Navigate to="/" replace />}
             />
 
             {/* Commissions Module */}
