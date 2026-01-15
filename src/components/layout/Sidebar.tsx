@@ -22,7 +22,8 @@ import {
   LayoutDashboard,
   BarChart3,
   Rocket,
-  TrendingUp
+  TrendingUp,
+  XCircle // Importado
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -80,9 +81,10 @@ const navSections: NavSection[] = [
   {
     title: "Financeiro",
     items: [
+      { title: "Assinaturas & MRR", icon: TrendingUp, href: "/assinaturas", permission: "extrato.visualizar" },
+      { title: "Cancelamentos", icon: XCircle, href: "/cancelamentos", permission: "extrato.visualizar" }, // Novo item
       { title: "Extrato Asaas", icon: FileSpreadsheet, href: "/extrato-asaas", permission: "extrato.visualizar" },
       { title: "Extrato Eduzz", icon: FileSpreadsheet, href: "/extrato-eduzz", permission: "extrato.visualizar" },
-      { title: "Assinaturas & MRR", icon: TrendingUp, href: "/assinaturas", permission: "extrato.visualizar" },
     ],
   },
   {

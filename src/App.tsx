@@ -24,6 +24,7 @@ import FechamentoEquipe from "./pages/equipe/FechamentoEquipe";
 import LancarVendaPublica from "./pages/LancarVendaPublica";
 import SimuladorMeta from "./pages/SimuladorMeta";
 import Assinaturas from "./pages/Assinaturas";
+import Cancelamentos from "./pages/Cancelamentos"; // Importado
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import LevantamentoOperacional from "./pages/LevantamentoOperacional";
@@ -205,6 +206,16 @@ const App = () => (
                 <ProtectedRoute>
                   <Layout>
                     <Assinaturas />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/cancelamentos"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <Cancelamentos />
                   </Layout>
                 </ProtectedRoute>
               }
