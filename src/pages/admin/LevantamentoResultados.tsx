@@ -22,7 +22,10 @@ import {
   Image as ImageDown,
   CheckCircle2,
   MousePointer2,
-  RefreshCcw
+  RefreshCcw,
+  Sun,
+  Moon,
+  Crown
 } from "lucide-react";
 import { useState, useMemo, useRef, useEffect } from "react";
 import * as XLSX from "xlsx";
@@ -54,6 +57,8 @@ export default function LevantamentoResultados() {
 
   // Card Editing State
   const [selectedPhotos, setSelectedPhotos] = useState<string[]>([]);
+  const [highlightedPhoto, setHighlightedPhoto] = useState<string | null>(null);
+  const [cardTheme, setCardTheme] = useState<"light" | "dark">("light");
   const [photoSettings, setPhotoSettings] = useState<Record<string, PhotoSetting>>({});
   const [activePhotoIndex, setActivePhotoIndex] = useState<number | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -141,21 +146,20 @@ export default function LevantamentoResultados() {
   const handleOpenPrintCard = (resposta: LevantamentoRow) => {
     setSelectedResposta(null);
     
-    // Initialize with all photos available, or empty
-    const availablePhotos = resposta.fotos_sonhos || [];
-    // Select up to 6 photos by default
-    const initialSelection = availablePhotos.slice(0, 6);
-    setSelectedPhotos(initialSelection);
+    // Initialize with first 6 photos if available
+    const initialPhotos = resposta.fotos_sonhos?.slice(0, 6) || [];
+    setSelectedPhotos(initialPhotos);
+    setHighlightedPhoto(initialPhotos.length > 0 ? initialPhotos[0] : null);
     
     // Initialize settings
     const initialSettings: Record<string, PhotoSetting> = {};
-    availablePhotos.forEach(url => {
+    initialPhotos.forEach(url => {
       initialSettings[url] = { x: 50, y: 50, zoom: 1 };
     });
     setPhotoSettings(initialSettings);
     
     // Set first photo as active if any
-    setActivePhotoIndex(initialSelection.length > 0 ? 0 : null);
+    setActivePhotoIndex(initialPhotos.length > 0 ? 0 : null);
     
     setTimeout(() => {
       setSelectedResposta(resposta);
@@ -167,30 +171,51 @@ export default function LevantamentoResultados() {
     let newSelection;
     if (selectedPhotos.includes(url)) {
       newSelection = selectedPhotos.filter(p => p !== url);
+      // Remove highlight if deselecting the highlighted photo
+      if (highlightedPhoto === url) {
+        setHighlightedPhoto(newSelection.length > 0 ? newSelection[0] : null);
+      }
     } else {
       if (selectedPhotos.length >= 6) {
         toast({ title: "Limite atingido", description: "Máximo de 6 fotos permitidas.", variant: "destructive" });
         return;
       }
       newSelection = [...selectedPhotos, url];
+      // If adding the first photo, auto-highlight it
+      if (newSelection.length === 1) {
+        setHighlightedPhoto(url);
+      }
     }
     
     setSelectedPhotos(newSelection);
     
-    // If we removed the active photo, reset active index or set to first
-    if (!newSelection.includes(url) && activePhotoIndex !== null && selectedPhotos[activePhotoIndex] === url) {
-       setActivePhotoIndex(newSelection.length > 0 ? 0 : null);
-    } else if (newSelection.includes(url) && !selectedPhotos.includes(url)) {
-       // If we just added a photo, make it active
-       setActivePhotoIndex(newSelection.indexOf(url));
+    // Reset active index if selected photo was removed or ensure valid index
+    if (newSelection.length > 0) {
+      // Keep selected photo active if still in list, otherwise select first
+      if (activePhotoIndex !== null && selectedPhotos[activePhotoIndex] === url) {
+         setActivePhotoIndex(null); // Deselected active photo
+      } else {
+         // Keep current active index logic simple for now
+         // Or try to map old active photo to new index? 
+         // For simplicity, just ensure a valid index if any exist.
+         if (activePhotoIndex === null) setActivePhotoIndex(0);
+      }
     } else {
-       // Just update index to match new array
-       setActivePhotoIndex(newSelection.length > 0 ? 0 : null);
+      setActivePhotoIndex(null);
     }
     
-    // Init setting if needed
+    // Init settings if new
     if (!photoSettings[url]) {
       setPhotoSettings(prev => ({ ...prev, [url]: { x: 50, y: 50, zoom: 1 } }));
+    }
+  };
+
+  const handleToggleHighlight = (url: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (highlightedPhoto === url) {
+      setHighlightedPhoto(null); // Toggle off (optional, or force one to be selected)
+    } else {
+      setHighlightedPhoto(url);
     }
   };
 
@@ -208,10 +233,7 @@ export default function LevantamentoResultados() {
     setIsDragging(true);
     dragStartPos.current = { x: e.clientX, y: e.clientY };
     const activeUrl = selectedPhotos[activePhotoIndex];
-    
-    // Ensure we have current settings
-    const currentSettings = photoSettings[activeUrl] || { x: 50, y: 50, zoom: 1 };
-    initialImgPos.current = { x: currentSettings.x, y: currentSettings.y };
+    initialImgPos.current = { x: photoSettings[activeUrl]?.x || 50, y: photoSettings[activeUrl]?.y || 50 };
   };
 
   const onMouseMove = (e: MouseEvent) => {
@@ -276,7 +298,7 @@ export default function LevantamentoResultados() {
     XLSX.writeFile(wb, `Mapeamento_Sismais_10K_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
-  // Generate general report logic
+  // Generate general report logic (kept same as before)
   const handleGenerateGeneralReport = async () => {
     setIsGeneratingReport(true);
     try {
@@ -467,9 +489,30 @@ export default function LevantamentoResultados() {
           <div className="w-full sm:w-80 h-auto sm:h-full bg-zinc-900 border-r border-zinc-800 p-6 flex flex-col gap-6 overflow-y-auto z-50">
             <div>
               <h3 className="text-white font-bold mb-4 flex items-center gap-2">
+                <ImageIcon className="w-4 h-4 text-primary" /> Estilo & Tema
+              </h3>
+              
+              <div className="grid grid-cols-2 gap-3 mb-6">
+                <Button 
+                  variant={cardTheme === 'light' ? 'default' : 'secondary'} 
+                  onClick={() => setCardTheme('light')}
+                  className={cn(cardTheme === 'light' ? 'bg-white text-zinc-900 hover:bg-white/90' : 'bg-zinc-800 text-zinc-400')}
+                >
+                  <Sun className="w-4 h-4 mr-2" /> Claro
+                </Button>
+                <Button 
+                  variant={cardTheme === 'dark' ? 'default' : 'secondary'} 
+                  onClick={() => setCardTheme('dark')}
+                  className={cn(cardTheme === 'dark' ? 'bg-[#10293f] text-[#45e5e5] hover:bg-[#10293f]/90' : 'bg-zinc-800 text-zinc-400')}
+                >
+                  <Moon className="w-4 h-4 mr-2" /> Escuro
+                </Button>
+              </div>
+
+              <h3 className="text-white font-bold mb-4 flex items-center gap-2">
                 <ImageIcon className="w-4 h-4 text-primary" /> Selecionar Fotos ({selectedPhotos.length}/6)
               </h3>
-              <p className="text-xs text-zinc-400 mb-2">Selecione as fotos para o mural. A que estiver com borda azul é a foto ativa para ajuste de zoom.</p>
+              <p className="text-xs text-zinc-400 mb-2">Clique na imagem para selecionar. Clique na <strong>Estrela</strong> para definir o destaque principal (maior).</p>
               
               <ScrollArea className="h-48 border border-zinc-800 rounded-lg p-2 bg-zinc-950">
                 <div className="grid grid-cols-3 gap-2">
@@ -477,17 +520,33 @@ export default function LevantamentoResultados() {
                     <div 
                       key={idx} 
                       className={cn(
-                        "aspect-square rounded-md overflow-hidden cursor-pointer relative border-2 transition-all",
-                        selectedPhotos.includes(url) ? "border-primary/50" : "border-transparent opacity-50 hover:opacity-80",
-                        activePhotoUrl === url && "border-primary ring-2 ring-primary/30 opacity-100 z-10"
+                        "aspect-square rounded-md overflow-hidden relative border-2 transition-all group",
+                        selectedPhotos.includes(url) ? "border-primary/50 opacity-100" : "border-transparent opacity-50 hover:opacity-80",
+                        activePhotoIndex !== null && selectedPhotos[activePhotoIndex] === url && "ring-2 ring-primary border-primary"
                       )}
                       onClick={() => handleTogglePhoto(url)}
                     >
                       <img src={url} alt="" className="w-full h-full object-cover" />
+                      
+                      {/* Check mark for selection */}
                       {selectedPhotos.includes(url) && (
-                        <div className="absolute top-1 right-1 bg-primary rounded-full p-0.5">
+                        <div className="absolute top-1 right-1 bg-primary rounded-full p-0.5 z-10">
                           <CheckCircle2 className="w-3 h-3 text-white" />
                         </div>
+                      )}
+
+                      {/* Highlight Star Button (Only if selected) */}
+                      {selectedPhotos.includes(url) && (
+                        <button
+                          className={cn(
+                            "absolute bottom-1 left-1 p-1 rounded-full z-20 transition-all shadow-md",
+                            highlightedPhoto === url ? "bg-yellow-400 text-yellow-900" : "bg-black/50 text-white hover:bg-yellow-400/80"
+                          )}
+                          onClick={(e) => handleToggleHighlight(url, e)}
+                          title="Definir como Destaque"
+                        >
+                          <Crown className="w-3 h-3" />
+                        </button>
                       )}
                     </div>
                   ))}
@@ -527,6 +586,7 @@ export default function LevantamentoResultados() {
                           min={0.5} 
                           max={3} 
                           step={0.1} 
+                          disabled={activePhotoIndex === null}
                           onValueChange={([v]) => activePhotoUrl && handleUpdateSetting(activePhotoUrl, "zoom", v)}
                           className="flex-1"
                         />
@@ -585,6 +645,8 @@ export default function LevantamentoResultados() {
                  <MuralPrintCard 
                   resposta={selectedResposta} 
                   selectedPhotos={selectedPhotos}
+                  highlightedPhotoUrl={highlightedPhoto}
+                  theme={cardTheme}
                   photoSettings={photoSettings}
                   onPhotoClick={setActivePhotoIndex}
                   activePhotoIndex={activePhotoIndex}
