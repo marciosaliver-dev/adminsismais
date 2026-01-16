@@ -16,9 +16,9 @@ export interface PhotoSetting {
 interface MuralPrintCardProps {
   resposta: LevantamentoRow;
   selectedPhotos?: string[]; 
-  highlightedPhotoUrl?: string | null; // Nova prop para destaque
+  highlightedPhotoUrl?: string | null;
   photoSettings?: Record<string, PhotoSetting>;
-  theme?: "light" | "dark"; // Nova prop para tema
+  theme?: "light" | "dark";
   id?: string;
   onPhotoClick?: (index: number) => void;
   activePhotoIndex?: number | null;
@@ -35,12 +35,10 @@ export function MuralPrintCard({
   activePhotoIndex
 }: MuralPrintCardProps) {
   
-  // Lógica de seleção e reordenação baseada no destaque
   const rawPhotos = selectedPhotos.length > 0 
     ? selectedPhotos 
     : (resposta.fotos_sonhos?.slice(0, 6) || []);
 
-  // Se houver uma foto de destaque, move ela para o índice 0
   const fotos = highlightedPhotoUrl && rawPhotos.includes(highlightedPhotoUrl)
     ? [highlightedPhotoUrl, ...rawPhotos.filter(p => p !== highlightedPhotoUrl)]
     : rawPhotos;
@@ -48,7 +46,6 @@ export function MuralPrintCard({
   const hasPhotos = fotos.length > 0;
   const isDark = theme === "dark";
 
-  // Definição de cores baseada no tema
   const colors = {
     bg: isDark ? "bg-[#10293f]" : "bg-white",
     textPrimary: isDark ? "text-[#45e5e5]" : "text-[#10293f]",
@@ -68,7 +65,6 @@ export function MuralPrintCard({
 
   const getFontSize = (text: string) => {
     const length = text.length;
-    // Se não tem fotos, aumentamos a fonte um pouco mais para preencher o espaço
     if (!hasPhotos) {
       if (length < 80) return "text-6xl";
       if (length < 150) return "text-5xl";
@@ -86,65 +82,87 @@ export function MuralPrintCard({
 
   const RenderImage = ({ url, index, className }: { url: string, index: number, className?: string }) => {
     const settings = photoSettings[url] || { x: 50, y: 50, zoom: 1 };
-    const isActive = activePhotoIndex === index;
+    
+    const originalIndex = selectedPhotos.indexOf(url);
+    const isActive = activePhotoIndex !== null && selectedPhotos[activePhotoIndex] === url;
     
     return (
       <div 
         className={cn(
-          "w-full h-full overflow-hidden relative cursor-pointer group transition-all border-4",
+          "w-full h-full overflow-hidden relative group transition-all border-4 box-border",
           className,
           colors.borderImage,
-          isActive ? "border-[#45e5e5] z-20 shadow-xl scale-[1.02]" : "hover:brightness-90"
+          isActive ? "border-[#45e5e5] z-30 shadow-2xl cursor-move" : "cursor-pointer hover:brightness-90"
         )}
         onClick={(e) => {
           e.stopPropagation();
-          // Passamos o índice correto da lista original para o editor
-          if (onPhotoClick) onPhotoClick(index);
+          if (originalIndex !== -1) onPhotoClick?.(originalIndex);
         }}
       >
         <img 
           src={url} 
           alt={`Sonho ${index}`} 
-          className="w-full h-full object-cover transition-all duration-100 ease-linear will-change-transform"
+          className="w-full h-full object-cover transition-transform duration-75 ease-out will-change-transform"
           style={{ 
             objectPosition: `${settings.x}% ${settings.y}%`,
             transform: `scale(${settings.zoom})`,
             transformOrigin: `${settings.x}% ${settings.y}%`
           }} 
         />
+        
+        {/* Overlay de "Editar" apenas se não estiver ativo */}
         {onPhotoClick && !isActive && (
-          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20 pointer-events-none">
-            <span className="text-white text-sm font-bold bg-black/60 px-3 py-1.5 rounded-full backdrop-blur-sm shadow-lg border border-white/20">
-              Editar
+          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20 pointer-events-none bg-black/10">
+            <span className="text-white text-xs font-bold bg-black/60 px-3 py-1 rounded-full backdrop-blur-sm shadow-sm border border-white/20">
+              Ajustar
             </span>
           </div>
+        )}
+        
+        {/* Overlay de "Ativo" para indicar que está em modo de edição */}
+        {isActive && (
+          <div className="absolute inset-0 border-2 border-white/30 pointer-events-none z-40" />
         )}
       </div>
     );
   };
 
   const renderImageGrid = () => {
-    if (!hasPhotos) return null;
-
-    if (fotos.length === 1) return <RenderImage url={fotos[0]} index={0} />;
-
-    if (fotos.length === 2) {
+    if (!hasPhotos) {
       return (
-        <div className="w-full h-full grid grid-cols-2 gap-2">
-          {fotos.map((url, idx) => <RenderImage key={idx} url={url} index={idx} />)}
+        <div className="w-full h-full flex flex-col items-center justify-center opacity-20">
+          <Star className={cn("w-32 h-32 mb-4", colors.textPrimary)} />
+          <span className={cn("text-2xl font-black uppercase tracking-widest", colors.textPrimary)}>Sem fotos</span>
         </div>
       );
     }
 
+    if (fotos.length === 1) return <RenderImage url={fotos[0]} index={0} className="rounded-[24px]" />;
+
+    if (fotos.length === 2) {
+      return (
+        <div className="w-full h-full grid grid-cols-2 gap-2">
+          <div className="relative"><RenderImage url={fotos[0]} index={0} className="absolute inset-0 rounded-l-[24px]" /></div>
+          <div className="relative"><RenderImage url={fotos[1]} index={1} className="absolute inset-0 rounded-r-[24px]" /></div>
+        </div>
+      );
+    }
+
+    // CORREÇÃO PRINCIPAL: Grid 3 fotos robusto
     if (fotos.length === 3) {
       return (
-        <div className="w-full h-full grid grid-cols-3 gap-2">
-          <div className="col-span-2 h-full">
-            <RenderImage url={fotos[0]} index={0} className="rounded-l-2xl h-full" />
+        <div className="w-full h-full grid grid-cols-3 grid-rows-2 gap-2">
+          {/* Foto Principal (Esquerda) */}
+          <div className="col-span-2 row-span-2 relative">
+            <RenderImage url={fotos[0]} index={0} className="absolute inset-0 rounded-l-[24px]" />
           </div>
-          <div className="col-span-1 flex flex-col gap-2 h-full">
-            <div className="h-1/2 relative"><RenderImage url={fotos[1]} index={1} className="rounded-tr-2xl absolute inset-0" /></div>
-            <div className="h-1/2 relative"><RenderImage url={fotos[2]} index={2} className="rounded-br-2xl absolute inset-0" /></div>
+          {/* Foto Canto Superior Direito */}
+          <div className="col-span-1 row-span-1 relative">
+            <RenderImage url={fotos[1]} index={1} className="absolute inset-0 rounded-tr-[24px]" />
+          </div>
+          {/* Foto Canto Inferior Direito */}
+          <div className="col-span-1 row-span-1 relative">
+            <RenderImage url={fotos[2]} index={2} className="absolute inset-0 rounded-br-[24px]" />
           </div>
         </div>
       );
@@ -153,7 +171,10 @@ export function MuralPrintCard({
     if (fotos.length === 4) {
       return (
         <div className="w-full h-full grid grid-cols-2 grid-rows-2 gap-2">
-          {fotos.map((url, idx) => <RenderImage key={idx} url={url} index={idx} />)}
+          <div className="relative"><RenderImage url={fotos[0]} index={0} className="absolute inset-0 rounded-tl-[24px]" /></div>
+          <div className="relative"><RenderImage url={fotos[1]} index={1} className="absolute inset-0 rounded-tr-[24px]" /></div>
+          <div className="relative"><RenderImage url={fotos[2]} index={2} className="absolute inset-0 rounded-bl-[24px]" /></div>
+          <div className="relative"><RenderImage url={fotos[3]} index={3} className="absolute inset-0 rounded-br-[24px]" /></div>
         </div>
       );
     }
@@ -161,16 +182,14 @@ export function MuralPrintCard({
     if (fotos.length === 5) {
       return (
         <div className="w-full h-full grid grid-rows-2 gap-2">
-          <div className="row-span-1">
-            <RenderImage url={fotos[0]} index={0} className="rounded-t-2xl" />
+          <div className="row-span-1 relative">
+            <RenderImage url={fotos[0]} index={0} className="absolute inset-0 rounded-t-[24px]" />
           </div>
           <div className="grid grid-cols-4 gap-2 row-span-1">
-            {fotos.slice(1).map((url, idx) => (
-              <RenderImage key={idx+1} url={url} index={idx+1} className={cn(
-                idx === 0 && "rounded-bl-2xl",
-                idx === 3 && "rounded-br-2xl"
-              )} />
-            ))}
+            <div className="relative"><RenderImage url={fotos[1]} index={1} className="absolute inset-0 rounded-bl-[24px]" /></div>
+            <div className="relative"><RenderImage url={fotos[2]} index={2} className="absolute inset-0" /></div>
+            <div className="relative"><RenderImage url={fotos[3]} index={3} className="absolute inset-0" /></div>
+            <div className="relative"><RenderImage url={fotos[4]} index={4} className="absolute inset-0 rounded-br-[24px]" /></div>
           </div>
         </div>
       );
@@ -179,7 +198,12 @@ export function MuralPrintCard({
     if (fotos.length === 6) {
       return (
         <div className="w-full h-full grid grid-cols-3 grid-rows-2 gap-2">
-          {fotos.map((url, idx) => <RenderImage key={idx} url={url} index={idx} />)}
+          <div className="relative"><RenderImage url={fotos[0]} index={0} className="absolute inset-0 rounded-tl-[24px]" /></div>
+          <div className="relative"><RenderImage url={fotos[1]} index={1} className="absolute inset-0" /></div>
+          <div className="relative"><RenderImage url={fotos[2]} index={2} className="absolute inset-0 rounded-tr-[24px]" /></div>
+          <div className="relative"><RenderImage url={fotos[3]} index={3} className="absolute inset-0 rounded-bl-[24px]" /></div>
+          <div className="relative"><RenderImage url={fotos[4]} index={4} className="absolute inset-0" /></div>
+          <div className="relative"><RenderImage url={fotos[5]} index={5} className="absolute inset-0 rounded-br-[24px]" /></div>
         </div>
       );
     }
@@ -212,16 +236,14 @@ export function MuralPrintCard({
         </Badge>
       </div>
 
-      {/* Área da Imagem (Central) - Apenas se houver fotos */}
-      {hasPhotos && (
-        <div className="px-12 flex-1 min-h-0 flex flex-col">
-          <div className={cn("w-full flex-1 rounded-[32px] overflow-hidden border-8 shadow-[0_8px_30px_rgb(0,0,0,0.08)] relative", colors.imageContainerBg, colors.borderImage)}>
-            {renderImageGrid()}
-          </div>
+      {/* Área da Imagem (Central) */}
+      <div className="px-12 flex-1 min-h-0 flex flex-col">
+        <div className={cn("w-full flex-1 rounded-[32px] overflow-hidden border-8 shadow-[0_8px_30px_rgb(0,0,0,0.08)] relative", colors.imageContainerBg, colors.borderImage)}>
+          {renderImageGrid()}
         </div>
-      )}
+      </div>
 
-      {/* Conteúdo de Texto e Footer - Expande (flex-1) e centraliza se não houver fotos */}
+      {/* Conteúdo de Texto e Footer */}
       <div className={cn(
         "px-12 pb-12 pt-8 relative z-10 flex flex-col gap-6",
         !hasPhotos && "flex-1 justify-center pt-0" // Centraliza verticalmente se sem fotos
