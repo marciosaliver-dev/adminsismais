@@ -92,7 +92,6 @@ export function MuralPrintCard({
           "w-full h-full overflow-hidden relative group transition-all border-4 box-border",
           className,
           colors.borderImage,
-          // Removida a borda ciano (border-[#45e5e5]) na ativa para manter o visual limpo
           isActive ? "z-30 shadow-2xl cursor-move" : "cursor-pointer hover:brightness-90"
         )}
         onClick={(e) => {
@@ -120,23 +119,16 @@ export function MuralPrintCard({
           </div>
         )}
         
-        {/* Feedback sutil de seleção (borda interna fina) */}
+        {/* Overlay de "Ativo" para indicar que está em modo de edição */}
         {isActive && (
-          <div className="absolute inset-0 border border-white/40 pointer-events-none z-40" />
+          <div className="absolute inset-0 border-2 border-white/30 pointer-events-none z-40" />
         )}
       </div>
     );
   };
 
   const renderImageGrid = () => {
-    if (!hasPhotos) {
-      return (
-        <div className="w-full h-full flex flex-col items-center justify-center opacity-20">
-          <Star className={cn("w-32 h-32 mb-4", colors.textPrimary)} />
-          <span className={cn("text-2xl font-black uppercase tracking-widest", colors.textPrimary)}>Sem fotos</span>
-        </div>
-      );
-    }
+    if (!hasPhotos) return null;
 
     if (fotos.length === 1) return <RenderImage url={fotos[0]} index={0} className="rounded-[24px]" />;
 
@@ -149,19 +141,15 @@ export function MuralPrintCard({
       );
     }
 
-    // Grid 3 fotos: Principal 2/3 à esquerda, 2 menores à direita
     if (fotos.length === 3) {
       return (
         <div className="w-full h-full grid grid-cols-3 grid-rows-2 gap-2">
-          {/* Foto Principal (Esquerda - ocupa 2 colunas e 2 linhas) */}
           <div className="col-span-2 row-span-2 relative">
             <RenderImage url={fotos[0]} index={0} className="absolute inset-0 rounded-l-[24px]" />
           </div>
-          {/* Foto Canto Superior Direito */}
           <div className="col-span-1 row-span-1 relative">
             <RenderImage url={fotos[1]} index={1} className="absolute inset-0 rounded-tr-[24px]" />
           </div>
-          {/* Foto Canto Inferior Direito */}
           <div className="col-span-1 row-span-1 relative">
             <RenderImage url={fotos[2]} index={2} className="absolute inset-0 rounded-br-[24px]" />
           </div>
@@ -237,12 +225,14 @@ export function MuralPrintCard({
         </Badge>
       </div>
 
-      {/* Área da Imagem (Central) */}
-      <div className="px-12 flex-1 min-h-0 flex flex-col">
-        <div className={cn("w-full flex-1 rounded-[32px] overflow-hidden border-8 shadow-[0_8px_30px_rgb(0,0,0,0.08)] relative", colors.imageContainerBg, colors.borderImage)}>
-          {renderImageGrid()}
+      {/* Área da Imagem (Central) - Oculta se não houver fotos */}
+      {hasPhotos && (
+        <div className="px-12 flex-1 min-h-0 flex flex-col">
+          <div className={cn("w-full flex-1 rounded-[32px] overflow-hidden border-8 shadow-[0_8px_30px_rgb(0,0,0,0.08)] relative", colors.imageContainerBg, colors.borderImage)}>
+            {renderImageGrid()}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Conteúdo de Texto e Footer */}
       <div className={cn(
