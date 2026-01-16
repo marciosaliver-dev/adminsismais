@@ -68,7 +68,15 @@ export function MuralPrintCard({
 
   const getFontSize = (text: string) => {
     const length = text.length;
-    if (length < 80) return "text-4xl";
+    // Se não tem fotos, aumentamos a fonte um pouco mais para preencher o espaço
+    if (!hasPhotos) {
+      if (length < 80) return "text-6xl";
+      if (length < 150) return "text-5xl";
+      if (length < 300) return "text-4xl";
+      return "text-3xl";
+    }
+    
+    if (length < 80) return "text-4xl"; 
     if (length < 150) return "text-3xl";
     if (length < 300) return "text-2xl";
     return "text-xl";
@@ -78,10 +86,7 @@ export function MuralPrintCard({
 
   const RenderImage = ({ url, index, className }: { url: string, index: number, className?: string }) => {
     const settings = photoSettings[url] || { x: 50, y: 50, zoom: 1 };
-    
-    // Precisamos encontrar o índice original na lista de selecionados para manter a referência correta ao clicar
-    const originalIndex = selectedPhotos.indexOf(url);
-    const isActive = activePhotoIndex !== null && selectedPhotos[activePhotoIndex] === url;
+    const isActive = activePhotoIndex === index;
     
     return (
       <div 
@@ -94,7 +99,7 @@ export function MuralPrintCard({
         onClick={(e) => {
           e.stopPropagation();
           // Passamos o índice correto da lista original para o editor
-          if (originalIndex !== -1) onPhotoClick?.(originalIndex);
+          if (onPhotoClick) onPhotoClick(index);
         }}
       >
         <img 
@@ -119,14 +124,7 @@ export function MuralPrintCard({
   };
 
   const renderImageGrid = () => {
-    if (!hasPhotos) {
-      return (
-        <div className="w-full h-full flex flex-col items-center justify-center opacity-20">
-          <Star className={cn("w-32 h-32 mb-4", colors.textPrimary)} />
-          <span className={cn("text-2xl font-black uppercase tracking-widest", colors.textPrimary)}>Sem fotos</span>
-        </div>
-      );
-    }
+    if (!hasPhotos) return null;
 
     if (fotos.length === 1) return <RenderImage url={fotos[0]} index={0} />;
 
@@ -214,15 +212,20 @@ export function MuralPrintCard({
         </Badge>
       </div>
 
-      {/* Área da Imagem (Central) */}
-      <div className="px-12 flex-1 min-h-0 flex flex-col">
-        <div className={cn("w-full flex-1 rounded-[32px] overflow-hidden border-8 shadow-[0_8px_30px_rgb(0,0,0,0.08)] relative", colors.imageContainerBg, colors.borderImage)}>
-          {renderImageGrid()}
+      {/* Área da Imagem (Central) - Apenas se houver fotos */}
+      {hasPhotos && (
+        <div className="px-12 flex-1 min-h-0 flex flex-col">
+          <div className={cn("w-full flex-1 rounded-[32px] overflow-hidden border-8 shadow-[0_8px_30px_rgb(0,0,0,0.08)] relative", colors.imageContainerBg, colors.borderImage)}>
+            {renderImageGrid()}
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* Conteúdo de Texto e Footer */}
-      <div className="px-12 pb-12 pt-8 relative z-10 flex flex-col gap-6">
+      {/* Conteúdo de Texto e Footer - Expande (flex-1) e centraliza se não houver fotos */}
+      <div className={cn(
+        "px-12 pb-12 pt-8 relative z-10 flex flex-col gap-6",
+        !hasPhotos && "flex-1 justify-center pt-0" // Centraliza verticalmente se sem fotos
+      )}>
         
         {/* Citação do Sonho */}
         <div className="relative pl-10 pr-4">
