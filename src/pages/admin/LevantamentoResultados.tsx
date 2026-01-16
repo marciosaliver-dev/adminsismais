@@ -19,20 +19,23 @@ import {
   Target, Sparkles, AlertCircle, ImageIcon, X,
   Maximize2, Minimize2, Move, ZoomIn, RotateCcw, Brain, FileText,
   PieChart as PieIcon,
-  Image as ImageDown
+  Image as ImageDown,
+  CheckCircle2,
+  MousePointer2
 } from "lucide-react";
 import { useState, useMemo, useRef, useEffect } from "react";
 import * as XLSX from "xlsx";
 import { Input } from "@/components/ui/input";
 import { usePermissions } from "@/hooks/usePermissions";
 import { LevantamentoDetalhesDialog } from "@/components/levantamento/LevantamentoDetalhesDialog";
-import { MuralPrintCard } from "@/components/levantamento/MuralPrintCard";
+import { MuralPrintCard, type PhotoSetting } from "@/components/levantamento/MuralPrintCard";
 import { MuralCard } from "@/components/levantamento/MuralCard";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import type { Tables } from "@/integrations/supabase/types";
 import { toPng } from "html-to-image";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 type LevantamentoRow = Tables<"levantamento_operacional_2024">;
 
@@ -48,11 +51,12 @@ export default function LevantamentoResultados() {
   // General Report State
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
 
-  // Image Adjustment State
-  const [fitMode, setFitMode] = useState<"cover" | "contain">("cover");
-  const [imagePosition, setImagePosition] = useState({ x: 50, y: 50 });
-  const [imageZoom, setImageZoom] = useState(1);
+  // Card Editing State
+  const [selectedPhotos, setSelectedPhotos] = useState<string[]>([]);
+  const [photoSettings, setPhotoSettings] = useState<Record<string, PhotoSetting>>({});
+  const [activePhotoIndex, setActivePhotoIndex] = useState<number | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  
   const dragStartPos = useRef({ x: 0, y: 0 });
   const initialImgPos = useRef({ x: 50, y: 50 });
 
@@ -133,88 +137,108 @@ export default function LevantamentoResultados() {
     }
   };
 
-  const handleGenerateGeneralReport = async () => {
-    setIsGeneratingReport(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("analisar-levantamento-geral");
-      
-      if (error) throw error;
-      
-      if (!data?.report || data.report.includes("Erro ao gerar relatório")) {
-        throw new Error("A IA não conseguiu processar os dados no momento. Tente novamente.");
-      }
-
-      // Converter Markdown básico para HTML para exibição na aba
-      const reportHtml = data.report
-        .replace(/^# (.*$)/gim, '<h1 style="color: #10293f; border-bottom: 2px solid #45e5e5; padding-bottom: 10px;">$1</h1>')
-        .replace(/^## (.*$)/gim, '<h2 style="color: #10293f; margin-top: 25px;">$1</h2>')
-        .replace(/^### (.*$)/gim, '<h3 style="color: #45e5e5;">$1</h3>')
-        .replace(/^\* (.*$)/gim, '<ul><li>$1</li></ul>')
-        .replace(/<\/ul>\n<ul>/gim, '')
-        .replace(/^\- (.*$)/gim, '<ul><li>$1</li></ul>')
-        .replace(/<\/ul>\n<ul>/gim, '')
-        .replace(/\*\*(.*?)\*\*/gim, '<strong>$1</strong>')
-        .split('\n\n')
-        .map((p: string) => p.startsWith('<h') || p.startsWith('<ul') ? p : `<p style="margin-bottom: 15px; line-height: 1.6;">${p}</p>`)
-        .join('');
-
-      const fullHtml = `
-        <!DOCTYPE html>
-        <html lang="pt-BR">
-        <head>
-          <meta charset="UTF-8">
-          <title>Relatório Estratégico - Sismais 10K</title>
-          <style>
-            body { font-family: system-ui, -apple-system, sans-serif; background: #f8fafc; padding: 40px 20px; color: #334155; }
-            .container { max-width: 850px; margin: 0 auto; background: white; padding: 50px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
-            .meta { font-size: 12px; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 30px; display: flex; justify-content: space-between; }
-            h1 { font-size: 2.2rem; }
-            h2 { font-size: 1.5rem; }
-            ul { padding-left: 20px; margin-bottom: 20px; }
-            li { margin-bottom: 10px; }
-            @media print { body { background: white; padding: 0; } .container { box-shadow: none; max-width: 100%; } }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="meta">
-              <span>Sismais 10K • Planejamento Estratégico</span>
-              <span>Gerado em: ${new Date().toLocaleString('pt-BR')}</span>
-            </div>
-            ${reportHtml}
-          </div>
-        </body>
-        </html>
-      `;
-
-      const blob = new Blob([fullHtml], { type: 'text/html' });
-      const url = URL.createObjectURL(blob);
-      window.open(url, '_blank');
-      
-      toast({ title: "Relatório gerado!", description: "A análise estratégica foi aberta em uma nova aba." });
-    } catch (err: any) {
-      console.error(err);
-      toast({ 
-        title: "Erro", 
-        description: err.message || "Não foi possível gerar o relatório estratégico.", 
-        variant: "destructive" 
-      });
-    } finally {
-      setIsGeneratingReport(false);
-    }
-  };
-
   const handleOpenPrintCard = (resposta: LevantamentoRow) => {
     setSelectedResposta(null);
-    setImagePosition({ x: 50, y: 50 });
-    setImageZoom(1);
-    setFitMode("cover"); // Default to cover for better look with grid
+    
+    // Initialize with first 6 photos if available
+    const initialPhotos = resposta.fotos_sonhos?.slice(0, 6) || [];
+    setSelectedPhotos(initialPhotos);
+    
+    // Initialize settings
+    const initialSettings: Record<string, PhotoSetting> = {};
+    initialPhotos.forEach(url => {
+      initialSettings[url] = { x: 50, y: 50, zoom: 1 };
+    });
+    setPhotoSettings(initialSettings);
+    setActivePhotoIndex(initialPhotos.length > 0 ? 0 : null);
     
     setTimeout(() => {
       setSelectedResposta(resposta);
       setIsPrintModalOpen(true);
     }, 10);
   };
+
+  const handleTogglePhoto = (url: string) => {
+    let newSelection;
+    if (selectedPhotos.includes(url)) {
+      newSelection = selectedPhotos.filter(p => p !== url);
+    } else {
+      if (selectedPhotos.length >= 6) {
+        toast({ title: "Limite atingido", description: "Máximo de 6 fotos permitidas.", variant: "destructive" });
+        return;
+      }
+      newSelection = [...selectedPhotos, url];
+    }
+    
+    setSelectedPhotos(newSelection);
+    
+    // Reset active index if selected photo was removed or ensure valid index
+    if (newSelection.length > 0) {
+      setActivePhotoIndex(0);
+    } else {
+      setActivePhotoIndex(null);
+    }
+    
+    // Init settings if new
+    if (!photoSettings[url]) {
+      setPhotoSettings(prev => ({ ...prev, [url]: { x: 50, y: 50, zoom: 1 } }));
+    }
+  };
+
+  const handleUpdateSetting = (url: string, key: keyof PhotoSetting, value: number) => {
+    setPhotoSettings(prev => ({
+      ...prev,
+      [url]: { ...prev[url], [key]: value }
+    }));
+  };
+
+  // Drag logic for image position
+  const onMouseDown = (e: React.MouseEvent) => {
+    if (activePhotoIndex === null || selectedPhotos.length === 0) return;
+    
+    setIsDragging(true);
+    dragStartPos.current = { x: e.clientX, y: e.clientY };
+    const activeUrl = selectedPhotos[activePhotoIndex];
+    initialImgPos.current = { x: photoSettings[activeUrl]?.x || 50, y: photoSettings[activeUrl]?.y || 50 };
+  };
+
+  const onMouseMove = (e: MouseEvent) => {
+    if (!isDragging || activePhotoIndex === null) return;
+    
+    const activeUrl = selectedPhotos[activePhotoIndex];
+    const currentZoom = photoSettings[activeUrl]?.zoom || 1;
+    
+    const dx = e.clientX - dragStartPos.current.x;
+    const dy = e.clientY - dragStartPos.current.y;
+    
+    const sensitivity = 0.15 / currentZoom;
+    
+    const newX = Math.max(0, Math.min(100, initialImgPos.current.x - (dx * sensitivity)));
+    const newY = Math.max(0, Math.min(100, initialImgPos.current.y - (dy * sensitivity)));
+    
+    setPhotoSettings(prev => ({
+      ...prev,
+      [activeUrl]: { ...prev[activeUrl], x: newX, y: newY }
+    }));
+  };
+
+  const onMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  useEffect(() => {
+    if (isDragging) {
+      window.addEventListener("mousemove", onMouseMove);
+      window.addEventListener("mouseup", onMouseUp);
+    } else {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+    }
+    return () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+    };
+  }, [isDragging]);
 
   const handleOpenDetails = (resposta: LevantamentoRow) => {
     setSelectedResposta(resposta);
@@ -237,44 +261,42 @@ export default function LevantamentoResultados() {
     XLSX.writeFile(wb, `Mapeamento_Sismais_10K_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
-  // Drag logic for image position
-  const onMouseDown = (e: React.MouseEvent) => {
-    setIsDragging(true);
-    dragStartPos.current = { x: e.clientX, y: e.clientY };
-    initialImgPos.current = { ...imagePosition };
-  };
+  // Generate general report logic (kept same as before)
+  const handleGenerateGeneralReport = async () => {
+    setIsGeneratingReport(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("analisar-levantamento-geral");
+      
+      if (error) throw error;
+      
+      if (!data?.report) throw new Error("A IA não conseguiu processar os dados.");
 
-  const onMouseMove = (e: MouseEvent) => {
-    if (!isDragging) return;
-    
-    const dx = e.clientX - dragStartPos.current.x;
-    const dy = e.clientY - dragStartPos.current.y;
-    
-    const sensitivity = 0.1 / imageZoom;
-    
-    setImagePosition({
-      x: Math.max(0, Math.min(100, initialImgPos.current.x - (dx * sensitivity))),
-      y: Math.max(0, Math.min(100, initialImgPos.current.y - (dy * sensitivity)))
-    });
-  };
+      // Converter Markdown básico para HTML (simplificado)
+      const reportHtml = data.report
+        .replace(/^# (.*$)/gim, '<h1 style="color: #10293f; border-bottom: 2px solid #45e5e5; padding-bottom: 10px;">$1</h1>')
+        .replace(/^## (.*$)/gim, '<h2 style="color: #10293f; margin-top: 25px;">$1</h2>')
+        .split('\n\n')
+        .map((p: string) => p.startsWith('<h') ? p : `<p style="margin-bottom: 15px; line-height: 1.6;">${p}</p>`)
+        .join('');
 
-  const onMouseUp = () => {
-    setIsDragging(false);
-  };
+      const fullHtml = `
+        <!DOCTYPE html>
+        <html lang="pt-BR">
+        <head><meta charset="UTF-8"><title>Relatório Estratégico</title>
+        <style>body{font-family:sans-serif;padding:40px;max-width:800px;margin:0 auto;color:#333;}</style>
+        </head><body>${reportHtml}</body></html>
+      `;
 
-  useEffect(() => {
-    if (isDragging) {
-      window.addEventListener("mousemove", onMouseMove);
-      window.addEventListener("mouseup", onMouseUp);
-    } else {
-      window.removeEventListener("mousemove", onMouseMove);
-      window.removeEventListener("mouseup", onMouseUp);
+      const blob = new Blob([fullHtml], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+      toast({ title: "Relatório gerado!", description: "A análise estratégica foi aberta em uma nova aba." });
+    } catch (err: any) {
+      toast({ title: "Erro", description: "Não foi possível gerar o relatório.", variant: "destructive" });
+    } finally {
+      setIsGeneratingReport(false);
     }
-    return () => {
-      window.removeEventListener("mousemove", onMouseMove);
-      window.removeEventListener("mouseup", onMouseUp);
-    };
-  }, [isDragging]);
+  };
 
   if (loadingPermissions || isLoading) {
     return (
@@ -284,6 +306,9 @@ export default function LevantamentoResultados() {
       </div>
     );
   }
+
+  const activePhotoUrl = activePhotoIndex !== null && selectedPhotos[activePhotoIndex] ? selectedPhotos[activePhotoIndex] : null;
+  const activeSettings = activePhotoUrl ? photoSettings[activePhotoUrl] : { zoom: 1 };
 
   return (
     <div className="space-y-6">
@@ -297,7 +322,7 @@ export default function LevantamentoResultados() {
             <RefreshCw className={isFetching ? "w-4 h-4 animate-spin" : "w-4 h-4"} />
           </Button>
           <Button onClick={exportToExcel} variant="outline" className="gap-2" disabled={respostas.length === 0}>
-            <Download className="w-4 h-4" /> Exportar Planilha ({respostas.length})
+            <Download className="w-4 h-4" /> Exportar Planilha
           </Button>
         </div>
       </div>
@@ -418,86 +443,119 @@ export default function LevantamentoResultados() {
       />
 
       <Dialog open={isPrintModalOpen} onOpenChange={setIsPrintModalOpen}>
-        <DialogContent className="max-w-[1200px] p-0 bg-transparent border-none overflow-hidden h-[98vh] flex flex-col items-center justify-center">
+        <DialogContent className="max-w-screen h-screen p-0 bg-zinc-950/95 border-none overflow-hidden flex flex-col sm:flex-row">
           <DialogHeader className="sr-only">
-            <DialogTitle>Visualização de Card para Impressão</DialogTitle>
-            <DialogDescription>Ajuste a posição e o zoom da imagem do sonho antes de imprimir.</DialogDescription>
+            <DialogTitle>Editor de Card</DialogTitle>
           </DialogHeader>
-          <div className="absolute top-2 left-4 right-4 flex justify-between items-center z-50 pointer-events-auto">
-            <div className="bg-black/90 backdrop-blur-2xl p-4 rounded-3xl border border-white/20 flex flex-col gap-4 shadow-2xl min-w-[500px]">
-              <div className="flex items-center justify-between gap-8">
-                <div className="flex items-center gap-4">
-                  <div className="flex bg-white/10 p-1 rounded-xl border border-white/10">
-                    <Button 
-                      variant={fitMode === "contain" ? "secondary" : "ghost"} 
-                      size="sm" 
-                      className="h-8 gap-2 text-xs rounded-lg" 
-                      onClick={() => {
-                        setFitMode("contain");
-                      }}
+          
+          {/* Sidebar Controls */}
+          <div className="w-full sm:w-80 h-auto sm:h-full bg-zinc-900 border-r border-zinc-800 p-6 flex flex-col gap-6 overflow-y-auto z-50">
+            <div>
+              <h3 className="text-white font-bold mb-4 flex items-center gap-2">
+                <ImageIcon className="w-4 h-4 text-primary" /> Selecionar Fotos ({selectedPhotos.length}/6)
+              </h3>
+              <ScrollArea className="h-48 border border-zinc-800 rounded-lg p-2 bg-zinc-950">
+                <div className="grid grid-cols-3 gap-2">
+                  {selectedResposta?.fotos_sonhos?.map((url, idx) => (
+                    <div 
+                      key={idx} 
+                      className={cn(
+                        "aspect-square rounded-md overflow-hidden cursor-pointer relative border-2 transition-all",
+                        selectedPhotos.includes(url) ? "border-primary opacity-100" : "border-transparent opacity-50 hover:opacity-80"
+                      )}
+                      onClick={() => handleTogglePhoto(url)}
                     >
-                      <Minimize2 className="w-3.5 h-3.5" /> Inteira
-                    </Button>
-                    <Button 
-                      variant={fitMode === "cover" ? "secondary" : "ghost"} 
-                      size="sm" 
-                      className="h-8 gap-2 text-xs rounded-lg" 
-                      onClick={() => setFitMode("cover")}
-                    >
-                      <Maximize2 className="w-3.5 h-3.5" /> Preencher
-                    </Button>
-                  </div>
-                  <div className="flex items-center gap-2 px-3 py-1 bg-primary/20 rounded-lg border border-primary/30">
-                    <Move className="w-3 h-3 text-primary" />
-                    <p className="text-[10px] text-primary font-black uppercase tracking-tighter">Arraste a foto</p>
-                  </div>
+                      <img src={url} alt="" className="w-full h-full object-cover" />
+                      {selectedPhotos.includes(url) && (
+                        <div className="absolute top-1 right-1 bg-primary rounded-full p-0.5">
+                          <CheckCircle2 className="w-3 h-3 text-white" />
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                  {(!selectedResposta?.fotos_sonhos || selectedResposta.fotos_sonhos.length === 0) && (
+                    <p className="col-span-3 text-xs text-zinc-500 text-center py-4">Sem fotos disponíveis</p>
+                  )}
                 </div>
-                <div className="flex items-center gap-4">
-                  <Button 
-                    variant="default" 
-                    size="sm" 
-                    className="h-8 bg-primary hover:bg-primary/90 text-white gap-2 text-xs font-bold px-4"
-                    onClick={handleDownloadCard}
-                    disabled={isDownloading}
-                  >
-                    {isDownloading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ImageDown className="w-3.5 h-3.5" />}
-                    Baixar PNG
-                  </Button>
-                </div>
-              </div>
-              <div className="flex items-center gap-4 px-2">
-                <ZoomIn className="w-4 h-4 text-white/60" />
-                <Slider 
-                  value={[imageZoom]} 
-                  min={0.5} 
-                  max={3} 
-                  step={0.1} 
-                  onValueChange={([v]) => setImageZoom(v)}
-                  className="flex-1"
-                />
-                <span className="text-[10px] font-mono text-white/60 w-8">{imageZoom.toFixed(1)}x</span>
-              </div>
+              </ScrollArea>
             </div>
-            <Button variant="outline" size="icon" className="rounded-full h-12 w-12 bg-white/10 border-white/20 text-white hover:bg-white/20 backdrop-blur-md shadow-xl" onClick={() => setIsPrintModalOpen(false)}>
-              <X className="w-5 h-5" />
-            </Button>
+
+            {selectedPhotos.length > 0 && (
+              <div className="space-y-4">
+                <div className="bg-zinc-800/50 p-4 rounded-xl border border-zinc-800">
+                  <h4 className="text-white text-sm font-semibold mb-2 flex items-center gap-2">
+                    <MousePointer2 className="w-4 h-4 text-primary" /> Ajustar Foto
+                  </h4>
+                  <p className="text-xs text-zinc-400 mb-4">
+                    {activePhotoIndex !== null 
+                      ? `Editando foto ${activePhotoIndex + 1}. Arraste a imagem no card para mover.`
+                      : "Clique em uma foto no card para editar."}
+                  </p>
+                  
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-xs text-zinc-400">
+                        <span>Zoom</span>
+                        <span>{activeSettings?.zoom?.toFixed(1)}x</span>
+                      </div>
+                      <Slider 
+                        value={[activeSettings?.zoom || 1]} 
+                        min={0.5} 
+                        max={3} 
+                        step={0.1} 
+                        disabled={activePhotoIndex === null}
+                        onValueChange={([v]) => activePhotoUrl && handleUpdateSetting(activePhotoUrl, "zoom", v)}
+                        className="flex-1"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="mt-auto pt-6 border-t border-zinc-800 space-y-3">
+              <Button 
+                className="w-full bg-primary hover:bg-primary/90 text-white font-bold"
+                onClick={handleDownloadCard}
+                disabled={isDownloading}
+              >
+                {isDownloading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
+                Baixar Alta Resolução (PNG)
+              </Button>
+              <Button 
+                variant="ghost" 
+                className="w-full text-zinc-400 hover:text-white"
+                onClick={() => setIsPrintModalOpen(false)}
+              >
+                Fechar
+              </Button>
+            </div>
           </div>
-          <div className="flex-1 w-full flex items-center justify-center p-4 overflow-hidden mt-12">
+
+          {/* Main Preview Area */}
+          <div className="flex-1 bg-zinc-950 flex items-center justify-center p-4 sm:p-12 overflow-hidden relative">
             <div 
               className={cn(
-                // Escala reduzida para visualização no modal, mas o elemento original tem 900x1200
-                "scale-[0.45] sm:scale-[0.55] md:scale-[0.6] lg:scale-[0.65] xl:scale-[0.7] origin-center transition-all duration-300 ease-in-out cursor-move active:cursor-grabbing"
+                // Escala responsiva para caber na tela, mantendo proporção
+                "origin-center transition-all duration-300 ease-in-out shadow-2xl",
+                "scale-[0.35] sm:scale-[0.45] md:scale-[0.55] lg:scale-[0.65] xl:scale-[0.75]",
+                isDragging && "cursor-grabbing"
               )}
               onMouseDown={onMouseDown}
             >
                {selectedResposta && (
                  <MuralPrintCard 
                   resposta={selectedResposta} 
-                  fitMode={fitMode} 
-                  imagePosition={imagePosition}
-                  imageZoom={imageZoom}
+                  selectedPhotos={selectedPhotos}
+                  photoSettings={photoSettings}
+                  onPhotoClick={setActivePhotoIndex}
+                  activePhotoIndex={activePhotoIndex}
                  />
                )}
+            </div>
+            
+            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-black/50 backdrop-blur text-white text-xs px-4 py-2 rounded-full pointer-events-none">
+              Pré-visualização (Qualidade reduzida)
             </div>
           </div>
         </DialogContent>
