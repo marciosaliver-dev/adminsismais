@@ -24,11 +24,12 @@ import FechamentoEquipe from "./pages/equipe/FechamentoEquipe";
 import LancarVendaPublica from "./pages/LancarVendaPublica";
 import SimuladorMeta from "./pages/SimuladorMeta";
 import Assinaturas from "./pages/Assinaturas";
-import Cancelamentos from "./pages/Cancelamentos"; // Importado
+import Cancelamentos from "./pages/Cancelamentos";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import LevantamentoOperacional from "./pages/LevantamentoOperacional";
 import LevantamentoResultados from "./pages/admin/LevantamentoResultados";
+import MapeamentoSonhos from "./pages/MapeamentoSonhos";
 
 const queryClient = new QueryClient();
 
@@ -43,10 +44,18 @@ const App = () => (
             {/* Public routes */}
             <Route path="/auth" element={<Auth />} />
             
-            {/* Forms focus routes (Public, No Layout) */}
+            {/* Forms focus routes (Public/Simplified) */}
             <Route
               path="/levantamento-10k"
               element={<LevantamentoOperacional />}
+            />
+            <Route
+              path="/mapeamento-sonhos"
+              element={
+                <ProtectedRoute>
+                  <MapeamentoSonhos />
+                </ProtectedRoute>
+              }
             />
             
             {/* Protected routes with Layout */}
@@ -91,10 +100,6 @@ const App = () => (
                   </Layout>
                 </ProtectedRoute>
               }
-            />
-            <Route
-              path="/admin/levantamento-resultados"
-              element={<Navigate to="/" replace />}
             />
 
             {/* Commissions Module */}

@@ -23,7 +23,8 @@ import {
   BarChart3,
   Rocket,
   TrendingUp,
-  XCircle // Importado
+  XCircle,
+  Heart
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -57,6 +58,7 @@ const navSections: NavSection[] = [
     items: [
       { title: "Resultados 10K", icon: BarChart3, href: "/", permission: "admin.levantamento_resultados" },
       { title: "Levantamento 10K", icon: Rocket, href: "/levantamento-10k", permission: "levantamento.visualizar" },
+      { title: "Meus Sonhos", icon: Heart, href: "/mapeamento-sonhos" },
     ],
   },
   {
@@ -82,7 +84,7 @@ const navSections: NavSection[] = [
     title: "Financeiro",
     items: [
       { title: "Assinaturas & MRR", icon: TrendingUp, href: "/assinaturas", permission: "extrato.visualizar" },
-      { title: "Cancelamentos", icon: XCircle, href: "/cancelamentos", permission: "extrato.visualizar" }, // Novo item
+      { title: "Cancelamentos", icon: XCircle, href: "/cancelamentos", permission: "extrato.visualizar" },
       { title: "Extrato Asaas", icon: FileSpreadsheet, href: "/extrato-asaas", permission: "extrato.visualizar" },
       { title: "Extrato Eduzz", icon: FileSpreadsheet, href: "/extrato-eduzz", permission: "extrato.visualizar" },
     ],
@@ -148,13 +150,9 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
   const canViewItem = (item: NavItem): boolean => {
     if (loading) return false;
-    // Admins vêem tudo
     if (isAdmin) return true;
-    // Se o item exige admin e o usuário não é, bloqueia
     if (item.requireAdmin && !isAdmin) return false;
-    // Se o item tem permissão específica, verifica
     if (item.permission) return hasPermission(item.permission);
-    // Itens sem restrição
     return true;
   };
 
