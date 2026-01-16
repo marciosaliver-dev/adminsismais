@@ -26,6 +26,7 @@ import { Input } from "@/components/ui/input";
 import { usePermissions } from "@/hooks/usePermissions";
 import { LevantamentoDetalhesDialog } from "@/components/levantamento/LevantamentoDetalhesDialog";
 import { MuralPrintCard } from "@/components/levantamento/MuralPrintCard";
+import { MuralCard } from "@/components/levantamento/MuralCard";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -364,32 +365,14 @@ export default function LevantamentoResultados() {
             </TabsContent>
 
             <TabsContent value="mural" className="mt-6">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
                 {respostas.filter(r => r.maior_sonho).map((r) => (
-                  <Card key={r.id} className="overflow-hidden group border-none shadow-md hover:shadow-xl transition-all">
-                    <div className="relative aspect-square bg-muted overflow-hidden flex items-center justify-center p-2">
-                      {r.fotos_sonhos && r.fotos_sonhos.length > 0 ? (
-                        <img src={r.fotos_sonhos[0]} alt="Sonho" className="max-w-full max-h-full object-contain transition-transform duration-500 group-hover:scale-105" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-muted-foreground bg-primary/5 rounded-lg"><Rocket className="w-8 h-8 opacity-10" /></div>
-                      )}
-                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2">
-                        <Button variant="secondary" size="sm" className="gap-2" onClick={() => handleOpenPrintCard(r)}>
-                          <ImageIcon className="w-4 h-4" /> Gerar Card Print
-                        </Button>
-                        <Button variant="ghost" size="sm" className="text-white hover:text-white hover:bg-white/20" onClick={() => handleOpenDetails(r)}>
-                          Ver Depoimento
-                        </Button>
-                      </div>
-                    </div>
-                    <CardContent className="p-5">
-                      <div className="flex justify-between items-start mb-2">
-                        <div><p className="font-bold text-primary leading-tight">{r.colaborador_nome}</p><p className="text-[10px] text-muted-foreground uppercase tracking-wider">{r.funcao_atual}</p></div>
-                        <Badge variant="outline" className="text-[10px]">{r.satisfacao_trabalho}/10</Badge>
-                      </div>
-                      <p className="text-sm mt-3 line-clamp-3 italic text-muted-foreground leading-relaxed">"{r.maior_sonho}"</p>
-                    </CardContent>
-                  </Card>
+                  <MuralCard 
+                    key={r.id} 
+                    resposta={r} 
+                    onOpenDetails={handleOpenDetails}
+                    onOpenPrint={handleOpenPrintCard}
+                  />
                 ))}
               </div>
             </TabsContent>
