@@ -50,8 +50,9 @@ export function MuralCard({ resposta, onOpenDetails, onOpenPrint }: MuralCardPro
                     <div key={i} className="w-1.5 h-1.5 rounded-full bg-white/50" />
                   ))}
                 </div>
-                <CarouselPrevious className="left-2 bg-black/20 border-none text-white hover:bg-black/40" />
-                <CarouselNext className="right-2 bg-black/20 border-none text-white hover:bg-black/40" />
+                {/* Setas com z-40 para ficarem acima do overlay de ações */}
+                <CarouselPrevious className="left-2 bg-black/40 border-none text-white hover:bg-black/60 z-40" />
+                <CarouselNext className="right-2 bg-black/40 border-none text-white hover:bg-black/60 z-40" />
               </>
             )}
           </Carousel>
@@ -62,7 +63,7 @@ export function MuralCard({ resposta, onOpenDetails, onOpenPrint }: MuralCardPro
           </div>
         )}
 
-        {/* Overlay de Ações */}
+        {/* Overlay de Ações - z-20 */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-3 p-4 z-20">
           <Button 
             variant="secondary" 
@@ -82,8 +83,8 @@ export function MuralCard({ resposta, onOpenDetails, onOpenPrint }: MuralCardPro
           </Button>
         </div>
 
-        {/* Badge de Clima no Canto */}
-        <div className="absolute top-3 right-3 z-30">
+        {/* Badge de Clima - z-50 para ficar sempre no topo */}
+        <div className="absolute top-3 right-3 z-50">
           <Badge className="bg-black/50 backdrop-blur-md border-white/20 text-white font-bold">
             <Heart className="w-3 h-3 mr-1 fill-red-500 text-red-500" />
             {resposta.satisfacao_trabalho}/10
