@@ -21,7 +21,8 @@ import {
   PieChart as PieIcon,
   Image as ImageDown,
   CheckCircle2,
-  MousePointer2
+  MousePointer2,
+  RefreshCcw
 } from "lucide-react";
 import { useState, useMemo, useRef, useEffect } from "react";
 import * as XLSX from "xlsx";
@@ -140,17 +141,21 @@ export default function LevantamentoResultados() {
   const handleOpenPrintCard = (resposta: LevantamentoRow) => {
     setSelectedResposta(null);
     
-    // Initialize with first 6 photos if available
-    const initialPhotos = resposta.fotos_sonhos?.slice(0, 6) || [];
-    setSelectedPhotos(initialPhotos);
+    // Initialize with all photos available, or empty
+    const availablePhotos = resposta.fotos_sonhos || [];
+    // Select up to 6 photos by default
+    const initialSelection = availablePhotos.slice(0, 6);
+    setSelectedPhotos(initialSelection);
     
     // Initialize settings
     const initialSettings: Record<string, PhotoSetting> = {};
-    initialPhotos.forEach(url => {
+    availablePhotos.forEach(url => {
       initialSettings[url] = { x: 50, y: 50, zoom: 1 };
     });
     setPhotoSettings(initialSettings);
-    setActivePhotoIndex(initialPhotos.length > 0 ? 0 : null);
+    
+    // Set first photo as active if any
+    setActivePhotoIndex(initialSelection.length > 0 ? 0 : null);
     
     setTimeout(() => {
       setSelectedResposta(resposta);
@@ -172,14 +177,18 @@ export default function LevantamentoResultados() {
     
     setSelectedPhotos(newSelection);
     
-    // Reset active index if selected photo was removed or ensure valid index
-    if (newSelection.length > 0) {
-      setActivePhotoIndex(0);
+    // If we removed the active photo, reset active index or set to first
+    if (!newSelection.includes(url) && activePhotoIndex !== null && selectedPhotos[activePhotoIndex] === url) {
+       setActivePhotoIndex(newSelection.length > 0 ? 0 : null);
+    } else if (newSelection.includes(url) && !selectedPhotos.includes(url)) {
+       // If we just added a photo, make it active
+       setActivePhotoIndex(newSelection.indexOf(url));
     } else {
-      setActivePhotoIndex(null);
+       // Just update index to match new array
+       setActivePhotoIndex(newSelection.length > 0 ? 0 : null);
     }
     
-    // Init settings if new
+    // Init setting if needed
     if (!photoSettings[url]) {
       setPhotoSettings(prev => ({ ...prev, [url]: { x: 50, y: 50, zoom: 1 } }));
     }
@@ -199,19 +208,25 @@ export default function LevantamentoResultados() {
     setIsDragging(true);
     dragStartPos.current = { x: e.clientX, y: e.clientY };
     const activeUrl = selectedPhotos[activePhotoIndex];
-    initialImgPos.current = { x: photoSettings[activeUrl]?.x || 50, y: photoSettings[activeUrl]?.y || 50 };
+    
+    // Ensure we have current settings
+    const currentSettings = photoSettings[activeUrl] || { x: 50, y: 50, zoom: 1 };
+    initialImgPos.current = { x: currentSettings.x, y: currentSettings.y };
   };
 
   const onMouseMove = (e: MouseEvent) => {
     if (!isDragging || activePhotoIndex === null) return;
     
     const activeUrl = selectedPhotos[activePhotoIndex];
+    if (!activeUrl) return;
+
     const currentZoom = photoSettings[activeUrl]?.zoom || 1;
+    
+    // Inverse zoom sensitivity: zoomed in images need finer control
+    const sensitivity = 0.15 / currentZoom;
     
     const dx = e.clientX - dragStartPos.current.x;
     const dy = e.clientY - dragStartPos.current.y;
-    
-    const sensitivity = 0.15 / currentZoom;
     
     const newX = Math.max(0, Math.min(100, initialImgPos.current.x - (dx * sensitivity)));
     const newY = Math.max(0, Math.min(100, initialImgPos.current.y - (dy * sensitivity)));
@@ -261,7 +276,7 @@ export default function LevantamentoResultados() {
     XLSX.writeFile(wb, `Mapeamento_Sismais_10K_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
-  // Generate general report logic (kept same as before)
+  // Generate general report logic
   const handleGenerateGeneralReport = async () => {
     setIsGeneratingReport(true);
     try {
@@ -454,6 +469,8 @@ export default function LevantamentoResultados() {
               <h3 className="text-white font-bold mb-4 flex items-center gap-2">
                 <ImageIcon className="w-4 h-4 text-primary" /> Selecionar Fotos ({selectedPhotos.length}/6)
               </h3>
+              <p className="text-xs text-zinc-400 mb-2">Selecione as fotos para o mural. A que estiver com borda azul é a foto ativa para ajuste de zoom.</p>
+              
               <ScrollArea className="h-48 border border-zinc-800 rounded-lg p-2 bg-zinc-950">
                 <div className="grid grid-cols-3 gap-2">
                   {selectedResposta?.fotos_sonhos?.map((url, idx) => (
@@ -461,7 +478,8 @@ export default function LevantamentoResultados() {
                       key={idx} 
                       className={cn(
                         "aspect-square rounded-md overflow-hidden cursor-pointer relative border-2 transition-all",
-                        selectedPhotos.includes(url) ? "border-primary opacity-100" : "border-transparent opacity-50 hover:opacity-80"
+                        selectedPhotos.includes(url) ? "border-primary/50" : "border-transparent opacity-50 hover:opacity-80",
+                        activePhotoUrl === url && "border-primary ring-2 ring-primary/30 opacity-100 z-10"
                       )}
                       onClick={() => handleTogglePhoto(url)}
                     >
@@ -483,32 +501,52 @@ export default function LevantamentoResultados() {
             {selectedPhotos.length > 0 && (
               <div className="space-y-4">
                 <div className="bg-zinc-800/50 p-4 rounded-xl border border-zinc-800">
-                  <h4 className="text-white text-sm font-semibold mb-2 flex items-center gap-2">
-                    <MousePointer2 className="w-4 h-4 text-primary" /> Ajustar Foto
-                  </h4>
-                  <p className="text-xs text-zinc-400 mb-4">
-                    {activePhotoIndex !== null 
-                      ? `Editando foto ${activePhotoIndex + 1}. Arraste a imagem no card para mover.`
-                      : "Clique em uma foto no card para editar."}
-                  </p>
-                  
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-xs text-zinc-400">
-                        <span>Zoom</span>
-                        <span>{activeSettings?.zoom?.toFixed(1)}x</span>
-                      </div>
-                      <Slider 
-                        value={[activeSettings?.zoom || 1]} 
-                        min={0.5} 
-                        max={3} 
-                        step={0.1} 
-                        disabled={activePhotoIndex === null}
-                        onValueChange={([v]) => activePhotoUrl && handleUpdateSetting(activePhotoUrl, "zoom", v)}
-                        className="flex-1"
-                      />
-                    </div>
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="text-white text-sm font-semibold flex items-center gap-2">
+                      <MousePointer2 className="w-4 h-4 text-primary" /> Ajustar Foto Ativa
+                    </h4>
+                    {activePhotoIndex !== null && (
+                      <Badge variant="outline" className="text-xs bg-primary/10 border-primary/30 text-primary">
+                        Foto {activePhotoIndex + 1}
+                      </Badge>
+                    )}
                   </div>
+                  
+                  {activePhotoIndex !== null ? (
+                    <div className="space-y-4">
+                      <p className="text-xs text-zinc-400">
+                        Use o slider abaixo ou arraste a imagem no card para posicionar.
+                      </p>
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-xs text-zinc-400">
+                          <span>Zoom</span>
+                          <span>{activeSettings?.zoom?.toFixed(1)}x</span>
+                        </div>
+                        <Slider 
+                          value={[activeSettings?.zoom || 1]} 
+                          min={0.5} 
+                          max={3} 
+                          step={0.1} 
+                          onValueChange={([v]) => activePhotoUrl && handleUpdateSetting(activePhotoUrl, "zoom", v)}
+                          className="flex-1"
+                        />
+                      </div>
+                      <div className="flex justify-between gap-2 mt-2">
+                        <Button 
+                          variant="secondary" 
+                          size="sm" 
+                          className="h-7 text-xs flex-1"
+                          onClick={() => activePhotoUrl && handleUpdateSetting(activePhotoUrl, "zoom", 1)}
+                        >
+                          <RefreshCcw className="w-3 h-3 mr-1" /> Resetar
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-zinc-500 italic text-center py-4">
+                      Clique em uma foto selecionada acima para ajustar.
+                    </p>
+                  )}
                 </div>
               </div>
             )}

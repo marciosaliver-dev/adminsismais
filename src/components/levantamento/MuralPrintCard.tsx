@@ -31,7 +31,7 @@ export function MuralPrintCard({
   activePhotoIndex
 }: MuralPrintCardProps) {
   
-  // Se não vierem fotos selecionadas, pega as primeiras 3 ou todas se tiver menos
+  // Se não vierem fotos selecionadas, pega as primeiras 6 ou todas se tiver menos
   const fotos = selectedPhotos.length > 0 
     ? selectedPhotos 
     : (resposta.fotos_sonhos?.slice(0, 6) || []);
@@ -57,19 +57,20 @@ export function MuralPrintCard({
     return (
       <div 
         className={cn(
-          "w-full h-full overflow-hidden relative cursor-pointer group transition-all",
+          "w-full h-full overflow-hidden relative cursor-pointer group transition-all border-4",
           className,
-          isActive ? "ring-4 ring-[#45e5e5] z-10" : "hover:brightness-90"
+          isActive ? "border-[#45e5e5] z-20 shadow-xl scale-[1.02]" : "border-transparent hover:border-white/50"
         )}
         onClick={(e) => {
-          e.stopPropagation();
+          e.stopPropagation(); // Impede propagação para não bugar o drag do container
           onPhotoClick?.(index);
         }}
       >
+        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors z-10 pointer-events-none" />
         <img 
           src={url} 
           alt={`Sonho ${index}`} 
-          className="w-full h-full object-cover transition-all duration-100 ease-linear will-change-transform"
+          className="w-full h-full object-cover transition-transform duration-75 ease-linear will-change-transform"
           style={{ 
             objectPosition: `${settings.x}% ${settings.y}%`,
             transform: `scale(${settings.zoom})`,
@@ -77,12 +78,11 @@ export function MuralPrintCard({
           }} 
         />
         {/* Overlay indicativo de clique apenas na edição */}
-        {onPhotoClick && (
-          <div className={cn(
-            "absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity",
-            isActive && "opacity-0" // Esconde se já estiver ativo
-          )}>
-            <span className="text-white text-xs font-bold bg-black/50 px-2 py-1 rounded">Editar</span>
+        {onPhotoClick && !isActive && (
+          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20 pointer-events-none">
+            <span className="text-white text-sm font-bold bg-black/60 px-3 py-1.5 rounded-full backdrop-blur-sm shadow-lg border border-white/20">
+              Clique para Editar
+            </span>
           </div>
         )}
       </div>
@@ -93,7 +93,7 @@ export function MuralPrintCard({
   const renderImageGrid = () => {
     if (!hasPhotos) {
       return (
-        <div className="w-full h-full flex flex-col items-center justify-center bg-zinc-50 text-primary/20">
+        <div className="w-full h-full flex flex-col items-center justify-center bg-zinc-50 text-[#10293f]/20">
           <Star className="w-32 h-32 mb-4" />
           <span className="text-2xl font-black uppercase tracking-widest">Sem fotos</span>
         </div>
@@ -114,16 +114,16 @@ export function MuralPrintCard({
       );
     }
 
-    // 3 Fotos: 1 Grande Esq, 2 Pequenas Dir
+    // 3 Fotos: 1 Grande Esq, 2 Pequenas Dir (GARANTIR QUE OCUPA 100% ALTURA)
     if (fotos.length === 3) {
       return (
         <div className="w-full h-full grid grid-cols-3 gap-2">
-          <div className="col-span-2 row-span-2">
-            <RenderImage url={fotos[0]} index={0} className="rounded-l-2xl" />
+          <div className="col-span-2 h-full">
+            <RenderImage url={fotos[0]} index={0} className="rounded-l-2xl h-full" />
           </div>
-          <div className="flex flex-col gap-2 h-full">
-            <div className="h-1/2"><RenderImage url={fotos[1]} index={1} className="rounded-tr-2xl" /></div>
-            <div className="h-1/2"><RenderImage url={fotos[2]} index={2} className="rounded-br-2xl" /></div>
+          <div className="col-span-1 flex flex-col gap-2 h-full">
+            <div className="h-1/2 relative"><RenderImage url={fotos[1]} index={1} className="rounded-tr-2xl absolute inset-0" /></div>
+            <div className="h-1/2 relative"><RenderImage url={fotos[2]} index={2} className="rounded-br-2xl absolute inset-0" /></div>
           </div>
         </div>
       );
@@ -204,8 +204,8 @@ export function MuralPrintCard({
       {/* Conteúdo de Texto e Footer */}
       <div className="px-12 pb-12 pt-8 relative z-10 flex flex-col gap-6">
         
-        {/* Citação do Sonho (Destaque Maior) */}
-        <div className="relative pl-10">
+        {/* Citação do Sonho (Com mais destaque solicitado) */}
+        <div className="relative pl-10 pr-4">
           <Quote className="w-20 h-20 text-[#45e5e5]/20 absolute -top-4 -left-4 rotate-180" />
           <p className={`${fontSizeClass} font-bold text-[#10293f] leading-tight italic relative z-10 drop-shadow-sm`}>
             "{resposta.maior_sonho}"
@@ -223,6 +223,7 @@ export function MuralPrintCard({
         {/* Footer com Nome e Cargo */}
         <div className="mt-2 pt-6 border-t-2 border-zinc-100 flex justify-between items-end">
           <div>
+            {/* COR DO NOME ALTERADA PARA 10293f */}
             <h3 className="text-5xl font-black text-[#10293f] uppercase tracking-tight leading-none mb-2 drop-shadow-sm">
               {resposta.colaborador_nome}
             </h3>
