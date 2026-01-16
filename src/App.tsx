@@ -51,11 +51,7 @@ const App = () => (
             />
             <Route
               path="/mapeamento-sonhos"
-              element={
-                <ProtectedRoute>
-                  <MapeamentoSonhos />
-                </ProtectedRoute>
-              }
+              element={<MapeamentoSonhos />}
             />
             
             {/* Protected routes with Layout */}
