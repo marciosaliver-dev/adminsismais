@@ -11,21 +11,20 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { 
   Brain, 
   Loader2, 
   Clock, 
-  Target, 
   Zap, 
   Star, 
-  MessageSquare, 
-  Rocket, 
   TrendingUp,
-  X
+  FileText,
+  Download
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import type { Tables } from "@/integrations/supabase/types";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 type LevantamentoRow = Tables<"levantamento_operacional_2024">;
 
@@ -67,6 +66,108 @@ export function LevantamentoDetalhesDialog({
     }
   };
 
+  const exportPDF = () => {
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    
+    // Header
+    doc.setFillColor(16, 41, 63); // Sismais Dark
+    doc.rect(0, 0, pageWidth, 40, 'F');
+    
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.text("MAPEAMENTO OPERACIONAL - SISMAIS 10K", 14, 20);
+    
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Colaborador: ${resposta.colaborador_nome}`, 14, 30);
+    doc.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')}`, pageWidth - 14, 30, { align: 'right' });
+
+    let yPos = 50;
+
+    const addSection = (title: string, content: Array<[string, string]>) => {
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(69, 229, 229); // Sismais Turquoise
+      doc.text(title, 14, yPos);
+      yPos += 8;
+
+      autoTable(doc, {
+        startY: yPos,
+        head: [],
+        body: content,
+        theme: 'plain',
+        styles: { fontSize: 10, cellPadding: 2 },
+        columnStyles: {
+          0: { fontStyle: 'bold', cellWidth: 60 },
+          1: { cellWidth: 120 }
+        },
+        margin: { left: 14 },
+      });
+
+      yPos = (doc as any).lastAutoTable.finalY + 10;
+      
+      // Check for page break
+      if (yPos > 250) {
+        doc.addPage();
+        yPos = 20;
+      }
+    };
+
+    // 1. Info Geral
+    addSection("INFORMAÇÕES GERAIS", [
+      ["Função Atual:", resposta.funcao_atual || "-"],
+      ["Satisfação (0-10):", `${resposta.satisfacao_trabalho}/10`],
+      ["Motivo Nota:", resposta.motivo_satisfacao_baixa || "-"],
+      ["Talento Oculto:", resposta.talento_oculto || "-"]
+    ]);
+
+    // 2. Rotina
+    addSection("ROTINA & FOCO", [
+      ["Dia a Dia:", resposta.rotina_diaria || "-"],
+      ["Expectativa Empresa:", resposta.expectativa_empresa || "-"],
+      ["Definição Sucesso:", resposta.definicao_sucesso || "-"],
+      ["Sentimento Valorização:", resposta.sentimento_valorizacao || "-"]
+    ]);
+
+    // 3. Gargalos
+    addSection("GARGALOS & AÇÃO", [
+      ["Top 5 Atividades:", resposta.atividades_top5 || "-"],
+      ["Ladrão de Tempo:", resposta.ladrao_tempo || "-"],
+      ["Ferramentas:", resposta.ferramentas_uso || "-"],
+      ["START:", resposta.start_action || "-"],
+      ["STOP:", resposta.stop_action || "-"],
+      ["CONTINUE:", resposta.continue_action || "-"]
+    ]);
+
+    // 4. Estratégia
+    addSection("VISÃO & ESTRATÉGIA", [
+      ["Papel na Sismais 10K:", resposta.visao_papel_10k || "-"],
+      ["Sugestão Plano 2026:", resposta.falta_plano_2026 || "-"],
+      ["Feedback Metas 2025:", resposta.falta_metas_2025 || "-"]
+    ]);
+
+    // 5. Scores (Matriz)
+    addSection("SCORES DE ENGAJAMENTO (1-5)", [
+      ["Autonomia:", `${resposta.score_autonomia}`],
+      ["Maestria:", `${resposta.score_maestria}`],
+      ["Propósito:", `${resposta.score_proposito}`],
+      ["Financeiro:", `${resposta.score_financeiro}`],
+      ["Ambiente:", `${resposta.score_ambiente}`]
+    ]);
+
+    // 6. Liderança e Sonhos
+    addSection("LIDERANÇA & SONHOS", [
+      ["Interesse Liderança:", resposta.interesse_lideranca ? "Sim" : "Não"],
+      ["Motivo/Visão:", resposta.motivo_lideranca || "-"],
+      ["Papel do Líder:", resposta.papel_bom_lider || "-"],
+      ["MAIOR SONHO:", resposta.maior_sonho || "-"]
+    ]);
+
+    doc.save(`Mapeamento_${resposta.colaborador_nome.replace(/\s+/g, '_')}.pdf`);
+  };
+
   const SectionHeader = ({ icon: Icon, title, color }: { icon: any; title: string; color: string }) => (
     <div className="flex items-center gap-2 mb-3 mt-6">
       <div className={cn("p-1.5 rounded-lg", color)}>
@@ -91,24 +192,33 @@ export function LevantamentoDetalhesDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0 overflow-hidden">
         <DialogHeader className="p-6 pb-2 border-b">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
               <DialogTitle className="text-2xl font-bold">{resposta.colaborador_nome}</DialogTitle>
               <p className="text-muted-foreground">{resposta.funcao_atual} • Satisfação: {resposta.satisfacao_trabalho}/10</p>
             </div>
-            <Button 
-              onClick={handleAnalyze} 
-              disabled={isAnalyzing}
-              className="bg-primary/10 text-primary hover:bg-primary/20 border-primary/20 border"
-            >
-              {isAnalyzing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Brain className="w-4 h-4 mr-2" />}
-              Analisar com IA
-            </Button>
+            <div className="flex gap-2 w-full sm:w-auto">
+              <Button 
+                variant="outline"
+                onClick={exportPDF}
+                className="gap-2"
+              >
+                <Download className="w-4 h-4" />
+                Exportar PDF
+              </Button>
+              <Button 
+                onClick={handleAnalyze} 
+                disabled={isAnalyzing}
+                className="bg-primary/10 text-primary hover:bg-primary/20 border-primary/20 border"
+              >
+                {isAnalyzing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Brain className="w-4 h-4 mr-2" />}
+                Analisar com IA
+              </Button>
+            </div>
           </div>
         </DialogHeader>
 
         <div className="flex-1 overflow-hidden flex flex-col md:flex-row">
-          {/* Main Content */}
           <ScrollArea className="flex-1 p-6">
             <div className="space-y-2">
               <SectionHeader icon={Clock} title="Rotina & Foco" color="bg-blue-500" />
@@ -147,7 +257,6 @@ export function LevantamentoDetalhesDialog({
             </div>
           </ScrollArea>
 
-          {/* AI Analysis Sidebar */}
           {analysis && (
             <div className="w-full md:w-80 bg-muted/30 border-l border-border p-6 overflow-y-auto">
               <div className="flex items-center gap-2 mb-4">
