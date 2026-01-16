@@ -125,13 +125,15 @@ export default function MapeamentoSonhos() {
           
         if (error) throw error;
       } else {
-        // Criar novo registro com placeholders
+        // Criar novo registro com placeholders para campos obrigatórios
         const payload = {
           colaborador_nome: nome,
           funcao_atual: funcao,
           maior_sonho: sonho,
           fotos_sonhos: fotos,
-          // Campos obrigatórios com valores padrão
+          // Campos obrigatórios com valores padrão (para passar na constraint do banco)
+          satisfacao_trabalho: 10, // Valor padrão positivo
+          interesse_lideranca: false, // Valor padrão
           rotina_diaria: "Preenchido via formulário rápido de sonhos",
           expectativa_empresa: "Preenchido via formulário rápido de sonhos",
           definicao_sucesso: "Preenchido via formulário rápido de sonhos",
