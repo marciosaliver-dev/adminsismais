@@ -317,14 +317,15 @@ export default function LevantamentoResultados() {
     }));
   };
 
-  // Drag logic for image position
-  const onMouseDown = (e: React.MouseEvent) => {
-    if (activePhotoIndex === null || selectedPhotos.length === 0) return;
+  // Nova função para lidar com o mousedown diretamente na foto
+  const handlePhotoMouseDown = (index: number, e: React.MouseEvent) => {
+    e.preventDefault();
+    setActivePhotoIndex(index);
     
     setIsDragging(true);
     dragStartPos.current = { x: e.clientX, y: e.clientY };
-    const activeUrl = selectedPhotos[activePhotoIndex];
     
+    const activeUrl = selectedPhotos[index];
     // Ensure we have current settings
     const currentSettings = photoSettings[activeUrl] || { x: 50, y: 50, zoom: 1 };
     initialImgPos.current = { x: currentSettings.x, y: currentSettings.y };
@@ -784,7 +785,7 @@ export default function LevantamentoResultados() {
                 "scale-[0.35] sm:scale-[0.45] md:scale-[0.55] lg:scale-[0.65] xl:scale-[0.75]",
                 isDragging && "cursor-grabbing"
               )}
-              onMouseDown={onMouseDown}
+              // Removido onMouseDown do container
             >
                {selectedResposta && (
                  <MuralPrintCard 
@@ -794,6 +795,7 @@ export default function LevantamentoResultados() {
                   theme={cardTheme}
                   photoSettings={photoSettings}
                   onPhotoClick={setActivePhotoIndex}
+                  onPhotoMouseDown={handlePhotoMouseDown} // Passando o novo handler
                   activePhotoIndex={activePhotoIndex}
                  />
                )}

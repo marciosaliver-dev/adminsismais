@@ -21,6 +21,7 @@ interface MuralPrintCardProps {
   theme?: "light" | "dark";
   id?: string;
   onPhotoClick?: (index: number) => void;
+  onPhotoMouseDown?: (index: number, e: React.MouseEvent) => void;
   activePhotoIndex?: number | null;
 }
 
@@ -32,6 +33,7 @@ export function MuralPrintCard({
   theme = "light",
   id,
   onPhotoClick,
+  onPhotoMouseDown,
   activePhotoIndex
 }: MuralPrintCardProps) {
   
@@ -94,6 +96,9 @@ export function MuralPrintCard({
           colors.borderImage,
           isActive ? "z-30 shadow-2xl cursor-move" : "cursor-pointer hover:brightness-90"
         )}
+        onMouseDown={(e) => {
+          if (originalIndex !== -1) onPhotoMouseDown?.(originalIndex, e);
+        }}
         onClick={(e) => {
           e.stopPropagation();
           if (originalIndex !== -1) onPhotoClick?.(originalIndex);
@@ -102,7 +107,8 @@ export function MuralPrintCard({
         <img 
           src={url} 
           alt={`Sonho ${index}`} 
-          className="w-full h-full object-cover transition-transform duration-75 ease-out will-change-transform"
+          draggable={false}
+          className="w-full h-full object-cover transition-transform duration-75 ease-out will-change-transform select-none"
           style={{ 
             objectPosition: `${settings.x}% ${settings.y}%`,
             transform: `scale(${settings.zoom})`,
@@ -119,16 +125,23 @@ export function MuralPrintCard({
           </div>
         )}
         
-        {/* Overlay de "Ativo" para indicar que está em modo de edição */}
+        {/* Feedback sutil de seleção (borda interna fina) */}
         {isActive && (
-          <div className="absolute inset-0 border-2 border-white/30 pointer-events-none z-40" />
+          <div className="absolute inset-0 border border-white/40 pointer-events-none z-40" />
         )}
       </div>
     );
   };
 
   const renderImageGrid = () => {
-    if (!hasPhotos) return null;
+    if (!hasPhotos) {
+      return (
+        <div className="w-full h-full flex flex-col items-center justify-center opacity-20">
+          <Star className={cn("w-32 h-32 mb-4", colors.textPrimary)} />
+          <span className={cn("text-2xl font-black uppercase tracking-widest", colors.textPrimary)}>Sem fotos</span>
+        </div>
+      );
+    }
 
     if (fotos.length === 1) return <RenderImage url={fotos[0]} index={0} className="rounded-[24px]" />;
 
@@ -225,7 +238,7 @@ export function MuralPrintCard({
         </Badge>
       </div>
 
-      {/* Área da Imagem (Central) - Oculta se não houver fotos */}
+      {/* Área da Imagem (Central) */}
       {hasPhotos && (
         <div className="px-12 flex-1 min-h-0 flex flex-col">
           <div className={cn("w-full flex-1 rounded-[32px] overflow-hidden border-8 shadow-[0_8px_30px_rgb(0,0,0,0.08)] relative", colors.imageContainerBg, colors.borderImage)}>
