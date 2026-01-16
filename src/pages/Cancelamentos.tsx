@@ -246,7 +246,8 @@ export default function Cancelamentos() {
                 <p className="text-sm text-muted-foreground">MRR Perdido (Mensal)</p>
                 <p className="text-2xl font-bold text-red-600">{formatCurrency(metrics.totalMrrPerdido)}</p>
               </div>
-            </CardContent>
+            </div>
+          </CardContent>
         </Card>
 
         <Card className="bg-amber-50/50 border-amber-200">
@@ -456,7 +457,8 @@ export default function Cancelamentos() {
                           </TableCell>
                         </TableRow>
                       );
-                    })}
+                    })
+                  }
                 </TableBody>
               </Table>
             </div>
