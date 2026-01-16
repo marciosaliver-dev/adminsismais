@@ -101,41 +101,66 @@ export default function MapeamentoSonhos() {
         throw new Error("Preencha seu nome, função e seu sonho.");
       }
 
-      // Se já existe, atualizamos os campos de sonho. Se não, criamos com placeholders nos outros campos obrigatórios.
-      const payload = {
-        colaborador_nome: nome,
-        funcao_atual: funcao,
-        maior_sonho: sonho,
-        fotos_sonhos: fotos,
-        // Campos obrigatórios do schema original recebem valores padrão se for novo registro
-        rotina_diaria: existingResponse?.rotina_diaria || "Preenchido via formulário rápido de sonhos",
-        expectativa_empresa: existingResponse?.expectativa_empresa || "Preenchido via formulário rápido de sonhos",
-        definicao_sucesso: existingResponse?.definicao_sucesso || "Preenchido via formulário rápido de sonhos",
-        sentimento_valorizacao: existingResponse?.sentimento_valorizacao || "Preenchido via formulário rápido de sonhos",
-        atividades_top5: existingResponse?.atividades_top5 || "Preenchido via formulário rápido de sonhos",
-        ladrao_tempo: existingResponse?.ladrao_tempo || "Preenchido via formulário rápido de sonhos",
-        ferramentas_uso: existingResponse?.ferramentas_uso || "Celular/PC",
-        interdependencias: existingResponse?.interdependencias || "Equipe Sismais",
-        start_action: existingResponse?.start_action || "Melhorar processos",
-        stop_action: existingResponse?.stop_action || "Retrabalho",
-        continue_action: existingResponse?.continue_action || "Crescimento",
-        reclamacao_cliente: existingResponse?.reclamacao_cliente || "N/A",
-        prioridades_setor: existingResponse?.prioridades_setor || "N/A",
-        visao_papel_10k: existingResponse?.visao_papel_10k || "N/A",
-        falta_plano_2026: existingResponse?.falta_plano_2026 || "N/A",
-        falta_metas_2025: existingResponse?.falta_metas_2025 || "N/A",
-        score_autonomia: existingResponse?.score_autonomia || 5,
-        score_maestria: existingResponse?.score_maestria || 5,
-        score_proposito: existingResponse?.score_proposito || 5,
-        score_financeiro: existingResponse?.score_financeiro || 5,
-        score_ambiente: existingResponse?.score_ambiente || 5,
-      };
-
-      const { error } = await supabase
+      // 1. Verificar se já existe registro com este nome
+      const { data: existingRecords, error: searchError } = await supabase
         .from("levantamento_operacional_2024")
-        .upsert(payload, { onConflict: 'colaborador_nome' });
-        
-      if (error) throw error;
+        .select("id")
+        .eq("colaborador_nome", nome)
+        .limit(1);
+
+      if (searchError) throw searchError;
+      
+      const existingId = existingRecords?.[0]?.id;
+
+      if (existingId) {
+        // Atualizar registro existente
+        const { error } = await supabase
+          .from("levantamento_operacional_2024")
+          .update({
+            funcao_atual: funcao,
+            maior_sonho: sonho,
+            fotos_sonhos: fotos,
+          })
+          .eq("id", existingId);
+          
+        if (error) throw error;
+      } else {
+        // Criar novo registro com placeholders
+        const payload = {
+          colaborador_nome: nome,
+          funcao_atual: funcao,
+          maior_sonho: sonho,
+          fotos_sonhos: fotos,
+          // Campos obrigatórios com valores padrão
+          rotina_diaria: "Preenchido via formulário rápido de sonhos",
+          expectativa_empresa: "Preenchido via formulário rápido de sonhos",
+          definicao_sucesso: "Preenchido via formulário rápido de sonhos",
+          sentimento_valorizacao: "Preenchido via formulário rápido de sonhos",
+          atividades_top5: "Preenchido via formulário rápido de sonhos",
+          ladrao_tempo: "Preenchido via formulário rápido de sonhos",
+          ferramentas_uso: "Celular/PC",
+          interdependencias: "Equipe Sismais",
+          start_action: "Melhorar processos",
+          stop_action: "Retrabalho",
+          continue_action: "Crescimento",
+          reclamacao_cliente: "N/A",
+          prioridades_setor: "N/A",
+          visao_papel_10k: "N/A",
+          falta_plano_2026: "N/A",
+          falta_metas_2025: "N/A",
+          score_autonomia: 5,
+          score_maestria: 5,
+          score_proposito: 5,
+          score_financeiro: 5,
+          score_ambiente: 5,
+        };
+
+        const { error } = await supabase
+          .from("levantamento_operacional_2024")
+          .insert(payload);
+          
+        if (error) throw error;
+      }
     },
     onSuccess: () => {
       setIsSubmitted(true);
