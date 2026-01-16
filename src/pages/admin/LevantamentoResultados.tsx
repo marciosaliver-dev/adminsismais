@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -25,11 +25,15 @@ import {
   RefreshCcw,
   Sun,
   Moon,
-  Crown
+  Crown,
+  Edit3,
+  Plus,
+  Trash2
 } from "lucide-react";
 import { useState, useMemo, useRef, useEffect } from "react";
 import * as XLSX from "xlsx";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { usePermissions } from "@/hooks/usePermissions";
 import { LevantamentoDetalhesDialog } from "@/components/levantamento/LevantamentoDetalhesDialog";
 import { MuralPrintCard, type PhotoSetting } from "@/components/levantamento/MuralPrintCard";
@@ -63,6 +67,10 @@ export default function LevantamentoResultados() {
   const [activePhotoIndex, setActivePhotoIndex] = useState<number | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   
+  // Admin Editing State
+  const adminFileInputRef = useRef<HTMLInputElement>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  
   const dragStartPos = useRef({ x: 0, y: 0 });
   const initialImgPos = useRef({ x: 50, y: 50 });
 
@@ -83,6 +91,24 @@ export default function LevantamentoResultados() {
       return data as LevantamentoRow[];
     },
     enabled: !loadingPermissions, 
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, updates }: { id: string; updates: Partial<LevantamentoRow> }) => {
+      const { error } = await supabase
+        .from("levantamento_operacional_2024")
+        .update(updates)
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["levantamento-resultados"] });
+      toast({ title: "Atualizado!", description: "Dados salvos com sucesso." });
+    },
+    onError: (err) => {
+      console.error(err);
+      toast({ title: "Erro", description: "Falha ao salvar alterações.", variant: "destructive" });
+    },
   });
 
   const stats = useMemo(() => {
@@ -171,7 +197,6 @@ export default function LevantamentoResultados() {
     let newSelection;
     if (selectedPhotos.includes(url)) {
       newSelection = selectedPhotos.filter(p => p !== url);
-      // Remove highlight if deselecting the highlighted photo
       if (highlightedPhoto === url) {
         setHighlightedPhoto(newSelection.length > 0 ? newSelection[0] : null);
       }
@@ -181,7 +206,6 @@ export default function LevantamentoResultados() {
         return;
       }
       newSelection = [...selectedPhotos, url];
-      // If adding the first photo, auto-highlight it
       if (newSelection.length === 1) {
         setHighlightedPhoto(url);
       }
@@ -189,22 +213,16 @@ export default function LevantamentoResultados() {
     
     setSelectedPhotos(newSelection);
     
-    // Reset active index if selected photo was removed or ensure valid index
     if (newSelection.length > 0) {
-      // Keep selected photo active if still in list, otherwise select first
       if (activePhotoIndex !== null && selectedPhotos[activePhotoIndex] === url) {
-         setActivePhotoIndex(null); // Deselected active photo
+         setActivePhotoIndex(null); 
       } else {
-         // Keep current active index logic simple for now
-         // Or try to map old active photo to new index? 
-         // For simplicity, just ensure a valid index if any exist.
          if (activePhotoIndex === null) setActivePhotoIndex(0);
       }
     } else {
       setActivePhotoIndex(null);
     }
     
-    // Init settings if new
     if (!photoSettings[url]) {
       setPhotoSettings(prev => ({ ...prev, [url]: { x: 50, y: 50, zoom: 1 } }));
     }
@@ -213,10 +231,83 @@ export default function LevantamentoResultados() {
   const handleToggleHighlight = (url: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if (highlightedPhoto === url) {
-      setHighlightedPhoto(null); // Toggle off (optional, or force one to be selected)
+      setHighlightedPhoto(null);
     } else {
       setHighlightedPhoto(url);
     }
+  };
+
+  const handleAdminFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0 || !selectedResposta) return;
+
+    setIsUploading(true);
+    try {
+      const file = files[0];
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random()}.${fileExt}`;
+      const filePath = `admin_uploads/${selectedResposta.id}/${Date.now()}_${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('sonhos')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('sonhos')
+        .getPublicUrl(filePath);
+
+      const currentPhotos = selectedResposta.fotos_sonhos || [];
+      const newPhotos = [...currentPhotos, publicUrl];
+
+      // Update local state
+      setSelectedResposta({ ...selectedResposta, fotos_sonhos: newPhotos });
+      
+      // Select the new photo automatically
+      handleTogglePhoto(publicUrl);
+
+      // Persist to DB
+      updateMutation.mutate({ 
+        id: selectedResposta.id, 
+        updates: { fotos_sonhos: newPhotos } 
+      });
+
+    } catch (error) {
+      console.error(error);
+      toast({ title: "Erro no upload", description: "Não foi possível enviar a foto.", variant: "destructive" });
+    } finally {
+      setIsUploading(false);
+      if (adminFileInputRef.current) adminFileInputRef.current.value = "";
+    }
+  };
+
+  const handleAdminDeletePhoto = async (url: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!selectedResposta) return;
+    
+    if (!confirm("Tem certeza que deseja remover esta foto permanentemente?")) return;
+
+    const currentPhotos = selectedResposta.fotos_sonhos || [];
+    const newPhotos = currentPhotos.filter(p => p !== url);
+    
+    // Update local state
+    setSelectedResposta({ ...selectedResposta, fotos_sonhos: newPhotos });
+    
+    // Deselect if selected
+    if (selectedPhotos.includes(url)) {
+      setSelectedPhotos(prev => prev.filter(p => p !== url));
+    }
+    // Update highlighted if needed
+    if (highlightedPhoto === url) {
+      setHighlightedPhoto(null);
+    }
+
+    // Persist
+    updateMutation.mutate({ 
+      id: selectedResposta.id, 
+      updates: { fotos_sonhos: newPhotos } 
+    });
   };
 
   const handleUpdateSetting = (url: string, key: keyof PhotoSetting, value: number) => {
@@ -233,7 +324,10 @@ export default function LevantamentoResultados() {
     setIsDragging(true);
     dragStartPos.current = { x: e.clientX, y: e.clientY };
     const activeUrl = selectedPhotos[activePhotoIndex];
-    initialImgPos.current = { x: photoSettings[activeUrl]?.x || 50, y: photoSettings[activeUrl]?.y || 50 };
+    
+    // Ensure we have current settings
+    const currentSettings = photoSettings[activeUrl] || { x: 50, y: 50, zoom: 1 };
+    initialImgPos.current = { x: currentSettings.x, y: currentSettings.y };
   };
 
   const onMouseMove = (e: MouseEvent) => {
@@ -298,7 +392,7 @@ export default function LevantamentoResultados() {
     XLSX.writeFile(wb, `Mapeamento_Sismais_10K_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
-  // Generate general report logic (kept same as before)
+  // Generate general report logic
   const handleGenerateGeneralReport = async () => {
     setIsGeneratingReport(true);
     try {
@@ -308,7 +402,6 @@ export default function LevantamentoResultados() {
       
       if (!data?.report) throw new Error("A IA não conseguiu processar os dados.");
 
-      // Converter Markdown básico para HTML (simplificado)
       const reportHtml = data.report
         .replace(/^# (.*$)/gim, '<h1 style="color: #10293f; border-bottom: 2px solid #45e5e5; padding-bottom: 10px;">$1</h1>')
         .replace(/^## (.*$)/gim, '<h2 style="color: #10293f; margin-top: 25px;">$1</h2>')
@@ -509,10 +602,53 @@ export default function LevantamentoResultados() {
                 </Button>
               </div>
 
+              {/* Edit Text Section */}
+              <h3 className="text-white font-bold mb-4 flex items-center gap-2">
+                <Edit3 className="w-4 h-4 text-primary" /> Editar Texto
+              </h3>
+              <Textarea 
+                value={selectedResposta?.maior_sonho || ""} 
+                onChange={(e) => {
+                  if (selectedResposta) {
+                    setSelectedResposta({ ...selectedResposta, maior_sonho: e.target.value });
+                  }
+                }}
+                onBlur={() => {
+                  if (selectedResposta) {
+                    updateMutation.mutate({ 
+                      id: selectedResposta.id, 
+                      updates: { maior_sonho: selectedResposta.maior_sonho } 
+                    });
+                  }
+                }}
+                className="bg-zinc-800 border-zinc-700 text-white min-h-[100px] mb-6"
+                placeholder="Texto do sonho..."
+              />
+
               <h3 className="text-white font-bold mb-4 flex items-center gap-2">
                 <ImageIcon className="w-4 h-4 text-primary" /> Selecionar Fotos ({selectedPhotos.length}/6)
               </h3>
-              <p className="text-xs text-zinc-400 mb-2">Clique na imagem para selecionar. Clique na <strong>Estrela</strong> para definir o destaque principal (maior).</p>
+              
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs text-zinc-400">Clique na imagem para selecionar.</p>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="h-6 text-xs text-primary hover:text-primary hover:bg-primary/10 px-2"
+                  onClick={() => adminFileInputRef.current?.click()}
+                  disabled={isUploading}
+                >
+                  {isUploading ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Plus className="w-3 h-3 mr-1" />}
+                  Adicionar
+                </Button>
+                <input
+                  type="file"
+                  ref={adminFileInputRef}
+                  className="hidden"
+                  accept="image/*"
+                  onChange={handleAdminFileUpload}
+                />
+              </div>
               
               <ScrollArea className="h-48 border border-zinc-800 rounded-lg p-2 bg-zinc-950">
                 <div className="grid grid-cols-3 gap-2">
@@ -548,6 +684,15 @@ export default function LevantamentoResultados() {
                           <Crown className="w-3 h-3" />
                         </button>
                       )}
+
+                      {/* Delete Button (Admin) */}
+                      <button
+                        className="absolute top-1 left-1 p-1 bg-red-500/80 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-30"
+                        onClick={(e) => handleAdminDeletePhoto(url, e)}
+                        title="Remover foto"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
                     </div>
                   ))}
                   {(!selectedResposta?.fotos_sonhos || selectedResposta.fotos_sonhos.length === 0) && (
