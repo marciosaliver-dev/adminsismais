@@ -18,7 +18,8 @@ import {
   MessageSquare, TrendingUp, Search, ExternalLink, RefreshCw,
   Target, Sparkles, AlertCircle, ImageIcon, X,
   Maximize2, Minimize2, Move, ZoomIn, RotateCcw, Brain, FileText,
-  PieChart as PieIcon
+  PieChart as PieIcon,
+  Image as ImageDown
 } from "lucide-react";
 import { useState, useMemo, useRef, useEffect } from "react";
 import * as XLSX from "xlsx";
@@ -31,6 +32,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import type { Tables } from "@/integrations/supabase/types";
+import { toPng } from "html-to-image";
 
 type LevantamentoRow = Tables<"levantamento_operacional_2024">;
 
@@ -41,12 +43,13 @@ export default function LevantamentoResultados() {
   const [selectedResposta, setSelectedResposta] = useState<LevantamentoRow | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
   
   // General Report State
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
 
   // Image Adjustment State
-  const [fitMode, setFitMode] = useState<"cover" | "contain">("contain");
+  const [fitMode, setFitMode] = useState<"cover" | "contain">("cover");
   const [imagePosition, setImagePosition] = useState({ x: 50, y: 50 });
   const [imageZoom, setImageZoom] = useState(1);
   const [isDragging, setIsDragging] = useState(false);
@@ -101,6 +104,34 @@ export default function LevantamentoResultados() {
       r.funcao_atual?.toLowerCase().includes(searchTerm.toLowerCase())
     );
   }, [respostas, searchTerm]);
+
+  const handleDownloadCard = async () => {
+    if (!selectedResposta) return;
+    setIsDownloading(true);
+    
+    try {
+      const element = document.getElementById(`card-sonho-${selectedResposta.id}`);
+      if (!element) throw new Error("Elemento não encontrado");
+
+      const dataUrl = await toPng(element, { 
+        quality: 1.0,
+        pixelRatio: 2, // 2x para garantir alta resolução (retina)
+        cacheBust: true,
+      });
+      
+      const link = document.createElement("a");
+      link.download = `Mural_10K_${selectedResposta.colaborador_nome.replace(/\s+/g, "_")}.png`;
+      link.href = dataUrl;
+      link.click();
+      
+      toast({ title: "Download iniciado!", description: "A imagem em alta resolução está sendo baixada." });
+    } catch (err) {
+      console.error(err);
+      toast({ title: "Erro no download", description: "Não foi possível gerar a imagem.", variant: "destructive" });
+    } finally {
+      setIsDownloading(false);
+    }
+  };
 
   const handleGenerateGeneralReport = async () => {
     setIsGeneratingReport(true);
@@ -177,7 +208,7 @@ export default function LevantamentoResultados() {
     setSelectedResposta(null);
     setImagePosition({ x: 50, y: 50 });
     setImageZoom(1);
-    setFitMode("contain");
+    setFitMode("cover"); // Default to cover for better look with grid
     
     setTimeout(() => {
       setSelectedResposta(resposta);
@@ -387,7 +418,7 @@ export default function LevantamentoResultados() {
       />
 
       <Dialog open={isPrintModalOpen} onOpenChange={setIsPrintModalOpen}>
-        <DialogContent className="max-w-[1000px] p-0 bg-transparent border-none overflow-hidden h-[98vh] flex flex-col items-center justify-center">
+        <DialogContent className="max-w-[1200px] p-0 bg-transparent border-none overflow-hidden h-[98vh] flex flex-col items-center justify-center">
           <DialogHeader className="sr-only">
             <DialogTitle>Visualização de Card para Impressão</DialogTitle>
             <DialogDescription>Ajuste a posição e o zoom da imagem do sonho antes de imprimir.</DialogDescription>
@@ -422,14 +453,16 @@ export default function LevantamentoResultados() {
                   </div>
                 </div>
                 <div className="flex items-center gap-4">
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-white/60 hover:text-white" onClick={() => {
-                    setImagePosition({ x: 50, y: 50 });
-                    setImageZoom(1);
-                  }}>
-                    <RotateCcw className="w-4 h-4" />
+                  <Button 
+                    variant="default" 
+                    size="sm" 
+                    className="h-8 bg-primary hover:bg-primary/90 text-white gap-2 text-xs font-bold px-4"
+                    onClick={handleDownloadCard}
+                    disabled={isDownloading}
+                  >
+                    {isDownloading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ImageDown className="w-3.5 h-3.5" />}
+                    Baixar PNG
                   </Button>
-                  <Separator orientation="vertical" className="h-6 bg-white/20" />
-                  <p className="text-white text-xs font-bold whitespace-nowrap"><b>Ctrl + P</b></p>
                 </div>
               </div>
               <div className="flex items-center gap-4 px-2">
@@ -452,7 +485,8 @@ export default function LevantamentoResultados() {
           <div className="flex-1 w-full flex items-center justify-center p-4 overflow-hidden mt-12">
             <div 
               className={cn(
-                "scale-[0.5] sm:scale-[0.6] md:scale-[0.65] lg:scale-[0.7] xl:scale-[0.75] origin-center transition-all duration-300 ease-in-out cursor-move active:cursor-grabbing"
+                // Escala reduzida para visualização no modal, mas o elemento original tem 900x1200
+                "scale-[0.45] sm:scale-[0.55] md:scale-[0.6] lg:scale-[0.65] xl:scale-[0.7] origin-center transition-all duration-300 ease-in-out cursor-move active:cursor-grabbing"
               )}
               onMouseDown={onMouseDown}
             >
