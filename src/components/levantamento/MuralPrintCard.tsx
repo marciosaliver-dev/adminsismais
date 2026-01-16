@@ -92,7 +92,8 @@ export function MuralPrintCard({
           "w-full h-full overflow-hidden relative group transition-all border-4 box-border",
           className,
           colors.borderImage,
-          isActive ? "border-[#45e5e5] z-30 shadow-2xl cursor-move" : "cursor-pointer hover:brightness-90"
+          // Removida a borda ciano (border-[#45e5e5]) na ativa para manter o visual limpo
+          isActive ? "z-30 shadow-2xl cursor-move" : "cursor-pointer hover:brightness-90"
         )}
         onClick={(e) => {
           e.stopPropagation();
@@ -119,9 +120,9 @@ export function MuralPrintCard({
           </div>
         )}
         
-        {/* Overlay de "Ativo" para indicar que está em modo de edição */}
+        {/* Feedback sutil de seleção (borda interna fina) */}
         {isActive && (
-          <div className="absolute inset-0 border-2 border-white/30 pointer-events-none z-40" />
+          <div className="absolute inset-0 border border-white/40 pointer-events-none z-40" />
         )}
       </div>
     );
@@ -148,11 +149,11 @@ export function MuralPrintCard({
       );
     }
 
-    // CORREÇÃO PRINCIPAL: Grid 3 fotos robusto
+    // Grid 3 fotos: Principal 2/3 à esquerda, 2 menores à direita
     if (fotos.length === 3) {
       return (
         <div className="w-full h-full grid grid-cols-3 grid-rows-2 gap-2">
-          {/* Foto Principal (Esquerda) */}
+          {/* Foto Principal (Esquerda - ocupa 2 colunas e 2 linhas) */}
           <div className="col-span-2 row-span-2 relative">
             <RenderImage url={fotos[0]} index={0} className="absolute inset-0 rounded-l-[24px]" />
           </div>
