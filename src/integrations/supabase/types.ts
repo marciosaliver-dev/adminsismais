@@ -7,129 +7,10 @@ export type Json =
   | Json[]
 
 export type Database = {
-  crm: {
-    Tables: {
-      levantamento_operacional_2024: {
-        Row: {
-          atividades_top5: string
-          colaborador_nome: string
-          continue_action: string
-          created_at: string
-          definicao_sucesso: string | null
-          expectativa_empresa: string | null
-          falta_metas_2025: string | null
-          falta_plano_2026: string | null
-          ferramentas_uso: string | null
-          fotos_sonhos: string[] | null
-          funcao_atual: string | null
-          id: string
-          interdependencias: string | null
-          interesse_lideranca: boolean | null
-          ladrao_tempo: string | null
-          maior_sonho: string | null
-          motivo_lideranca: string | null
-          motivo_satisfacao_baixa: string | null
-          papel_bom_lider: string | null
-          prioridades_setor: string | null
-          reclamacao_cliente: string | null
-          rotina_diaria: string | null
-          satisfacao_trabalho: number | null
-          score_ambiente: number | null
-          score_autonomia: number | null
-          score_financeiro: number | null
-          score_maestria: number | null
-          score_proposito: number | null
-          sentimento_valorizacao: string | null
-          start_action: string | null
-          stop_action: string | null
-          talento_oculto: string | null
-          visao_papel_10k: string | null
-        }
-        Insert: {
-          atividades_top5: string
-          colaborador_nome: string
-          continue_action: string
-          created_at?: string
-          definicao_sucesso?: string | null
-          expectativa_empresa?: string | null
-          falta_metas_2025?: string | null
-          falta_plano_2026?: string | null
-          ferramentas_uso?: string | null
-          fotos_sonhos?: string[] | null
-          funcao_atual?: string | null
-          id?: string
-          interdependencias?: string | null
-          interesse_lideranca?: boolean | null
-          ladrao_tempo?: string | null
-          maior_sonho?: string | null
-          motivo_lideranca?: string | null
-          motivo_satisfacao_baixa?: string | null
-          papel_bom_lider?: string | null
-          prioridades_setor?: string | null
-          reclamacao_cliente?: string | null
-          rotina_diaria?: string | null
-          satisfacao_trabalho?: number | null
-          score_ambiente?: number | null
-          score_autonomia?: number | null
-          score_financeiro?: number | null
-          score_maestria?: number | null
-          score_proposito?: number | null
-          sentimento_valorizacao?: string | null
-          start_action?: string | null
-          stop_action?: string | null
-          talento_oculto?: string | null
-          visao_papel_10k?: string | null
-        }
-        Update: {
-          atividades_top5?: string
-          colaborador_nome?: string
-          continue_action?: string
-          created_at?: string
-          definicao_sucesso?: string | null
-          expectativa_empresa?: string | null
-          falta_metas_2025?: string | null
-          falta_plano_2026?: string | null
-          ferramentas_uso?: string | null
-          fotos_sonhos?: string[] | null
-          funcao_atual?: string | null
-          id?: string
-          interdependencias?: string | null
-          interesse_lideranca?: boolean | null
-          ladrao_tempo?: string | null
-          maior_sonho?: string | null
-          motivo_lideranca?: string | null
-          motivo_satisfacao_baixa?: string | null
-          papel_bom_lider?: string | null
-          prioridades_setor?: string | null
-          reclamacao_cliente?: string | null
-          rotina_diaria?: string | null
-          satisfacao_trabalho?: number | null
-          score_ambiente?: number | null
-          score_autonomia?: number | null
-          score_financeiro?: number | null
-          score_maestria?: number | null
-          score_proposito?: number | null
-          sentimento_valorizacao?: string | null
-          start_action?: string | null
-          stop_action?: string | null
-          talento_oculto?: string | null
-          visao_papel_10k?: string | null
-        }
-        Relationships: []
-      }
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      [_ in never]: never
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "13.0.5"
   }
   public: {
     Tables: {
@@ -187,7 +68,8 @@ export type Database = {
         }
         Insert: {
           colaborador_id?: string | null
-          created_at?: string | null
+          created_at?: string
+          created_by?: string | null
           descricao: string
           fechamento_equipe_id: string
           id?: string
@@ -196,8 +78,9 @@ export type Database = {
         }
         Update: {
           colaborador_id?: string | null
-          created_at?: string | null
-          descricao?: string | null
+          created_at?: string
+          created_by?: string | null
+          descricao?: string
           fechamento_equipe_id?: string
           id?: string
           tipo?: string
@@ -656,7 +539,7 @@ export type Database = {
           bonus_meta_equipe?: number | null
           bonus_retencao?: number | null
           cargo?: string | null
-          colaborador_id?: string | null
+          colaborador_id?: string
           comissao_servicos?: number | null
           created_at?: string | null
           enviado?: boolean | null
@@ -896,7 +779,7 @@ export type Database = {
           total_registros?: number | null
         }
         Update: {
-          arquivo_nome?: string | null
+          arquivo_nome?: string
           created_at?: string
           id?: string
           observacao?: string | null
@@ -943,7 +826,7 @@ export type Database = {
           total_registros?: number
         }
         Update: {
-          arquivo_nome?: string | null
+          arquivo_nome?: string
           created_at?: string
           id?: string
           observacao?: string | null
@@ -980,14 +863,14 @@ export type Database = {
           observacao?: string | null
           periodo_fim: string
           periodo_inicio: string
-          registros_duplicados: number | null
-          registros_novos: number | null
+          registros_duplicados?: number | null
+          registros_novos?: number | null
           status?: string
           total_registros?: number | null
           total_vendas?: number | null
         }
         Update: {
-          arquivo_nome?: string | null
+          arquivo_nome?: string
           created_at?: string
           id?: string
           observacao?: string | null
@@ -1007,115 +890,119 @@ export type Database = {
           colaborador_nome: string
           continue_action: string
           created_at: string
-          definicao_sucesso: string | null
-          expectativa_empresa: string | null
-          falta_metas_2025: string | null
-          falta_plano_2026: string | null
-          ferramentas_uso: string | null
+          definicao_sucesso: string
+          expectativa_empresa: string
+          falta_metas_2025: string
+          falta_plano_2026: string
+          ferramentas_uso: string
           fotos_sonhos: string[] | null
           funcao_atual: string | null
           id: string
-          interdependencias: string | null
-          interesse_lideranca: boolean | null
-          ladrao_tempo: string | null
-          maior_sonho: string | null
+          interdependencias: string
+          interesse_lideranca: boolean
+          ladrao_tempo: string
+          maior_sonho: string
           motivo_lideranca: string | null
           motivo_satisfacao_baixa: string | null
           papel_bom_lider: string | null
-          prioridades_setor: string | null
-          reclamacao_cliente: string | null
-          rotina_diaria: string | null
+          prioridades_setor: string
+          reclamacao_cliente: string
+          rotina_diaria: string
           satisfacao_trabalho: number | null
-          score_ambiente: number | null
-          score_autonomia: number | null
-          score_financeiro: number | null
-          score_maestria: number | null
-          score_proposito: number | null
-          sentimento_valorizacao: string | null
-          start_action: string | null
-          stop_action: string | null
+          score_ambiente: number
+          score_autonomia: number
+          score_financeiro: number
+          score_maestria: number
+          score_proposito: number
+          sentimento_valorizacao: string
+          start_action: string
+          stop_action: string
           talento_oculto: string | null
-          visao_papel_10k: string | null
+          visao_papel_10k: string
         }
         Insert: {
           atividades_top5: string
           colaborador_nome: string
           continue_action: string
           created_at?: string
-          definicao_sucesso?: string | null
-          expectativa_empresa?: string | null
-          falta_metas_2025?: string | null
-          falta_plano_2026?: string | null
-          ferramentas_uso?: string | null
+          definicao_sucesso: string
+          expectativa_empresa: string
+          falta_metas_2025: string
+          falta_plano_2026: string
+          ferramentas_uso: string
           fotos_sonhos?: string[] | null
           funcao_atual?: string | null
           id?: string
-          interdependencias?: string | null
-          interesse_lideranca?: boolean | null
-          ladrao_tempo?: string | null
-          maior_sonho?: string | null
+          interdependencias: string
+          interesse_lideranca: boolean
+          ladrao_tempo: string
+          maior_sonho: string
           motivo_lideranca?: string | null
           motivo_satisfacao_baixa?: string | null
           papel_bom_lider?: string | null
-          prioridades_setor?: string | null
-          reclamacao_cliente?: string | null
-          rotina_diaria?: string | null
+          prioridades_setor: string
+          reclamacao_cliente: string
+          rotina_diaria: string
           satisfacao_trabalho?: number | null
-          score_ambiente?: number | null
-          score_autonomia?: number | null
-          score_financeiro?: number | null
-          score_maestria?: number | null
-          score_proposito?: number | null
-          sentimento_valorizacao?: string | null
-          start_action?: string | null
-          stop_action?: string | null
+          score_ambiente: number
+          score_autonomia: number
+          score_financeiro: number
+          score_maestria: number
+          score_proposito: number
+          sentimento_valorizacao: string
+          start_action: string
+          stop_action: string
           talento_oculto?: string | null
-          visao_papel_10k?: string | null
+          visao_papel_10k: string
         }
         Update: {
           atividades_top5?: string
           colaborador_nome?: string
           continue_action?: string
           created_at?: string
-          definicao_sucesso?: string | null
-          expectativa_empresa?: string | null
-          falta_metas_2025?: string | null
-          falta_plano_2026?: string | null
-          ferramentas_uso?: string | null
+          definicao_sucesso?: string
+          expectativa_empresa?: string
+          falta_metas_2025?: string
+          falta_plano_2026?: string
+          ferramentas_uso?: string
           fotos_sonhos?: string[] | null
           funcao_atual?: string | null
           id?: string
-          interdependencias?: string | null
-          interesse_lideranca?: boolean | null
-          ladrao_tempo?: string | null
-          maior_sonho?: string | null
+          interdependencias?: string
+          interesse_lideranca?: boolean
+          ladrao_tempo?: string
+          maior_sonho?: string
           motivo_lideranca?: string | null
           motivo_satisfacao_baixa?: string | null
           papel_bom_lider?: string | null
-          prioridades_setor?: string | null
-          reclamacao_cliente?: string | null
-          rotina_diaria?: string | null
+          prioridades_setor?: string
+          reclamacao_cliente?: string
+          rotina_diaria?: string
           satisfacao_trabalho?: number | null
-          score_ambiente?: number | null
-          score_autonomia?: number | null
-          score_financeiro?: number | null
-          score_maestria?: number | null
-          score_proposito?: number | null
-          sentimento_valorizacao?: string | null
-          start_action?: string | null
-          stop_action?: string | null
+          score_ambiente?: number
+          score_autonomia?: number
+          score_financeiro?: number
+          score_maestria?: number
+          score_proposito?: number
+          sentimento_valorizacao?: string
+          start_action?: string
+          stop_action?: string
           talento_oculto?: string | null
-          visao_papel_10k?: string | null
+          visao_papel_10k?: string
         }
         Relationships: []
       }
       meta_mensal: {
         Row: {
+          assinaturas_inicio_mes: number | null
           bonus_meta_empresa: number
           bonus_meta_equipe: number
+          colaboradores_bonus_meta: string[] | null
           comissao_venda_unica: number
           created_at: string
           id: string
+          limite_cancelamentos: number | null
+          limite_churn: number | null
           ltv_medio: number
           mes_referencia: string
           meta_mrr: number
@@ -1123,20 +1010,20 @@ export type Database = {
           multiplicador_anual: number
           num_colaboradores: number
           observacao: string | null
-          updated_at: string
-          assinaturas_inicio_mes: number | null
-          limite_churn: number | null
-          limite_cancelamentos: number | null
           percentual_bonus_churn: number | null
           percentual_bonus_retencao: number | null
-          colaboradores_bonus_meta: string[] | null
+          updated_at: string
         }
         Insert: {
+          assinaturas_inicio_mes?: number | null
           bonus_meta_empresa?: number
           bonus_meta_equipe?: number
+          colaboradores_bonus_meta?: string[] | null
           comissao_venda_unica?: number
           created_at?: string
           id?: string
+          limite_cancelamentos?: number | null
+          limite_churn?: number | null
           ltv_medio?: number
           mes_referencia: string
           meta_mrr?: number
@@ -1144,20 +1031,20 @@ export type Database = {
           multiplicador_anual?: number
           num_colaboradores?: number
           observacao?: string | null
-          updated_at?: string
-          assinaturas_inicio_mes?: number | null
-          limite_churn?: number | null
-          limite_cancelamentos?: number | null
           percentual_bonus_churn?: number | null
           percentual_bonus_retencao?: number | null
-          colaboradores_bonus_meta?: string[] | null
+          updated_at?: string
         }
         Update: {
+          assinaturas_inicio_mes?: number | null
           bonus_meta_empresa?: number
           bonus_meta_equipe?: number
+          colaboradores_bonus_meta?: string[] | null
           comissao_venda_unica?: number
           created_at?: string
           id?: string
+          limite_cancelamentos?: number | null
+          limite_churn?: number | null
           ltv_medio?: number
           mes_referencia?: string
           meta_mrr?: number
@@ -1165,13 +1052,9 @@ export type Database = {
           multiplicador_anual?: number
           num_colaboradores?: number
           observacao?: string | null
-          updated_at?: string
-          assinaturas_inicio_mes?: number | null
-          limite_churn?: number | null
-          limite_cancelamentos?: number | null
           percentual_bonus_churn?: number | null
           percentual_bonus_retencao?: number | null
-          colaboradores_bonus_meta?: string[] | null
+          updated_at?: string
         }
         Relationships: []
       }
@@ -1179,13 +1062,14 @@ export type Database = {
         Row: {
           atingida: boolean | null
           colaborador_id: string
-          created_at: string
+          created_at: string | null
           descricao: string | null
           id: string
           mes_referencia: string
           percentual_atingido: number | null
           tipo_bonus: string
           titulo: string
+          updated_at: string | null
           valor_atingido: string | null
           valor_bonus: number
           valor_meta: string
@@ -1193,13 +1077,14 @@ export type Database = {
         Insert: {
           atingida?: boolean | null
           colaborador_id: string
-          created_at?: string
+          created_at?: string | null
           descricao?: string | null
           id?: string
           mes_referencia: string
           percentual_atingido?: number | null
-          tipo_bonus: string
+          tipo_bonus?: string
           titulo: string
+          updated_at?: string | null
           valor_atingido?: string | null
           valor_bonus: number
           valor_meta: string
@@ -1207,13 +1092,14 @@ export type Database = {
         Update: {
           atingida?: boolean | null
           colaborador_id?: string
-          created_at?: string
+          created_at?: string | null
           descricao?: string | null
           id?: string
           mes_referencia?: string
           percentual_atingido?: number | null
           tipo_bonus?: string
           titulo?: string
+          updated_at?: string | null
           valor_atingido?: string | null
           valor_bonus?: number
           valor_meta?: string
@@ -1236,8 +1122,8 @@ export type Database = {
           icone: string | null
           id: string
           nome: string
-          ordem: number
-          rota: string | null
+          ordem: number | null
+          rota: string
         }
         Insert: {
           ativo?: boolean | null
@@ -1246,8 +1132,8 @@ export type Database = {
           icone?: string | null
           id?: string
           nome: string
-          ordem?: number
-          rota?: string | null
+          ordem?: number | null
+          rota: string
         }
         Update: {
           ativo?: boolean | null
@@ -1256,8 +1142,8 @@ export type Database = {
           icone?: string | null
           id?: string
           nome?: string
-          ordem?: number
-          rota?: string | null
+          ordem?: number | null
+          rota?: string
         }
         Relationships: []
       }
@@ -1266,21 +1152,21 @@ export type Database = {
           created_at: string
           funcionalidade_id: string
           id: string
-          permitido: boolean
+          permitido: boolean | null
           user_id: string
         }
         Insert: {
           created_at?: string
           funcionalidade_id: string
           id?: string
-          permitido?: boolean
+          permitido?: boolean | null
           user_id: string
         }
         Update: {
           created_at?: string
           funcionalidade_id?: string
           id?: string
-          permitido?: boolean
+          permitido?: boolean | null
           user_id?: string
         }
         Relationships: [
@@ -1295,7 +1181,7 @@ export type Database = {
       }
       profiles: {
         Row: {
-          aprovado: boolean
+          aprovado: boolean | null
           created_at: string
           departamento: string | null
           email: string
@@ -1305,7 +1191,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
-          aprovado?: boolean
+          aprovado?: boolean | null
           created_at?: string
           departamento?: string | null
           email: string
@@ -1315,7 +1201,7 @@ export type Database = {
           user_id: string
         }
         Update: {
-          aprovado?: boolean
+          aprovado?: boolean | null
           created_at?: string
           departamento?: string | null
           email?: string
@@ -1329,93 +1215,93 @@ export type Database = {
       simulacoes_meta: {
         Row: {
           analise_ia: string | null
-          clientes_ativos: number
-          comissao_venda: number
+          churn_mensal: number | null
+          clientes_ativos: number | null
+          comissao_venda: number | null
           created_at: string
-          custo_fixo_vendedor: number
-          custo_por_lead: number
+          custo_fixo_vendedor: number | null
+          custo_por_lead: number | null
           custo_total: number | null
           data_meta: string | null
           descricao: string | null
           id: string
           leads_necessarios: number | null
-          leads_vendedor_mes: number
+          leads_vendedor_mes: number | null
           ltv_cac_ratio: number | null
-          ltv_meses: number
-          mrr_atual: number
-          mrr_meta: number
+          ltv_meses: number | null
+          mrr_atual: number | null
+          mrr_meta: number | null
           nome: string
           novas_vendas: number | null
           payback_meses: number | null
           receita_necessaria: number | null
           roi: number | null
-          taxa_conversao: number
-          ticket_medio: number
+          taxa_conversao: number | null
+          ticket_medio: number | null
           updated_at: string
           user_id: string
-          vendedores_atuais: number
+          vendedores_atuais: number | null
           vendedores_necessarios: number | null
-          churn_mensal: number
         }
         Insert: {
           analise_ia?: string | null
-          clientes_ativos?: number
-          comissao_venda?: number
+          churn_mensal?: number | null
+          clientes_ativos?: number | null
+          comissao_venda?: number | null
           created_at?: string
-          custo_fixo_vendedor?: number
-          custo_por_lead?: number
+          custo_fixo_vendedor?: number | null
+          custo_por_lead?: number | null
           custo_total?: number | null
           data_meta?: string | null
           descricao?: string | null
           id?: string
           leads_necessarios?: number | null
-          leads_vendedor_mes?: number
+          leads_vendedor_mes?: number | null
           ltv_cac_ratio?: number | null
-          ltv_meses?: number
-          mrr_atual?: number
-          mrr_meta?: number
+          ltv_meses?: number | null
+          mrr_atual?: number | null
+          mrr_meta?: number | null
           nome: string
           novas_vendas?: number | null
           payback_meses?: number | null
           receita_necessaria?: number | null
           roi?: number | null
-          taxa_conversao?: number
-          ticket_medio?: number
+          taxa_conversao?: number | null
+          ticket_medio?: number | null
           updated_at?: string
           user_id: string
-          vendedores_atuais?: number
+          vendedores_atuais?: number | null
           vendedores_necessarios?: number | null
-          churn_mensal?: number
         }
         Update: {
           analise_ia?: string | null
-          clientes_ativos?: number
-          comissao_venda?: number
+          churn_mensal?: number | null
+          clientes_ativos?: number | null
+          comissao_venda?: number | null
           created_at?: string
-          custo_fixo_vendedor?: number
-          custo_por_lead?: number
+          custo_fixo_vendedor?: number | null
+          custo_por_lead?: number | null
           custo_total?: number | null
           data_meta?: string | null
           descricao?: string | null
           id?: string
           leads_necessarios?: number | null
-          leads_vendedor_mes?: number
+          leads_vendedor_mes?: number | null
           ltv_cac_ratio?: number | null
-          ltv_meses?: number
-          mrr_atual?: number
-          mrr_meta?: number
+          ltv_meses?: number | null
+          mrr_atual?: number | null
+          mrr_meta?: number | null
           nome?: string
           novas_vendas?: number | null
           payback_meses?: number | null
           receita_necessaria?: number | null
           roi?: number | null
-          taxa_conversao?: number
-          ticket_medio?: number
+          taxa_conversao?: number | null
+          ticket_medio?: number | null
           updated_at?: string
           user_id?: string
-          vendedores_atuais?: number
+          vendedores_atuais?: number | null
           vendedores_necessarios?: number | null
-          churn_mensal?: number
         }
         Relationships: []
       }
@@ -1601,99 +1487,127 @@ export type Database = {
   }
 }
 
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
+
 export type Tables<
-  PublicTableNameOrOptions extends
-    | keyof (Database["public"]["Tables"] & Database["public"]["Views"])
-    | { schema: keyof Database },
-  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
-    ? keyof (Database[PublicTableNameOrOptions["schema"]]["Tables"] &
-        Database[PublicTableNameOrOptions["schema"]]["Views"])
-    : never = never
-> = PublicTableNameOrOptions extends { schema: keyof Database }
-  ? (Database[PublicTableNameOrOptions["schema"]]["Tables"] &
-      Database[PublicTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+  DefaultSchemaTableNameOrOptions extends
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
       Row: infer R
     }
     ? R
     : never
-  : PublicTableNameOrOptions extends keyof (Database["public"]["Tables"] &
-      Database["public"]["Views"])
-  ? (Database["public"]["Tables"] &
-      Database["public"]["Views"])[PublicTableNameOrOptions] extends {
-      Row: infer R
-    }
-    ? R
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+        Row: infer R
+      }
+      ? R
+      : never
     : never
-  : never
 
 export type TablesInsert<
-  PublicTableNameOrOptions extends
-    | keyof Database["public"]["Tables"]
-    | { schema: keyof Database },
-  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
-    ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
-    : never = never
-> = PublicTableNameOrOptions extends { schema: keyof Database }
-  ? Database[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Insert: infer I
     }
     ? I
     : never
-  : PublicTableNameOrOptions extends keyof Database["public"]["Tables"]
-  ? Database["public"]["Tables"][PublicTableNameOrOptions] extends {
-      Insert: infer I
-    }
-    ? I
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Insert: infer I
+      }
+      ? I
+      : never
     : never
-  : never
 
 export type TablesUpdate<
-  PublicTableNameOrOptions extends
-    | keyof Database["public"]["Tables"]
-    | { schema: keyof Database },
-  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
-    ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
-    : never = never
-> = PublicTableNameOrOptions extends { schema: keyof Database }
-  ? Database[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Update: infer U
     }
     ? U
     : never
-  : PublicTableNameOrOptions extends keyof Database["public"]["Tables"]
-  ? Database["public"]["Tables"][PublicTableNameOrOptions] extends {
-      Update: infer U
-    }
-    ? U
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Update: infer U
+      }
+      ? U
+      : never
     : never
-  : never
 
 export type Enums<
-  PublicEnumNameOrOptions extends
-    | keyof Database["public"]["Enums"]
-    | { schema: keyof Database },
-  EnumName extends PublicEnumNameOrOptions extends { schema: keyof Database }
-    ? keyof Database[PublicEnumNameOrOptions["schema"]]["Enums"]
-    : never = never
-> = PublicEnumNameOrOptions extends { schema: keyof Database }
-  ? Database[PublicEnumNameOrOptions["schema"]]["Enums"][EnumName]
-  : PublicEnumNameOrOptions extends keyof Database["public"]["Enums"]
-  ? Database["public"]["Enums"][PublicEnumNameOrOptions]
-  : never
+  DefaultSchemaEnumNameOrOptions extends
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    : never = never,
+> = DefaultSchemaEnumNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+    : never
 
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
-    | keyof Database["public"]["CompositeTypes"]
-    | { schema: keyof Database },
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
   CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
-    schema: keyof Database
+    schema: keyof DatabaseWithoutInternals
   }
-    ? keyof Database[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    : never = never,
 > = PublicCompositeTypeNameOrOptions extends {
-  schema: keyof Database
+  schema: keyof DatabaseWithoutInternals
 }
-  ? Database[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
-  : PublicCompositeTypeNameOrOptions extends keyof Database["public"]["CompositeTypes"]
-  ? Database["public"]["CompositeTypes"][PublicCompositeTypeNameOrOptions]
-  : never
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+    : never
+
+export const Constants = {
+  public: {
+    Enums: {
+      app_role: ["admin", "user"],
+    },
+  },
+} as const
