@@ -113,23 +113,33 @@ export default function LevantamentoResultados() {
 
   const stats = useMemo(() => {
     if (respostas.length === 0) return null;
-    const validRespostas = respostas.filter(r => r.satisfacao_trabalho !== null);
+    
+    // Filtrar apenas respostas completas para cálculo de clima/engajamento
+    // Ignora as respostas rápidas de sonho (que têm valores dummy)
+    const validRespostas = respostas.filter(r => 
+      r.satisfacao_trabalho !== null && 
+      r.rotina_diaria !== "Preenchido via formulário rápido de sonhos"
+    );
+    
+    const divisor = validRespostas.length || 1;
     
     const radarData = [
-      { subject: 'Autonomia', A: (validRespostas.reduce((acc, r) => acc + (r.score_autonomia || 0), 0) / (validRespostas.length || 1)) },
-      { subject: 'Maestria', A: (validRespostas.reduce((acc, r) => acc + (r.score_maestria || 0), 0) / (validRespostas.length || 1)) },
-      { subject: 'Propósito', A: (validRespostas.reduce((acc, r) => acc + (r.score_proposito || 0), 0) / (validRespostas.length || 1)) },
-      { subject: 'Financeiro', A: (validRespostas.reduce((acc, r) => acc + (r.score_financeiro || 0), 0) / (validRespostas.length || 1)) },
-      { subject: 'Ambiente', A: (validRespostas.reduce((acc, r) => acc + (r.score_ambiente || 0), 0) / (validRespostas.length || 1)) },
+      { subject: 'Autonomia', A: (validRespostas.reduce((acc, r) => acc + (r.score_autonomia || 0), 0) / divisor) },
+      { subject: 'Maestria', A: (validRespostas.reduce((acc, r) => acc + (r.score_maestria || 0), 0) / divisor) },
+      { subject: 'Propósito', A: (validRespostas.reduce((acc, r) => acc + (r.score_proposito || 0), 0) / divisor) },
+      { subject: 'Financeiro', A: (validRespostas.reduce((acc, r) => acc + (r.score_financeiro || 0), 0) / divisor) },
+      { subject: 'Ambiente', A: (validRespostas.reduce((acc, r) => acc + (r.score_ambiente || 0), 0) / divisor) },
     ];
 
     return {
-      total: respostas.length,
-      avgSatisfacao: validRespostas.reduce((acc, r) => acc + (r.satisfacao_trabalho || 0), 0) / validRespostas.length,
+      total: respostas.length, // Total conta todo mundo que respondeu algo
+      avgSatisfacao: validRespostas.length > 0 
+        ? validRespostas.reduce((acc, r) => acc + (r.satisfacao_trabalho || 0), 0) / validRespostas.length 
+        : 0,
       radarData,
       satisfacaoDist: Array.from({ length: 11 }, (_, i) => ({
         nota: i,
-        qtd: respostas.filter(r => r.satisfacao_trabalho === i).length
+        qtd: validRespostas.filter(r => r.satisfacao_trabalho === i).length
       })).filter(d => d.qtd > 0)
     };
   }, [respostas]);
@@ -383,7 +393,7 @@ export default function LevantamentoResultados() {
       "Data": new Date(r.created_at).toLocaleDateString('pt-BR'),
       "Nome": r.colaborador_nome,
       "Função": r.funcao_atual,
-      "Satisfação": r.satisfacao_trabalho,
+      "Satisfação": r.rotina_diaria === "Preenchido via formulário rápido de sonhos" ? "N/A" : r.satisfacao_trabalho,
       "Talento Oculto": r.talento_oculto,
       "Maior Sonho": r.maior_sonho,
     }));
@@ -523,7 +533,15 @@ export default function LevantamentoResultados() {
                         <TableRow key={r.id}>
                           <TableCell className="font-bold">{r.colaborador_nome}</TableCell>
                           <TableCell className="text-sm text-muted-foreground">{r.funcao_atual}</TableCell>
-                          <TableCell className="text-center"><Badge variant={r.satisfacao_trabalho && r.satisfacao_trabalho >= 8 ? "default" : "secondary"}>{r.satisfacao_trabalho}</Badge></TableCell>
+                          <TableCell className="text-center">
+                            {r.rotina_diaria === "Preenchido via formulário rápido de sonhos" ? (
+                              <span className="text-muted-foreground/50 text-xs italic">-</span>
+                            ) : (
+                              <Badge variant={r.satisfacao_trabalho && r.satisfacao_trabalho >= 8 ? "default" : "secondary"}>
+                                {r.satisfacao_trabalho}
+                              </Badge>
+                            )}
+                          </TableCell>
                           <TableCell><Button variant="ghost" size="sm" className="gap-2" onClick={() => handleOpenDetails(r)}><ExternalLink className="w-3.5 h-3.5" /> Detalhes</Button></TableCell>
                         </TableRow>
                       ))}
