@@ -19,12 +19,14 @@ import {
   ClipboardList,
   Star,
   Search,
-  LayoutDashboard,
   BarChart3,
   Rocket,
   TrendingUp,
   XCircle,
-  Heart
+  Heart,
+  DollarSign,
+  Briefcase,
+  Home,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,6 +49,7 @@ interface NavItem {
 
 interface NavSection {
   title: string;
+  icon: React.ElementType; // Ícone para o item principal do módulo
   items: NavItem[];
   permission?: string;
   requireAdmin?: boolean;
@@ -54,15 +57,17 @@ interface NavSection {
 
 const navSections: NavSection[] = [
   {
-    title: "Geral",
+    title: "Dashboard",
+    icon: Home,
     items: [
       { title: "Resultados 10K", icon: BarChart3, href: "/", permission: "admin.levantamento_resultados" },
       { title: "Levantamento 10K", icon: Rocket, href: "/levantamento-10k", permission: "levantamento.visualizar" },
-      { title: "Meus Sonhos", icon: Heart, href: "/mapeamento-sonhos" },
+      { title: "Mural dos Sonhos", icon: Heart, href: "/mapeamento-sonhos" },
     ],
   },
   {
     title: "Comissões",
+    icon: Calculator,
     items: [
       { title: "Novo Fechamento", icon: Calculator, href: "/comissoes", permission: "comissoes.criar" },
       { title: "Histórico", icon: History, href: "/comissoes/historico", permission: "comissoes.visualizar" },
@@ -73,15 +78,17 @@ const navSections: NavSection[] = [
   },
   {
     title: "Equipe",
+    icon: Users,
     items: [
       { title: "Colaboradores", icon: Users, href: "/equipe/colaboradores", permission: "equipe.gerenciar" },
       { title: "Vendas Serviços", icon: Receipt, href: "/equipe/vendas-servicos", permission: "equipe.vendas" },
       { title: "Metas Individuais", icon: Target, href: "/equipe/metas", permission: "equipe.metas" },
-      { title: "Fechamento", icon: ClipboardList, href: "/equipe/fechamento", permission: "equipe.fechamento" },
+      { title: "Fechamento Equipe", icon: ClipboardList, href: "/equipe/fechamento", permission: "equipe.fechamento" },
     ],
   },
   {
     title: "Financeiro",
+    icon: DollarSign,
     items: [
       { title: "Assinaturas & MRR", icon: TrendingUp, href: "/assinaturas", permission: "extrato.visualizar" },
       { title: "Cancelamentos", icon: XCircle, href: "/cancelamentos", permission: "extrato.visualizar" },
@@ -91,6 +98,7 @@ const navSections: NavSection[] = [
   },
   {
     title: "Administração",
+    icon: Shield,
     requireAdmin: true,
     items: [
       { title: "Gerenciar Usuários", icon: Users, href: "/admin/usuarios", permission: "admin.usuarios", requireAdmin: true },
@@ -104,14 +112,19 @@ const COLLAPSED_KEY = "sidebar-collapsed";
 
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const { hasPermission, isAdmin, loading } = usePermissions();
-  const [expandedSections, setExpandedSections] = useState<string[]>([
-    "Geral",
-    "Comissões",
-    "Equipe",
-    "Financeiro",
-    "Administração",
-    "Favoritos",
-  ]);
+  const [expandedSections, setExpandedSections] = useState<string[]>(() => {
+    // Inicia com a seção 'Geral' e a seção do item ativo expandidas
+    const initialExpanded = new Set(["Dashboard", "Favoritos"]);
+    const currentPath = window.location.pathname;
+    const activeSection = navSections.find(section => 
+      section.items.some(item => item.href === currentPath)
+    );
+    if (activeSection) {
+      initialExpanded.add(activeSection.title);
+    }
+    return Array.from(initialExpanded);
+  });
+  
   const [isCollapsed, setIsCollapsed] = useState(() => {
     const saved = localStorage.getItem(COLLAPSED_KEY);
     return saved ? JSON.parse(saved) : false;
@@ -243,6 +256,89 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
       </NavLink>
     );
   };
+  
+  const renderSectionItem = (section: NavSection) => {
+    const isExpanded = expandedSections.includes(section.title);
+    const isActive = section.items.some(item => window.location.pathname === item.href);
+    const IconComponent = section.icon;
+
+    if (isCollapsed) {
+      return (
+        <TooltipProvider key={section.title}>
+          <Tooltip delayDuration={0}>
+            <TooltipTrigger asChild>
+              <div
+                className={cn(
+                  "flex items-center justify-center p-2 rounded-lg text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors cursor-pointer",
+                  isActive && "bg-sidebar-accent text-sidebar-primary font-medium"
+                )}
+                onClick={() => toggleSection(section.title)}
+              >
+                <IconComponent className="w-5 h-5" />
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="right" className="bg-popover text-popover-foreground">
+              {section.title}
+              <div className="mt-2 space-y-1">
+                {section.items.filter(canViewItem).map(item => (
+                  <NavLink
+                    key={item.href}
+                    to={item.href}
+                    className="block text-xs text-muted-foreground hover:text-foreground"
+                    onClick={onClose}
+                  >
+                    {item.title}
+                  </NavLink>
+                ))}
+              </div>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      );
+    }
+
+    return (
+      <div key={section.title} className="space-y-1">
+        <button
+          onClick={() => toggleSection(section.title)}
+          className={cn(
+            "flex items-center justify-between w-full px-3 py-2 rounded-lg text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors",
+            isActive && "bg-sidebar-accent text-sidebar-primary font-medium"
+          )}
+        >
+          <div className="flex items-center gap-3">
+            <IconComponent className="w-5 h-5 flex-shrink-0" />
+            <span className="font-medium">{section.title}</span>
+          </div>
+          {isExpanded ? (
+            <ChevronDown className="w-4 h-4" />
+          ) : (
+            <ChevronRight className="w-4 h-4" />
+          )}
+        </button>
+        
+        {isExpanded && (
+          <div className="pl-4 space-y-1 border-l border-sidebar-border ml-3">
+            {section.items.filter(canViewItem).map(item => (
+              <NavLink
+                key={item.href}
+                to={item.href}
+                className="flex items-center gap-3 px-3 py-1.5 rounded-lg text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors group text-sm"
+                activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
+                onClick={onClose}
+              >
+                <span className="w-1 h-1 rounded-full bg-current flex-shrink-0" />
+                <span className="flex-1 truncate">{item.title}</span>
+                {favorites.includes(item.href) && (
+                  <Star className="w-3 h-3 fill-yellow-400 text-yellow-400 flex-shrink-0" />
+                )}
+              </NavLink>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <>
@@ -256,7 +352,6 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
       <aside
         className={cn(
           "fixed left-0 top-0 z-50 h-full bg-sidebar border-r border-sidebar-border transition-all duration-300 lg:translate-x-0",
-          isOpen ? "translate-x-0" : "-translate-x-full",
           isCollapsed ? "w-16" : "w-64"
         )}
       >
@@ -316,6 +411,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             "space-y-4 h-[calc(100vh-8rem)]"
           )}
         >
+          {/* Seção de Favoritos (mantida como lista simples) */}
           {favoriteItems.length > 0 && !searchQuery && (
             <div>
               {!isCollapsed && (
@@ -342,38 +438,29 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             </div>
           )}
 
+          {/* Seções de Módulos */}
           {filteredSections.map((section) => {
             if (!canViewSection(section)) return null;
 
             const visibleItems = section.items.filter(canViewItem);
             if (visibleItems.length === 0) return null;
 
-            return (
-              <div key={section.title}>
-                {!isCollapsed && (
-                  <button
-                    onClick={() => toggleSection(section.title)}
-                    className="flex items-center justify-between w-full text-xs font-semibold text-sidebar-foreground/70 uppercase tracking-wider mb-3 hover:text-sidebar-foreground transition-colors"
-                  >
-                    <span className="flex items-center gap-2">
-                      {section.requireAdmin && <Shield className="w-3 h-3" />}
-                      {section.title}
-                    </span>
-                    {expandedSections.includes(section.title) ? (
-                      <ChevronDown className="w-4 h-4" />
-                    ) : (
-                      <ChevronRight className="w-4 h-4" />
-                    )}
-                  </button>
-                )}
-
-                {(expandedSections.includes(section.title) || isCollapsed) && (
+            // Se estiver pesquisando, renderiza como lista simples
+            if (searchQuery) {
+              return (
+                <div key={section.title}>
+                  <p className="text-xs font-semibold text-sidebar-foreground/70 uppercase tracking-wider mb-2">
+                    {section.title}
+                  </p>
                   <div className="space-y-1">
                     {visibleItems.map((item) => renderNavItem(item))}
                   </div>
-                )}
-              </div>
-            );
+                </div>
+              );
+            }
+
+            // Se não estiver pesquisando, renderiza como item de módulo expansível
+            return renderSectionItem(section);
           })}
         </nav>
       </aside>
