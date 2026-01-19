@@ -15,11 +15,17 @@ Deno.serve(async (req) => {
     const authHeader = req.headers.get("Authorization");
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    
+    // ATENÇÃO: Adicione GEMINI_API_KEY nos Secrets do Supabase
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+
+    if (!GEMINI_API_KEY) {
+      throw new Error("GEMINI_API_KEY não configurada");
+    }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    const token = authHeader?.replace("Bearer ", "");
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token || "");
 
     if (authError || !user) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
@@ -36,74 +42,76 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ report: "Não há dados suficientes para gerar o relatório." }), { status: 200, headers: corsHeaders });
     }
 
-    // Preparar resumo compacto para a IA
-    const resumoDados = respostas.map(r => ({
-      clima: r.satisfacao_trabalho,
+    // Preparar dados para o Gemini
+    // Gemini 1.5 Flash aguenta muito contexto, então enviamos mais detalhes
+    const dadosCompletos = respostas.map(r => ({
+      colaborador: r.colaborador_nome,
       funcao: r.funcao_atual,
-      prioridades: r.prioridades_setor,
+      nota_satisfacao: r.satisfacao_trabalho,
+      motivo_nota: r.motivo_satisfacao_baixa,
       gargalos: r.ladrao_tempo,
-      start: r.start_action,
-      stop: r.stop_action,
-      continue: r.continue_action,
-      reclamacao: r.reclamacao_cliente,
-      falta2026: r.falta_plano_2026,
+      sugestoes_start: r.start_action,
+      sugestoes_stop: r.stop_action,
+      reclamacao_cliente: r.reclamacao_cliente,
       sonho: r.maior_sonho
     }));
 
-    const prompt = `Você é um consultor de estratégia e cultura organizacional. Analise o conjunto de ${respostas.length} respostas do Mapeamento Operacional da Sismais e gere um relatório executivo para a DIRETORIA.
+    const prompt = `Você é um consultor de estratégia sênior. Analise estas ${respostas.length} respostas do time da Sismais (SaaS B2B).
 
-DADOS CONSOLIDADOS:
-${JSON.stringify(resumoDados)}
+DADOS DO TIME:
+${JSON.stringify(dadosCompletos)}
 
-ESTRUTURA DO RELATÓRIO (Markdown):
+Gere um relatório executivo em MARKDOWN para a DIRETORIA com:
 
 # 📊 Relatório Estratégico: Sismais 10K
 
-## 🎯 Diagnóstico de Clima e Operação
-Resumo do sentimento do time e principais gargalos encontrados (2 parágrafos).
+## 🎯 Diagnóstico de Clima
+Análise do sentimento geral e principais ofensores da satisfação.
 
 ## 🛑 O que o time quer PARAR (STOP)
-Identifique as 3 práticas ou processos mais citados como ineficientes.
+Identifique padrões sobre o que é ineficiente na operação hoje.
 
 ## 🚀 O que o time quer COMEÇAR (START)
-Identifique as 3 maiores oportunidades de melhoria ou novas práticas sugeridas.
+As melhores ideias sugeridas pelo time para crescimento.
 
-## ⚠️ Alertas Críticos (Pain Points)
-Lixe as maiores dores/reclamações que podem travar o crescimento para 10k clientes.
+## ⚠️ Top 3 Riscos Operacionais
+Baseado nas reclamações de clientes e gargalos citados.
 
-## 💡 Recomendações para a Diretoria
-1. **Curto Prazo (30 dias)**: Ação imediata baseada no feedback.
-2. **Médio Prazo (90 dias)**: Mudança estrutural ou de processo.
-3. **Cultura**: Como conectar os sonhos individuais ao objetivo da empresa.
+## 💡 Plano de Ação (30-90 dias)
+Sugira 3 ações concretas de alto impacto baseadas nos dados.
 
-## ✨ Resumo do "Mural dos Sonhos"
-Qual o perfil de sonhos do time e como a empresa pode ser o veículo para eles.
+## ✨ Análise Cultural (Sonhos)
+Como os sonhos individuais se conectam com o crescimento da empresa.
 
-Seja direto, crítico quando necessário e propositivo. Responda em Português do Brasil.`;
+Seja direto e cite exemplos anônimos se relevante.`;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    console.log("[analisar-levantamento-geral] Chamando Google Gemini...");
+
+    // Chamada direta à API REST do Google Gemini
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+    
+    const response = await fetch(geminiUrl, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "google/gemini-1.5-flash",
-        messages: [{ role: "user", content: prompt }],
-        temperature: 0.7,
+        contents: [{
+          parts: [{ text: prompt }]
+        }]
       }),
     });
 
     if (!response.ok) {
-       const errorData = await response.json();
-       throw new Error(errorData.error?.message || "Erro na chamada da IA.");
+       const errorData = await response.text();
+       console.error("[analisar-levantamento-geral] Gemini Error:", errorData);
+       throw new Error(`Erro API Gemini: ${response.status}`);
     }
 
     const payload = await response.json();
-    const report = payload.choices?.[0]?.message?.content || "A IA não retornou um conteúdo válido.";
+    // Extração segura da resposta do Gemini
+    const report = payload.candidates?.[0]?.content?.parts?.[0]?.text || "A IA não retornou conteúdo.";
 
     return new Response(JSON.stringify({ report }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-  } catch (error) {
+  } catch (error: any) {
     console.error("[analisar-levantamento-geral] Error:", error.message);
     return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: corsHeaders });
   }
