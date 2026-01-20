@@ -31,6 +31,17 @@ import LevantamentoOperacional from "./pages/LevantamentoOperacional";
 import LevantamentoResultados from "./pages/admin/LevantamentoResultados";
 import MapeamentoSonhos from "./pages/MapeamentoSonhos";
 
+// OKR Module Pages
+import DashboardOKR from "./pages/radar/DashboardOKR.tsx";
+import RadarIndividual from "./pages/radar/RadarIndividual.tsx";
+import RadarArea from "./pages/radar/RadarArea.tsx";
+import RadarGestao from "./pages/radar/RadarGestao.tsx";
+import RadarLancamentos from "./pages/radar/RadarLancamentos.tsx";
+import RadarEquipe from "./pages/radar/RadarEquipe.tsx";
+import RadarApresentacao from "./pages/radar/RadarApresentacao.tsx";
+
+import { RadarProvider } from "./contexts/RadarContext.tsx";
+
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -40,232 +51,309 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
-          <Routes>
-            {/* Public routes */}
-            <Route path="/auth" element={<Auth />} />
-            
-            {/* Forms focus routes (Public/Simplified) */}
-            <Route
-              path="/levantamento-10k"
-              element={<LevantamentoOperacional />}
-            />
-            <Route
-              path="/mapeamento-sonhos"
-              element={<MapeamentoSonhos />}
-            />
-            
-            {/* Protected routes with Layout */}
-            <Route
-              path="/"
-              element={
-                <ProtectedRoute>
-                  <Layout>
-                    <LevantamentoResultados />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-            
-            {/* Forms focus routes (Protected, No Sidebar) */}
-            <Route
-              path="/lancar-venda"
-              element={
-                <ProtectedRoute>
-                  <LancarVendaPublica />
-                </ProtectedRoute>
-              }
-            />
+          <RadarProvider>
+            <Routes>
+              {/* Public routes */}
+              <Route path="/auth" element={<Auth />} />
+              
+              {/* Forms focus routes (Public/Simplified) */}
+              <Route
+                path="/levantamento-10k"
+                element={<LevantamentoOperacional />}
+              />
+              <Route
+                path="/mapeamento-sonhos"
+                element={<MapeamentoSonhos />}
+              />
+              
+              {/* Protected routes with Layout */}
+              
+              {/* Root route redirects to OKR Dashboard */}
+              <Route path="/" element={<Navigate to="/dashboard-okr" replace />} />
+              
+              {/* OKR Module Routes */}
+              <Route
+                path="/dashboard-okr"
+                element={
+                  <ProtectedRoute>
+                    <Layout>
+                      <DashboardOKR />
+                    </Layout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/meu-radar"
+                element={
+                  <ProtectedRoute>
+                    <Layout>
+                      <RadarIndividual />
+                    </Layout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/area"
+                element={
+                  <ProtectedRoute>
+                    <Layout>
+                      <RadarArea />
+                    </Layout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/gestao"
+                element={
+                  <ProtectedRoute>
+                    <Layout>
+                      <RadarGestao />
+                    </Layout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/lancamentos"
+                element={
+                  <ProtectedRoute>
+                    <Layout>
+                      <RadarLancamentos />
+                    </Layout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/equipe"
+                element={
+                  <ProtectedRoute>
+                    <Layout>
+                      <RadarEquipe />
+                    </Layout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/apresentacao"
+                element={
+                  <ProtectedRoute>
+                    <Layout>
+                      <RadarApresentacao />
+                    </Layout>
+                  </ProtectedRoute>
+                }
+              />
+              
+              {/* Forms focus routes (Protected, No Sidebar) */}
+              <Route
+                path="/lancar-venda"
+                element={
+                  <ProtectedRoute>
+                    <LancarVendaPublica />
+                  </ProtectedRoute>
+                }
+              />
 
-            {/* Admin Management */}
-            <Route
-              path="/admin/usuarios"
-              element={
-                <ProtectedRoute>
-                  <Layout>
-                    <GerenciarUsuarios />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/admin/permissoes"
-              element={
-                <ProtectedRoute>
-                  <Layout>
-                    <GerenciarPermissoes />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
+              {/* Admin Management */}
+              <Route
+                path="/admin/usuarios"
+                element={
+                  <ProtectedRoute>
+                    <Layout>
+                      <GerenciarUsuarios />
+                    </Layout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/permissoes"
+                element={
+                  <ProtectedRoute>
+                    <Layout>
+                      <GerenciarPermissoes />
+                    </Layout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/levantamento-resultados"
+                element={
+                  <ProtectedRoute>
+                    <Layout>
+                      <LevantamentoResultados />
+                    </Layout>
+                  </ProtectedRoute>
+                }
+              />
 
-            {/* Commissions Module */}
-            <Route
-              path="/comissoes"
-              element={
-                <ProtectedRoute>
-                  <Layout>
-                    <Comissoes />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/comissoes/fechamento/:id"
-              element={
-                <ProtectedRoute>
-                  <Layout>
-                    <ResultadoFechamento />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/comissoes/historico"
-              element={
-                <ProtectedRoute>
-                  <Layout>
-                    <HistoricoComissoes />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/comissoes/configuracoes"
-              element={
-                <ProtectedRoute>
-                  <Layout>
-                    <ConfiguracoesComissao />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/comissoes/relatorio-vendas"
-              element={
-                <ProtectedRoute>
-                  <Layout>
-                    <RelatorioVendas />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/comissoes/simulador"
-              element={
-                <ProtectedRoute>
-                  <Layout>
-                    <SimuladorMeta />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-            
-            {/* Financial Module */}
-            <Route
-              path="/extrato-asaas"
-              element={
-                <ProtectedRoute>
-                  <Layout>
-                    <ExtratoAsaas />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/extrato-asaas/:id"
-              element={
-                <ProtectedRoute>
-                  <Layout>
-                    <ExtratoAsaasDetalhe />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/extrato-eduzz"
-              element={
-                <ProtectedRoute>
-                  <Layout>
-                    <ExtratoEduzz />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/extrato-eduzz/:id"
-              element={
-                <ProtectedRoute>
-                  <Layout>
-                    <ExtratoEduzzDetalhe />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/assinaturas"
-              element={
-                <ProtectedRoute>
-                  <Layout>
-                    <Assinaturas />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/cancelamentos"
-              element={
-                <ProtectedRoute>
-                  <Layout>
-                    <Cancelamentos />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
+              {/* Commissions Module */}
+              <Route
+                path="/comissoes"
+                element={
+                  <ProtectedRoute>
+                    <Layout>
+                      <Comissoes />
+                    </Layout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/comissoes/fechamento/:id"
+                element={
+                  <ProtectedRoute>
+                    <Layout>
+                      <ResultadoFechamento />
+                    </Layout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/comissoes/historico"
+                element={
+                  <ProtectedRoute>
+                    <Layout>
+                      <HistoricoComissoes />
+                    </Layout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/comissoes/configuracoes"
+                element={
+                  <ProtectedRoute>
+                    <Layout>
+                      <ConfiguracoesComissao />
+                    </Layout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/comissoes/relatorio-vendas"
+                element={
+                  <ProtectedRoute>
+                    <Layout>
+                      <RelatorioVendas />
+                    </Layout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/comissoes/simulador"
+                element={
+                  <ProtectedRoute>
+                    <Layout>
+                      <SimuladorMeta />
+                    </Layout>
+                  </ProtectedRoute>
+                }
+              />
+              
+              {/* Financial Module */}
+              <Route
+                path="/extrato-asaas"
+                element={
+                  <ProtectedRoute>
+                    <Layout>
+                      <ExtratoAsaas />
+                    </Layout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/extrato-asaas/:id"
+                element={
+                  <ProtectedRoute>
+                    <Layout>
+                      <ExtratoAsaasDetalhe />
+                    </Layout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/extrato-eduzz"
+                element={
+                  <ProtectedRoute>
+                    <Layout>
+                      <ExtratoEduzz />
+                    </Layout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/extrato-eduzz/:id"
+                element={
+                  <ProtectedRoute>
+                    <Layout>
+                      <ExtratoEduzzDetalhe />
+                    </Layout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/assinaturas"
+                element={
+                  <ProtectedRoute>
+                    <Layout>
+                      <Assinaturas />
+                    </Layout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/cancelamentos"
+                element={
+                  <ProtectedRoute>
+                    <Layout>
+                      <Cancelamentos />
+                    </Layout>
+                  </ProtectedRoute>
+                }
+              />
 
-            {/* Team Module */}
-            <Route
-              path="/equipe/colaboradores"
-              element={
-                <ProtectedRoute>
-                  <Layout>
-                    <Colaboradores />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/equipe/vendas-servicos"
-              element={
-                <ProtectedRoute>
-                  <Layout>
-                    <VendasServicos />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/equipe/metas"
-              element={
-                <ProtectedRoute>
-                  <Layout>
-                    <MetasIndividuais />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/equipe/fechamento"
-              element={
-                <ProtectedRoute>
-                  <Layout>
-                    <FechamentoEquipe />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-            
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+              {/* Team Module */}
+              <Route
+                path="/equipe/colaboradores"
+                element={
+                  <ProtectedRoute>
+                    <Layout>
+                      <Colaboradores />
+                    </Layout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/equipe/vendas-servicos"
+                element={
+                  <ProtectedRoute>
+                    <Layout>
+                      <VendasServicos />
+                    </Layout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/equipe/metas"
+                element={
+                  <ProtectedRoute>
+                    <Layout>
+                      <MetasIndividuais />
+                    </Layout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/equipe/fechamento"
+                element={
+                  <ProtectedRoute>
+                    <Layout>
+                      <FechamentoEquipe />
+                    </Layout>
+                  </ProtectedRoute>
+                }
+              />
+              
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </RadarProvider>
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>

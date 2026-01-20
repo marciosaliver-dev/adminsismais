@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Menu, Bell, User, LogOut, Building2 } from "lucide-react";
+import { Menu, Bell, User, LogOut, Building2, Calendar } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -8,8 +8,18 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
+import { useRadar } from "@/contexts/RadarContext";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 interface HeaderProps {
   onMenuClick: () => void;
@@ -17,11 +27,18 @@ interface HeaderProps {
 
 export function Header({ onMenuClick }: HeaderProps) {
   const { profile, signOut } = useAuth();
+  const { ciclos, cicloAtivo, selecionarCiclo, loading: loadingRadar } = useRadar();
   const navigate = useNavigate();
 
   const handleSignOut = async () => {
     await signOut();
     navigate("/auth");
+  };
+
+  const formatCicloLabel = (ciclo: { nome: string, data_inicio: string, data_fim: string }) => {
+    const start = format(new Date(ciclo.data_inicio + "T12:00:00"), "dd/MM", { locale: ptBR });
+    const end = format(new Date(ciclo.data_fim + "T12:00:00"), "dd/MM/yyyy", { locale: ptBR });
+    return `${ciclo.nome} (${start} - ${end})`;
   };
 
   return (
@@ -41,8 +58,29 @@ export function Header({ onMenuClick }: HeaderProps) {
         </div>
       </div>
 
-      {/* Center: Page title (optional, can be dynamic) */}
-      <div className="flex-1 lg:flex-initial"></div>
+      {/* Center: Cycle Selector */}
+      <div className="flex items-center gap-4">
+        <div className="hidden sm:flex items-center gap-2 text-sm text-muted-foreground">
+          <Calendar className="w-4 h-4" />
+          <span>Ciclo Ativo:</span>
+        </div>
+        <Select
+          value={cicloAtivo?.id || ""}
+          onValueChange={selecionarCiclo}
+          disabled={loadingRadar || ciclos.length === 0}
+        >
+          <SelectTrigger className="w-[200px] sm:w-[250px] h-10">
+            <SelectValue placeholder="Selecione o Ciclo" />
+          </SelectTrigger>
+          <SelectContent>
+            {ciclos.map((ciclo) => (
+              <SelectItem key={ciclo.id} value={ciclo.id}>
+                {formatCicloLabel(ciclo)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
 
       {/* Right: Actions */}
       <div className="flex items-center gap-2">

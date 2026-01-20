@@ -27,10 +27,13 @@ import {
   DollarSign,
   Briefcase,
   Home,
+  Zap, // Novo ícone para Lançar Dados
+  LayoutGrid, // Novo ícone para Por Área
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { usePermissions } from "@/hooks/usePermissions";
+import { usePermissoesRadar } from "@/hooks/usePermissoesRadar"; // Novo hook
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface SidebarProps {
@@ -45,11 +48,12 @@ interface NavItem {
   badge?: string;
   permission?: string;
   requireAdmin?: boolean;
+  requireRadarPermission?: "podeGerenciarOKRs" | "podeGerenciarEquipe"; // Novo campo
 }
 
 interface NavSection {
   title: string;
-  icon: React.ElementType; // Ícone para o item principal do módulo
+  icon: React.ElementType;
   items: NavItem[];
   permission?: string;
   requireAdmin?: boolean;
@@ -57,12 +61,27 @@ interface NavSection {
 
 const navSections: NavSection[] = [
   {
-    title: "Dashboard",
-    icon: Home,
+    title: "Radar OKR",
+    icon: Rocket,
     items: [
-      { title: "Resultados 10K", icon: BarChart3, href: "/", permission: "admin.levantamento_resultados" },
-      { title: "Levantamento 10K", icon: Rocket, href: "/levantamento-10k", permission: "levantamento.visualizar" },
-      { title: "Mural dos Sonhos", icon: Heart, href: "/mapeamento-sonhos" },
+      { title: "Dashboard", icon: BarChart3, href: "/dashboard-okr", permission: "levantamento.visualizar" },
+      { title: "Meu Radar", icon: Target, href: "/meu-radar" },
+      { title: "Por Área", icon: LayoutGrid, href: "/area" },
+      { title: "Lançar Dados", icon: Zap, href: "/lancamentos" },
+      { title: "Gestão de OKRs", icon: Settings, href: "/gestao", requireRadarPermission: "podeGerenciarOKRs" },
+      { title: "Equipe", icon: Users, href: "/equipe", requireRadarPermission: "podeGerenciarEquipe" },
+      { title: "Apresentação", icon: Briefcase, href: "/apresentacao" },
+    ],
+  },
+  {
+    title: "Métricas & Financeiro",
+    icon: DollarSign,
+    items: [
+      { title: "Assinaturas & MRR", icon: TrendingUp, href: "/assinaturas", permission: "extrato.visualizar" },
+      { title: "Cancelamentos", icon: XCircle, href: "/cancelamentos", permission: "extrato.visualizar" },
+      { title: "Extrato Asaas", icon: FileSpreadsheet, href: "/extrato-asaas", permission: "extrato.visualizar" },
+      { title: "Extrato Eduzz", icon: FileSpreadsheet, href: "/extrato-eduzz", permission: "extrato.visualizar" },
+      { title: "Simulador Meta", icon: Target, href: "/comissoes/simulador", permission: "comissoes.visualizar" },
     ],
   },
   {
@@ -72,28 +91,19 @@ const navSections: NavSection[] = [
       { title: "Novo Fechamento", icon: Calculator, href: "/comissoes", permission: "comissoes.criar" },
       { title: "Histórico", icon: History, href: "/comissoes/historico", permission: "comissoes.visualizar" },
       { title: "Relatório Vendas", icon: Receipt, href: "/comissoes/relatorio-vendas", permission: "comissoes.visualizar" },
-      { title: "Simulador Meta", icon: Target, href: "/comissoes/simulador", permission: "comissoes.visualizar" },
       { title: "Configurações", icon: Settings, href: "/comissoes/configuracoes", permission: "comissoes.configurar" },
     ],
   },
   {
-    title: "Equipe",
+    title: "Gestão de Pessoas",
     icon: Users,
     items: [
       { title: "Colaboradores", icon: Users, href: "/equipe/colaboradores", permission: "equipe.gerenciar" },
       { title: "Vendas Serviços", icon: Receipt, href: "/equipe/vendas-servicos", permission: "equipe.vendas" },
       { title: "Metas Individuais", icon: Target, href: "/equipe/metas", permission: "equipe.metas" },
       { title: "Fechamento Equipe", icon: ClipboardList, href: "/equipe/fechamento", permission: "equipe.fechamento" },
-    ],
-  },
-  {
-    title: "Financeiro",
-    icon: DollarSign,
-    items: [
-      { title: "Assinaturas & MRR", icon: TrendingUp, href: "/assinaturas", permission: "extrato.visualizar" },
-      { title: "Cancelamentos", icon: XCircle, href: "/cancelamentos", permission: "extrato.visualizar" },
-      { title: "Extrato Asaas", icon: FileSpreadsheet, href: "/extrato-asaas", permission: "extrato.visualizar" },
-      { title: "Extrato Eduzz", icon: FileSpreadsheet, href: "/extrato-eduzz", permission: "extrato.visualizar" },
+      { title: "Levantamento 10K", icon: Heart, href: "/levantamento-10k", permission: "levantamento.visualizar" },
+      { title: "Resultados 10K", icon: BarChart3, href: "/admin/levantamento-resultados", requireAdmin: true },
     ],
   },
   {
@@ -101,8 +111,8 @@ const navSections: NavSection[] = [
     icon: Shield,
     requireAdmin: true,
     items: [
-      { title: "Gerenciar Usuários", icon: Users, href: "/admin/usuarios", permission: "admin.usuarios", requireAdmin: true },
-      { title: "Permissões", icon: Lock, href: "/admin/permissoes", permission: "admin.permissoes", requireAdmin: true },
+      { title: "Gerenciar Usuários", icon: Users, href: "/admin/usuarios", requireAdmin: true },
+      { title: "Permissões", icon: Lock, href: "/admin/permissoes", requireAdmin: true },
     ],
   },
 ];
@@ -111,10 +121,13 @@ const FAVORITES_KEY = "sidebar-favorites";
 const COLLAPSED_KEY = "sidebar-collapsed";
 
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
-  const { hasPermission, isAdmin, loading } = usePermissions();
+  const { hasPermission, isAdmin, loading: loadingGlobalPermissions } = usePermissions();
+  const { podeGerenciarOKRs, podeGerenciarEquipe, loading: loadingRadarPermissions } = usePermissoesRadar();
+  
+  const loading = loadingGlobalPermissions || loadingRadarPermissions;
+
   const [expandedSections, setExpandedSections] = useState<string[]>(() => {
-    // Inicia com a seção 'Geral' e a seção do item ativo expandidas
-    const initialExpanded = new Set(["Dashboard", "Favoritos"]);
+    const initialExpanded = new Set(["Radar OKR", "Favoritos"]);
     const currentPath = window.location.pathname;
     const activeSection = navSections.find(section => 
       section.items.some(item => item.href === currentPath)
@@ -165,7 +178,16 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     if (loading) return false;
     if (isAdmin) return true;
     if (item.requireAdmin && !isAdmin) return false;
-    if (item.permission) return hasPermission(item.permission);
+    
+    // Check global permissions
+    if (item.permission && !hasPermission(item.permission)) return false;
+    
+    // Check Radar permissions
+    if (item.requireRadarPermission) {
+      if (item.requireRadarPermission === "podeGerenciarOKRs" && !podeGerenciarOKRs) return false;
+      if (item.requireRadarPermission === "podeGerenciarEquipe" && !podeGerenciarEquipe) return false;
+    }
+    
     return true;
   };
 
@@ -360,7 +382,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             {!isCollapsed && (
               <div className="flex items-center gap-3">
                 <img src="/icone_logo_op2_lateral_quadrada.png" alt="Sismais" className="h-10 w-10 object-contain" />
-                <span className="font-heading font-bold text-lg text-sidebar-foreground tracking-tight">SISMAIS</span>
+                <span className="font-heading font-bold text-lg text-sidebar-foreground tracking-tight">RADAR OKR</span>
               </div>
             )}
             {isCollapsed && (

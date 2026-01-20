@@ -103,6 +103,78 @@ export type Database = {
           },
         ]
       }
+      calculos_kr_cache: {
+        Row: {
+          kr_id: string
+          valor_atual: number | null
+          progresso_percentual: number | null
+          status: string | null
+          dias_totais: number | null
+          dias_decorridos: number | null
+          progresso_esperado: number | null
+          desvio: number | null
+          ritmo_necessario: number | null
+          ultima_atualizacao: string | null
+        }
+        Insert: {
+          kr_id: string
+          valor_atual?: number | null
+          progresso_percentual?: number | null
+          status?: string | null
+          dias_totais?: number | null
+          dias_decorridos?: number | null
+          progresso_esperado?: number | null
+          desvio?: number | null
+          ritmo_necessario?: number | null
+          ultima_atualizacao?: string | null
+        }
+        Update: {
+          kr_id?: string
+          valor_atual?: number | null
+          progresso_percentual?: number | null
+          status?: string | null
+          dias_totais?: number | null
+          dias_decorridos?: number | null
+          progresso_esperado?: number | null
+          desvio?: number | null
+          ritmo_necessario?: number | null
+          ultima_atualizacao?: string | null
+        }
+        Relationships: []
+      }
+      ciclos_okr: {
+        Row: {
+          id: string
+          nome: string
+          tipo: string
+          data_inicio: string
+          data_fim: string
+          status: string
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          nome: string
+          tipo: string
+          data_inicio: string
+          data_fim: string
+          status?: string
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          nome?: string
+          tipo?: string
+          data_inicio?: string
+          data_fim?: string
+          status?: string
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       colaboradores: {
         Row: {
           ativo: boolean | null
@@ -884,6 +956,81 @@ export type Database = {
         }
         Relationships: []
       }
+      key_results: {
+        Row: {
+          id: string
+          objetivo_id: string
+          titulo: string
+          meta: number
+          unidade: string
+          tipo_meta: string
+          frequencia: string
+          responsavel_id: string
+          baseline: number | null
+          grupo_historico: string | null
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          objetivo_id: string
+          titulo: string
+          meta: number
+          unidade: string
+          tipo_meta: string
+          frequencia: string
+          responsavel_id: string
+          baseline?: number | null
+          grupo_historico?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          objetivo_id?: string
+          titulo?: string
+          meta?: number
+          unidade?: string
+          tipo_meta?: string
+          frequencia?: string
+          responsavel_id?: string
+          baseline?: number | null
+          grupo_historico?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      lancamentos_kr: {
+        Row: {
+          id: string
+          kr_id: string
+          data: string
+          valor: number
+          observacao: string | null
+          lancado_por_id: string
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          kr_id: string
+          data: string
+          valor: number
+          observacao?: string | null
+          lancado_por_id: string
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          kr_id?: string
+          data?: string
+          valor?: number
+          observacao?: string | null
+          lancado_por_id?: string
+          created_at?: string | null
+        }
+        Relationships: []
+      }
       levantamento_operacional_2024: {
         Row: {
           atividades_top5: string
@@ -944,11 +1091,11 @@ export type Database = {
           reclamacao_cliente: string
           rotina_diaria: string
           satisfacao_trabalho?: number | null
-          score_ambiente: number
-          score_autonomia: number
-          score_financeiro: number
-          score_maestria: number
-          score_proposito: number
+          score_ambiente?: number
+          score_autonomia?: number
+          score_financeiro?: number
+          score_maestria?: number
+          score_proposito?: number
           sentimento_valorizacao: string
           start_action: string
           stop_action: string
@@ -989,6 +1136,42 @@ export type Database = {
           stop_action?: string
           talento_oculto?: string | null
           visao_papel_10k?: string
+        }
+        Relationships: []
+      }
+      membros_radar: {
+        Row: {
+          id: string
+          user_id: string
+          email: string
+          nome: string
+          area: string
+          papel_radar: string
+          avatar_url: string | null
+          ativo: boolean | null
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          email: string
+          nome: string
+          area: string
+          papel_radar?: string
+          avatar_url?: string | null
+          ativo?: boolean | null
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          email?: string
+          nome?: string
+          area?: string
+          papel_radar?: string
+          avatar_url?: string | null
+          ativo?: boolean | null
+          created_at?: string | null
         }
         Relationships: []
       }
@@ -1144,6 +1327,42 @@ export type Database = {
           nome?: string
           ordem?: number | null
           rota?: string
+        }
+        Relationships: []
+      }
+      objetivos_okr: {
+        Row: {
+          id: string
+          ciclo_id: string
+          titulo: string
+          descricao: string | null
+          area: string
+          responsavel_id: string
+          peso: number | null
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          ciclo_id: string
+          titulo: string
+          descricao?: string | null
+          area: string
+          responsavel_id: string
+          peso?: number | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          ciclo_id?: string
+          titulo?: string
+          descricao?: string | null
+          area?: string
+          responsavel_id?: string
+          peso?: number | null
+          created_at?: string | null
+          updated_at?: string | null
         }
         Relationships: []
       }
