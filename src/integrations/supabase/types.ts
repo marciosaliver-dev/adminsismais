@@ -972,7 +972,7 @@ export type Database = {
           tipo_meta: string
           frequencia: string
           responsavel_id: string
-          baseline: number | null
+          baseline: number
           grupo_historico: string | null
           created_at: string | null
           updated_at: string | null
@@ -986,7 +986,7 @@ export type Database = {
           tipo_meta: string
           frequencia: string
           responsavel_id: string
-          baseline?: number | null
+          baseline?: number
           grupo_historico?: string | null
           created_at?: string | null
           updated_at?: string | null
@@ -1000,12 +1000,27 @@ export type Database = {
           tipo_meta?: string
           frequencia?: string
           responsavel_id?: string
-          baseline?: number | null
+          baseline?: number
           grupo_historico?: string | null
           created_at?: string | null
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "key_results_objetivo_id_fkey"
+            columns: ["objetivo_id"]
+            isOneToOne: false
+            referencedRelation: "objetivos_okr"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "key_results_responsavel_id_fkey"
+            columns: ["responsavel_id"]
+            isOneToOne: false
+            referencedRelation: "membros_radar"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       lancamentos_kr: {
         Row: {
@@ -1035,7 +1050,15 @@ export type Database = {
           lancado_por_id?: string
           created_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "lancamentos_kr_kr_id_fkey"
+            columns: ["kr_id"]
+            isOneToOne: false
+            referencedRelation: "key_results"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       levantamento_operacional_2024: {
         Row: {
@@ -1704,6 +1727,19 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      buscar_historico_kr: {
+        Args: { kr_uuid: string }
+        Returns: {
+          id: string
+          kr_id: string
+          kr_titulo: string
+          ciclo_nome: string
+          data: string
+          valor: number
+          observacao: string
+          lancado_por_nome: string
+        }[]
+      }
       has_permission: {
         Args: { _codigo: string; _user_id: string }
         Returns: boolean
@@ -1717,6 +1753,7 @@ export type Database = {
       }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
       is_user_approved: { Args: { _user_id: string }; Returns: boolean }
+      recalcular_cache_kr: { Args: { kr_uuid: string }; Returns: void }
     }
     Enums: {
       app_role: "admin" | "user"
