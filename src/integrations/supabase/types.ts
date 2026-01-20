@@ -7,8 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "13.0.5"
   }
@@ -140,7 +138,15 @@ export type Database = {
           ritmo_necessario?: number | null
           ultima_atualizacao?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "calculos_kr_cache_kr_id_fkey"
+            columns: ["kr_id"]
+            isOneToOne: true
+            referencedRelation: "key_results"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       ciclos_okr: {
         Row: {
@@ -1364,7 +1370,22 @@ export type Database = {
           created_at?: string | null
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "objetivos_okr_ciclo_id_fkey"
+            columns: ["ciclo_id"]
+            isOneToOne: false
+            referencedRelation: "ciclos_okr"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "objetivos_okr_responsavel_id_fkey"
+            columns: ["responsavel_id"]
+            isOneToOne: false
+            referencedRelation: "membros_radar"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       permissoes_usuario: {
         Row: {
